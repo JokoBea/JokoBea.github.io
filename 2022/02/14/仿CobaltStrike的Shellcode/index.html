@@ -1,0 +1,7 @@
+<!DOCTYPE html><html lang="zh"><head><meta http-equiv="content-type" content="text/html; charset=utf-8"><meta name="viewport" content="width=device-width, initial-scale=0.5"><link rel="stylesheet" href="/css/post.css"><link rel="icon" href="/img/favicon.png"><title>仿CobaltStrike的Shellcode</title><meta name="generator" content="Hexo 5.4.0"><link rel="stylesheet" href="/css/prism.css" type="text/css"></head><body>　　<div class="inner"><h2>仿CobaltStrike的Shellcode</h2><p>主要思路：</p>
+<ul>
+<li>从PEB中获取DllBase , 找出需要的API</li>
+<li>下载ReflectiveDLL , 通过调用API，IntelnetOpen 、IntelnetOpenURL.. </li>
+<li>拷贝DLL至内存，调用ReflectLoader装载自身。</li>
+</ul>
+</div><script src="/js/jquery.min.js"></script><script src="/js/main.js"></script></body></html>
