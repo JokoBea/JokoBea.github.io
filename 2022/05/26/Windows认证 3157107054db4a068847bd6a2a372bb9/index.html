@@ -1,0 +1,159 @@
+<!DOCTYPE html><html lang="zh"><head><meta http-equiv="content-type" content="text/html; charset=utf-8"><meta name="viewport" content="width=device-width, initial-scale=0.5"><link rel="stylesheet" href="/css/post.css"><link rel="icon" href="/img/favicon.png"><title>Windows相关认证协议总结</title><meta name="generator" content="Hexo 5.4.0"><link rel="stylesheet" href="/css/prism.css" type="text/css"></head><body>　　<div class="inner"><h2>Windows相关认证协议总结</h2><h1 id="Windows认证"><a href="#Windows认证" class="headerlink" title="Windows认证"></a>Windows认证</h1><p>Windows的认证包括三个部分，用户直接操作计算机登陆账户（本地认证），远程连接到工作组中的某个设备（网络认证），登陆到域环境中的某个设备（域认证）</p>
+<h1 id="一、本地认证"><a href="#一、本地认证" class="headerlink" title="一、本地认证"></a>一、本地认证</h1><p>用户输入密码，系统收到密码后将用户输入的密码计算成NTLM Hash，然后与sam数据库（%SystemRoot%\system32\config\sam）中该用户的哈希比对，匹配则登陆成功，不匹配则登陆失败。 </p>
+<p>本地认证中用来处理用户输入密码的进程即lsass.exe,密码会在这个进程中明文保存，供该进程将密码计算成NTLM Hash与sam进行比对。</p>
+<p>NTML 运算流程：</p>
+<p><code>用户密码-&gt;HEX编码-&gt;Unicode编码-&gt;MD4</code></p>
+<p><img src="/2022/05/26/Windows%E8%AE%A4%E8%AF%81%203157107054db4a068847bd6a2a372bb9/Untitled.png" alt="Untitled"></p>
+<h1 id="二、网络认证-NTML"><a href="#二、网络认证-NTML" class="headerlink" title="二、网络认证 (NTML)"></a>二、网络认证 (NTML)</h1><p>网络认证即在工作组环境下远程登陆另一台电脑所采用的认证机制</p>
+<p>NTLM协议的认证过程分为三步，也叫挑战相应机制：</p>
+<ul>
+<li>协商 ，确定双方使用的协议版本， NTLM V1 或者 NTML V2 ，加密不同<ol>
+<li>客户端向服务端发送用户信息（用户名）请求</li>
+</ol>
+</li>
+<li>质询，挑战（Challenge） 和 响应（ Response）认证机制的核心<ol>
+<li>服务端接受客户端请求之后先判断用户名是否在本地存在，如果不存在则认证失败。</li>
+<li>服务端生成一个Challenge（16位的随机字符串），使用该用户的NTML Hash加密Challenge，生成Challenge1，并且将Challenge发送给客户端</li>
+<li>客户端收到Challenge之后，用自己的NTML Hash加密该Challenge，发送给服务端</li>
+</ol>
+</li>
+<li>验证，在质询完成后，验证结果<ol>
+<li>服务端收到后与自己内存中的Chanllege1对比，正确则认证成功</li>
+</ol>
+</li>
+</ul>
+<blockquote>
+<p>简单的来说：客户端向服务器请求使用某个用户进行验证，服务端判断该用户是否存在，存在的话使用这个用户密码的哈希值来加密一个随机字符串，并且将这个随机字符串返回给客户端，客户端再把自己提供的密码进行哈希处理后也来加密这串随机字符串，然后再把结果发送给服务器，服务器把从客户端发送的加密结果与自己本地的加密结果进行比较，相同的话便通过认证</p>
+</blockquote>
+<p><code>其中的关键点在于：第二步中客户端发送的是NTLM哈希值与随机字符串加密的结果，而这个NTLM哈希是由用户输入的密码本地计算得出的，所以在这个步骤中，只要能提供正确的NTLM哈希即使不知道正确的密码也可通过认证，这也是能进行PTH攻击的原因。</code></p>
+<p>批量安装的机器可能账户密码信息都是一样的，所以可以用Hash去传递登陆。</p>
+<h1 id="三、域认证（Kerberos"><a href="#三、域认证（Kerberos" class="headerlink" title="三、域认证（Kerberos)"></a>三、域认证（Kerberos)</h1><p>简单概述：</p>
+<p><img src="/2022/05/26/Windows%E8%AE%A4%E8%AF%81%203157107054db4a068847bd6a2a372bb9/Untitled%201.png" alt="Untitled"></p>
+<blockquote>
+<p>简单说：</p>
+</blockquote>
+<ol>
+<li>Client向KDC ( AS ) 发起服务申请，获得 TGT，表示这个用户已经被AS认证过了，是真实的</li>
+<li>Client 拿TGT 向 KDC ( TGS ) 申请到具体服务的票据</li>
+<li>拿到这张票据去访问具体的服务<blockquote>
+</blockquote>
+</li>
+</ol>
+<h2 id="0-概念"><a href="#0-概念" class="headerlink" title="0. 概念"></a>0. 概念</h2><p>域认证的角色</p>
+<ul>
+<li>Client</li>
+<li>Server</li>
+<li>KDC （Key Distribution Center）= DC(Domain Controller) = AD(Account Database) + AS (Authentication Service) + TGS (Ticket Granting Service)<ul>
+<li>AD , Account Database , 存储域中的所有用户的用户名、对应的NTLM Hash ， 相当于域中的SAM文件，KDC从AD中提取所有用户的NTML Hash 。</li>
+<li>AS ， Authentication Service ,  身份认证<strong>服务</strong>，为Client生成 TGT、对客户端进行身份认证的服务。</li>
+<li>TGS ，Ticket Granting Service ，票据授权<strong>服务</strong>， 根据Client的TGT生成对某个服务的Ticket。</li>
+</ul>
+</li>
+</ul>
+<p>Kerberos 认证协议</p>
+<ul>
+<li>票据（Ticket)， 网络对象访问的凭证<ul>
+<li>TGT （ Ticket Granting Ticket），用来生成Ticket ， 黄金票据</li>
+<li>TGS 服务也会生成票据，叫TGS，白银票据</li>
+</ul>
+</li>
+</ul>
+<blockquote>
+<ol>
+<li>Client 密钥 、TGS密钥 和 Service 密钥 均为对应用户的NTLM Hash</li>
+<li>TGS密钥 == KDC Hash == krbtgt用户的NTLM Hash</li>
+<li>Client/(TGS/Server) SessionKey 可以看作客户端与TGS服务和尝试登陆的Server之间会话时用来加密的密钥</li>
+</ol>
+<p><strong>4. Client/TGS/Service 密钥(上面提到的三个实际为NTLM Hash的密钥)是用来加密会话密钥的密钥，为了保证会话密钥的传输安全，这些加密方式均为对称加密</strong></p>
+</blockquote>
+<h2 id="1-用户登陆"><a href="#1-用户登陆" class="headerlink" title="1.用户登陆"></a><strong>1.用户登陆</strong></h2><p><img src="https://i.loli.net/2020/03/17/ThO8agxHmMw2kLP.png" alt="https://i.loli.net/2020/03/17/ThO8agxHmMw2kLP.png"></p>
+<ul>
+<li>用户输入 <strong>[用户名]</strong> 和 <strong>[密码]</strong> 信息</li>
+<li>在客户端，用户输入的 <strong>[密码]</strong> 通过计算生成NTLM哈希作做为 <strong>[CLIENT密钥]</strong></li>
+</ul>
+<h2 id="2-请求身份认证"><a href="#2-请求身份认证" class="headerlink" title="2.请求身份认证"></a><strong>2.请求身份认证</strong></h2><h3 id="2-1-客户端向AS-身份认证服务-发送认证请求"><a href="#2-1-客户端向AS-身份认证服务-发送认证请求" class="headerlink" title="2.1 客户端向AS(身份认证服务)发送认证请求"></a><strong>2.1 客户端向AS(身份认证服务)发送认证请求</strong></h3><p><img src="https://i.loli.net/2020/03/17/HGu5lEAer8BxMgV.png" alt="https://i.loli.net/2020/03/17/HGu5lEAer8BxMgV.png"></p>
+<ul>
+<li>客户端向<strong>AS</strong>发送认证请求，请求中带有明文的 <strong>[用户名]</strong> 信息</li>
+</ul>
+<blockquote>
+<p>此时并未发送[密码]或[密钥]信息</p>
+</blockquote>
+<h3 id="2-2-AS确认Client端登录者用户身份"><a href="#2-2-AS确认Client端登录者用户身份" class="headerlink" title="2.2 AS确认Client端登录者用户身份"></a><strong>2.2 AS确认Client端登录者用户身份</strong></h3><p><img src="https://i.loli.net/2020/03/17/hMjVW2bYoH7Lkit.png" alt="https://i.loli.net/2020/03/17/hMjVW2bYoH7Lkit.png"></p>
+<ol>
+<li>AS收到用户认证请求之后，根据请求中的 <strong>用户名</strong> 信息，从数据库中查找该用户名是否存在。</li>
+<li>如果 <strong>用户名</strong> 存在，则根据该用户名提取NTLM Hash做为AS生成的<strong>CLIENT 密钥</strong>，<em>如果第1步中用户提供的 <strong>密码</strong> 信息正确，该秘钥与用户登录中的 <strong>CLIENT密钥</strong> 是相等的，如果不相等则预认证失败。</em></li>
+<li>AS为Client响应如下消息：<blockquote>
+<p>用Client的Hash加密Client/TGS SessionKey ， 用这个Key来加密通话，用krbgr的Hash加密票据</p>
+</blockquote>
+<ul>
+<li>Msg A 使用 <strong>KDC生成的CLIENT密钥</strong> 加密的<strong>CLIENT/TGS SESSIONKEY</strong></li>
+<li>Msg B 使用 <strong>TGS密钥</strong> 加密的**TGT(TICKET-GRANTING-TICKET)**，客户端没有KDC NTLM Hash因此Client无法解密TGT。TGT中包含如下信息：<ul>
+<li>[Client/TGS SessionKey]</li>
+<li>Client ID</li>
+<li>Ticket有效时间</li>
+<li>Client 地址</li>
+</ul>
+</li>
+</ul>
+</li>
+<li>Client收到AS的响应消息以后，利用自身的 <strong>CLIENT密钥</strong> 可以对Msg A进行解密，这样可以获取到 <strong>CLIENT/TGS SESSIONKEY</strong>，用这个Key就可以与TGS通信，拿着MsgB (TGS票据) 去申请服务票据（Msg B是使用 <strong>TGS密钥</strong> 加密的，Client无法对其解密）。</li>
+</ol>
+<p><img src="https://i.loli.net/2020/03/17/9tJlxdMmTzgIEq3.png" alt="https://i.loli.net/2020/03/17/9tJlxdMmTzgIEq3.png"></p>
+<blockquote>
+<p>AS响应的消息中有一条是属于Client的，但另外一条却属于TGS。<br><strong>Client/TGS SessionKey出现了两个Copy，一个给Client端，一个给TGS端。</strong><br>认证过程中的加密除哈希外均采用的是对称加密算法。</p>
+</blockquote>
+<h2 id="3-请求服务授权"><a href="#3-请求服务授权" class="headerlink" title="3. 请求服务授权"></a><strong>3. 请求服务授权</strong></h2><h3 id="3-1-客户端向TGS发送请求服务授权请求"><a href="#3-1-客户端向TGS发送请求服务授权请求" class="headerlink" title="3.1 客户端向TGS发送请求服务授权请求"></a><strong>3.1 客户端向TGS发送请求服务授权请求</strong></h3><p><img src="https://i.loli.net/2020/03/17/5o3MSEryKj2wqcg.png" alt="https://i.loli.net/2020/03/17/5o3MSEryKj2wqcg.png"></p>
+<p>客户端发送的请求中包含如下两个消息：</p>
+<ul>
+<li>Msg C<ul>
+<li>要请求的服务ID, 即[Service ID]</li>
+<li>上一步2.2中由AS为Client提供的TGT。(MSG B）</li>
+</ul>
+</li>
+<li>Msg D<ul>
+<li>使用 <strong>CLIENT/TGS SessionKey</strong> 加密的Authenticator 1 {Client ID, Timestamp}。</li>
+</ul>
+</li>
+</ul>
+<h3 id="3-2-TGS身份认证"><a href="#3-2-TGS身份认证" class="headerlink" title="3.2 TGS身份认证"></a>3.2 TGS身份认证</h3><p><img src="https://i.loli.net/2020/03/17/q1FvQ38gADLnsK4.png" alt="https://i.loli.net/2020/03/17/q1FvQ38gADLnsK4.png"></p>
+<p>KDC接收到TGT与其他内容后，会首先使用KDC 的NTLM Hash解密TGT，只有KDC可以解密TGT，从TGT中提取到 <strong>CLIENT/TGS SESSIONKEY</strong> ，再使用 <strong>CLIENT/TGS SESSIONKEY</strong> 解密Authenticator 1，获取到{Client ID, Timestamp} 并与通过解密TGT获取到的{Client ID, 有效时间}进行对比</p>
+<h3 id="3-3-TGS为Client响应服务授权票据"><a href="#3-3-TGS为Client响应服务授权票据" class="headerlink" title="3.3 TGS为Client响应服务授权票据"></a><strong>3.3 TGS为Client响应服务授权票据</strong></h3><p><img src="https://i.loli.net/2020/03/17/cuoiX1FRGM5fdEt.png" alt="https://i.loli.net/2020/03/17/cuoiX1FRGM5fdEt.png"></p>
+<p>TGS为Client响应的消息包括：</p>
+<ul>
+<li>Msg E 使用 <strong>SERVICE密钥(服务器的NTLMHASH)</strong> 加密的 <strong>CLIENT-TO-SERVER TICKET</strong> , 该Ticket中包含了如下信息:<ul>
+<li>[Client/Server SessionKey]</li>
+<li>Client网络地址</li>
+<li>Ticket有效时间</li>
+<li>Client ID</li>
+</ul>
+</li>
+<li>Msg F 使用 <strong>CLIENT/TGS SESSIONKEY</strong> 加密的 <strong>CLIENT/SERVER SESSIONKEY</strong> 。</li>
+</ul>
+<blockquote>
+<p>Msg F使用了 <strong>CLIENT/TGS SESSIONKEY</strong> 加密，因此，该消息对Client可见。Client对其解密以后可获取到 <strong>CLIENT/SERVER SESSIONKEY</strong> 。而Msg E使用了 <strong>[SERVICE密钥]</strong> 加密，该消息可视作是TGS给Service Server的消息，只不过由Client一起携带发送给Service Server</p>
+</blockquote>
+<h2 id="4-发送服务请求"><a href="#4-发送服务请求" class="headerlink" title="4.发送服务请求"></a><strong>4.发送服务请求</strong></h2><h3 id="4-1-Client向Service-Server发送服务请求"><a href="#4-1-Client向Service-Server发送服务请求" class="headerlink" title="4.1 Client向Service Server发送服务请求"></a><strong>4.1 Client向Service Server发送服务请求</strong></h3><p><img src="https://i.loli.net/2020/03/17/Cx1h9fN7LVvWRDz.png" alt="https://i.loli.net/2020/03/17/Cx1h9fN7LVvWRDz.png"></p>
+<p>发送的消息中包括：</p>
+<ul>
+<li>Msg E 上一步3.2中，TGS为Client响应的消息Msg E。该消息可以理解为由Client携带的消息。</li>
+<li>Msg G 由[Client/Server SessionKey]加密的Authenticator 2，包含{Client ID, Timestamp}信息。</li>
+</ul>
+<blockquote>
+<p>CLIENT/SERVER SESSIONKEY 并非直接传输，而是被包含在使用[Service密钥]加密的Msg E中。既然 [CLIENT/SERVER SESSIONKEY] 并不直接明文传输， Client需要向Service Server证明自己拥有正确的 CLIENT/SERVER SESSIONKEY ，所以，Authenticator 2使用了 CLIENT/SERVER SESSIONKEY 加密。</p>
+</blockquote>
+<h3 id="4-2-SS响应Client"><a href="#4-2-SS响应Client" class="headerlink" title="4.2 SS响应Client"></a><strong>4.2 SS响应Client</strong></h3><p>SS收到客户端的服务请求之后，先利用自身的 <strong>[SERVICE密钥]</strong> 对Msg E进行解密，提取出Client-To-Server Ticket, 在3.2步骤中，提到了该Ticket中包含了 <strong>CLIENT/SERVER SESSIONKEY</strong> 以及Client ID信息。</p>
+<p>SS使用 <strong>CLIENT/SERVER SESSIONKEY</strong> 解密Msg G，提取Client ID信息，而后将该Client ID与Client-To-Server Ticket中的Client ID进行比对，如果匹配则说明Client拥有正确的 <strong>CLIENT/SERVER SESSIONKEY</strong> 。</p>
+<p><img src="https://i.loli.net/2020/03/17/HlR6F2CEP8tUxJj.png" alt="https://i.loli.net/2020/03/17/HlR6F2CEP8tUxJj.png"></p>
+<p>而后，SS向Client响应Msg H(包含使用 <strong>CLIENT/SERVER SESSIONKEY</strong> 加密的Timestamp信息)。</p>
+<p>Client收到SS的响应消息Msg H之后，再使用 <strong>CLIENT/SERVER SESSIONKEY</strong> 对其解密，提取Timestamp信息，然后确认该信息与Client发送的Authenticator 2中的Timestamp信息一致。</p>
+<p>如上信息可以看出来，该交互过程起到了Client与SS之间的“双向认证”作用。</p>
+<h1 id="四、相关攻击面总结"><a href="#四、相关攻击面总结" class="headerlink" title="四、相关攻击面总结"></a>四、相关攻击面总结</h1><ol>
+<li>在NTML协议中，服务端的验证方式为hash + chanllenge，所以拥有用户的hash之后即可进行PTH攻击。</li>
+<li>在NTML协议中，可以进行中间人攻击，也就是NTML Relay，这种Relay即可以攻击别人也能攻击自己（权限提升，一堆土豆）。</li>
+<li>在Kerberose协议中，AS-REQ阶段，可以进行用户名枚举、密码碰洒、AS-REPRoasting，如果拿到hash，还可以进行PTH/PTK，甚至制作黄金票据。</li>
+<li>在Kerberose协议中，TGS-REQ/TGS-REP阶段，服务配置不当，可以进行服务委派攻击，有服务hash则可以制作白银票据。</li>
+</ol>
+<p>参考：</p>
+<p><a target="_blank" rel="noopener" href="https://daiker.gitbook.io/windows-protocol/">https://daiker.gitbook.io/windows-protocol/</a></p>
+<p><a target="_blank" rel="noopener" href="https://ares-x.com/2020/03/17/%E5%9F%9F%E6%B8%97%E9%80%8F%E5%AD%A6%E4%B9%A0%EF%BC%88%E4%BA%8C%EF%BC%89Kerberos%E5%8D%8F%E8%AE%AE/">https://ares-x.com/2020/03/17/域渗透学习（二）Kerberos协议/</a></p>
+</div><script src="/js/jquery.min.js"></script><script src="/js/main.js"></script></body></html>
