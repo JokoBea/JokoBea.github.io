@@ -1,7 +1,4 @@
-<!DOCTYPE html><html lang="zh"><head><meta http-equiv="content-type" content="text/html; charset=utf-8"><meta name="viewport" content="width=device-width, initial-scale=0.5"><link rel="stylesheet" href="/css/post.css"><link rel="icon" href="/img/favicon.png"><title>Hurn's Blog</title><meta name="generator" content="Hexo 5.4.0"><link rel="stylesheet" href="/css/prism.css" type="text/css"></head><body>　　<div class="inner"><h2></h2><blockquote>
-<p>title: X86两种常见的Hook方式<br>tags: 免杀 </p>
-</blockquote>
-<h1 id="0x0-Hook相关的前置知识"><a href="#0x0-Hook相关的前置知识" class="headerlink" title="0x0 Hook相关的前置知识"></a>0x0 Hook相关的前置知识</h1><p>Hook翻译过来是钩子的意思，在Windows中程序是通过消息机制来传递的，也就是每一次鼠标点击、键盘敲击都会产生一次或多次消息，而Hook可以想象在这种消息的管道中，插入一个钩子，用来拦截、扩展处理等，有点像Java的Filter。</p>
+<!DOCTYPE html><html lang="zh"><head><meta http-equiv="content-type" content="text/html; charset=utf-8"><meta name="viewport" content="width=device-width, initial-scale=0.5"><link rel="stylesheet" href="/css/post.css"><link rel="icon" href="/img/favicon.png"><title>X86两种常见的Hook方式</title><meta name="generator" content="Hexo 5.4.0"><link rel="stylesheet" href="/css/prism.css" type="text/css"></head><body>　　<div class="inner"><h2>X86两种常见的Hook方式</h2><h1 id="0x0-Hook相关的前置知识"><a href="#0x0-Hook相关的前置知识" class="headerlink" title="0x0 Hook相关的前置知识"></a>0x0 Hook相关的前置知识</h1><p>Hook翻译过来是钩子的意思，在Windows中程序是通过消息机制来传递的，也就是每一次鼠标点击、键盘敲击都会产生一次或多次消息，而Hook可以想象在这种消息的管道中，插入一个钩子，用来拦截、扩展处理等，有点像Java的Filter。</p>
 <p>实现这种拦截的方式和可拦截的地方很多，大多数是基于改变函数执行流程来实现的Hook，下面的IAT Hook、InlineHook也属于这种。</p>
 <h1 id="0x1-为什么能Hook"><a href="#0x1-为什么能Hook" class="headerlink" title="0x1 为什么能Hook"></a>0x1 为什么能Hook</h1><p>先看程序是如何执行API的，举个例子MessageBoxA是如何执行的，程序代码如下：</p>
 <pre class=" language-c++"><code class="language-c++">#include <iostream>
