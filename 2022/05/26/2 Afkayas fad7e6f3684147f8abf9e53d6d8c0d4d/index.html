@@ -1,0 +1,40 @@
+<!DOCTYPE html><html lang="zh"><head><meta http-equiv="content-type" content="text/html; charset=utf-8"><meta name="viewport" content="width=device-width, initial-scale=0.5"><link rel="stylesheet" href="/css/post.css"><link rel="icon" href="/img/favicon.png"><title>Hurn's Blog</title><meta name="generator" content="Hexo 5.4.0"><link rel="stylesheet" href="/css/prism.css" type="text/css"></head><body>　　<div class="inner"><h2></h2><blockquote>
+<p>title: crakeme2 </p>
+<p>tags: 破解</p>
+</blockquote>
+<h1 id="2-Afkayas"><a href="#2-Afkayas" class="headerlink" title="2. Afkayas"></a>2. Afkayas</h1><p><img src="/2022/05/26/2%20Afkayas%20fad7e6f3684147f8abf9e53d6d8c0d4d/Untitled.png" alt="Untitled"></p>
+<h1 id="程序分析"><a href="#程序分析" class="headerlink" title="程序分析"></a>程序分析</h1><p><img src="/2022/05/26/2%20Afkayas%20fad7e6f3684147f8abf9e53d6d8c0d4d/Untitled%201.png" alt="Untitled"></p>
+<p><img src="/2022/05/26/2%20Afkayas%20fad7e6f3684147f8abf9e53d6d8c0d4d/Untitled%202.png" alt="Untitled"></p>
+<p>Key由用户名生成，具体过程如下：</p>
+<p>计算用户名的长度 * 0x17cfB 查看是否溢出，如果没有溢出就加上第一个字符的ascii码，转为十进制，拼接上AKA</p>
+<h1 id="注册机"><a href="#注册机" class="headerlink" title="注册机"></a>注册机</h1><p>参考：</p>
+<pre class=" language-cpp"><code class="language-cpp"><span class="token macro property">#<span class="token directive keyword">define</span> _CRT_SECURE_NO_WARNINGS</span>
+<span class="token macro property">#<span class="token directive keyword">include</span><span class="token string">&lt;stdio.h></span></span>
+<span class="token macro property">#<span class="token directive keyword">include</span> <span class="token string">&lt;stdlib.h></span></span>
+<span class="token macro property">#<span class="token directive keyword">include</span> <span class="token string">&lt;windows.h></span></span>
+<span class="token keyword">int</span> <span class="token function">main</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+<span class="token operator">&amp;</span>#<span class="token number">123</span><span class="token punctuation">;</span>
+    <span class="token comment" spellcheck="true">//密码</span>
+    <span class="token keyword">char</span> key1<span class="token punctuation">[</span><span class="token number">4</span><span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token string">"AKA"</span><span class="token punctuation">;</span>
+    <span class="token comment" spellcheck="true">//输入用户名</span>
+    <span class="token keyword">char</span> username<span class="token punctuation">[</span><span class="token number">10</span><span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token operator">&amp;</span>#<span class="token number">123</span><span class="token punctuation">;</span> <span class="token number">0</span> <span class="token operator">&amp;</span>#<span class="token number">125</span><span class="token punctuation">;</span><span class="token punctuation">;</span>
+    <span class="token function">printf</span><span class="token punctuation">(</span><span class="token string">"请输入用户名:"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token function">scanf_s</span><span class="token punctuation">(</span><span class="token string">"%s"</span><span class="token punctuation">,</span> username<span class="token punctuation">,</span> <span class="token number">10</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token comment" spellcheck="true">//1\. 取长度</span>
+    <span class="token keyword">int</span> iUsernameLen <span class="token operator">=</span> <span class="token function">strlen</span><span class="token punctuation">(</span>username<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token comment" spellcheck="true">//2\. 将用户名长度乘以0x17CFB 得到结果</span>
+    <span class="token keyword">int</span> result <span class="token operator">=</span> iUsernameLen <span class="token operator">*</span> <span class="token number">0x17CFB</span><span class="token punctuation">;</span>
+    <span class="token comment" spellcheck="true">//3\. 将结果再加上用户名的第一个字符的ASCII</span>
+    result <span class="token operator">=</span> result <span class="token operator">+</span> username<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+    <span class="token comment" spellcheck="true">//4\. 将结果转为十进制 此步骤省略</span>
+    <span class="token comment" spellcheck="true">//5\. 拼接序列号</span>
+    <span class="token keyword">char</span> key<span class="token punctuation">[</span>MAX_PATH<span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token operator">&amp;</span>#<span class="token number">123</span><span class="token punctuation">;</span> <span class="token number">0</span> <span class="token operator">&amp;</span>#<span class="token number">125</span><span class="token punctuation">;</span><span class="token punctuation">;</span>
+    <span class="token function">sprintf</span><span class="token punctuation">(</span>key<span class="token punctuation">,</span> <span class="token string">"%s-%d"</span><span class="token punctuation">,</span> key1<span class="token punctuation">,</span> result<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token comment" spellcheck="true">//打印序列号</span>
+    <span class="token function">printf</span><span class="token punctuation">(</span><span class="token string">"生成的序列号为:%s\n"</span><span class="token punctuation">,</span> key<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token function">system</span><span class="token punctuation">(</span><span class="token string">"pause"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">return</span> <span class="token number">0</span><span class="token punctuation">;</span>
+<span class="token operator">&amp;</span>#<span class="token number">125</span><span class="token punctuation">;</span>
+</code></pre>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>这个程序实际上有用的就前面一段，对用户名进行处理，和后面一段拼接密码，中间很多没有用的东西，也不知道是故意写的还是做了其他操作。所以，没必要往把函数从头跟到尾，在里面找一个确定的东西，比如在这里面，通过字符串定位到明文用户名和加密后的Key，从后往前推，看那些会修改这个值，忽略掉不相关的东西。</p>
+</div><script src="/js/jquery.min.js"></script><script src="/js/main.js"></script></body></html>

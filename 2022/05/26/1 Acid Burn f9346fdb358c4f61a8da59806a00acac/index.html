@@ -1,0 +1,86 @@
+<!DOCTYPE html><html lang="zh"><head><meta http-equiv="content-type" content="text/html; charset=utf-8"><meta name="viewport" content="width=device-width, initial-scale=0.5"><link rel="stylesheet" href="/css/post.css"><link rel="icon" href="/img/favicon.png"><title>Hurn's Blog</title><meta name="generator" content="Hexo 5.4.0"><link rel="stylesheet" href="/css/prism.css" type="text/css"></head><body>　　<div class="inner"><h2></h2><blockquote>
+<p>title: creakeme1</p>
+<p>tags: 破解</p>
+</blockquote>
+<h1 id="1-Acid-Burn"><a href="#1-Acid-Burn" class="headerlink" title="1. Acid Burn"></a>1. Acid Burn</h1><p><img src="/2022/05/26/1%20Acid%20Burn%20f9346fdb358c4f61a8da59806a00acac/Untitled.png" alt="Untitled"></p>
+<h1 id="0x1-准备工作"><a href="#0x1-准备工作" class="headerlink" title="0x1 准备工作"></a>0x1 准备工作</h1><p>用exeinfo 看到是一个 Delphi写到，添加相应的编译库。<code>View → SubMenu → Signature</code></p>
+<p><img src="/2022/05/26/1%20Acid%20Burn%20f9346fdb358c4f61a8da59806a00acac/Untitled%201.png" alt="Untitled"></p>
+<p>导出为map文件。</p>
+<p><img src="/2022/05/26/1%20Acid%20Burn%20f9346fdb358c4f61a8da59806a00acac/Untitled%202.png" alt="Untitled"></p>
+<blockquote>
+<p>同样的map文件，xdbg识别不出来，但是OD却可以;  但是xdbg会给修改的寄存器附一些值、注释，这个OD就没有。</p>
+</blockquote>
+<p><img src="/2022/05/26/1%20Acid%20Burn%20f9346fdb358c4f61a8da59806a00acac/Untitled%203.png" alt="Untitled"></p>
+<h1 id="0x2-Serial"><a href="#0x2-Serial" class="headerlink" title="0x2 Serial"></a>0x2 Serial</h1><p><img src="/2022/05/26/1%20Acid%20Burn%20f9346fdb358c4f61a8da59806a00acac/Untitled%204.png" alt="Untitled"></p>
+<p>搜索字符串</p>
+<p><img src="/2022/05/26/1%20Acid%20Burn%20f9346fdb358c4f61a8da59806a00acac/Untitled%205.png" alt="Untitled"></p>
+<p><img src="/2022/05/26/1%20Acid%20Burn%20f9346fdb358c4f61a8da59806a00acac/Untitled%206.png" alt="Untitled"></p>
+<h1 id="0x3-Serial-Name"><a href="#0x3-Serial-Name" class="headerlink" title="0x3 Serial/Name"></a>0x3 Serial/Name</h1><p><img src="/2022/05/26/1%20Acid%20Burn%20f9346fdb358c4f61a8da59806a00acac/Untitled%207.png" alt="Untitled"></p>
+<p>流程分析：</p>
+<p><img src="/2022/05/26/1%20Acid%20Burn%20f9346fdb358c4f61a8da59806a00acac/Untitled%208.png" alt="Untitled"></p>
+<p><img src="/2022/05/26/1%20Acid%20Burn%20f9346fdb358c4f61a8da59806a00acac/Untitled%209.png" alt="Untitled"></p>
+<p><img src="/2022/05/26/1%20Acid%20Burn%20f9346fdb358c4f61a8da59806a00acac/Untitled%2010.png" alt="Untitled"></p>
+<p><img src="/2022/05/26/1%20Acid%20Burn%20f9346fdb358c4f61a8da59806a00acac/Untitled%2011.png" alt="Untitled"></p>
+<p>总结上述算法逻辑：</p>
+<pre class=" language-cpp"><code class="language-cpp"># 不停的取name的值中的位进行计算：
+
+esi <span class="token operator">=</span> 第一个字节往左偏移<span class="token number">3</span>位 <span class="token operator">-</span> 第一个字节
+
+<span class="token number">0x431754</span> <span class="token operator">=</span> esi <span class="token operator">=</span> 第二个字节往左偏移<span class="token number">4</span>位  <span class="token operator">+</span> esi
+
+esi <span class="token operator">=</span> 第三个字节 <span class="token operator">*</span> <span class="token number">0xB</span>
+
+eax <span class="token operator">=</span> 第二个字节 <span class="token operator">*</span> <span class="token number">0xE</span>
+
+<span class="token number">0x431758</span> <span class="token operator">=</span> esi <span class="token operator">=</span> esi <span class="token operator">+</span> eax
+
+判断长度是否大于<span class="token number">4</span>
+
+<span class="token number">0x431750</span> <span class="token operator">=</span> 第一个字节 <span class="token operator">*</span> <span class="token function">0x431750</span> <span class="token punctuation">(</span>这是个硬编码 <span class="token operator">=</span> <span class="token number">0x29</span><span class="token punctuation">)</span>
+
+<span class="token number">0x431750</span> <span class="token operator">=</span> <span class="token number">0x431750</span> <span class="token operator">+</span> <span class="token number">0x431750</span>
+</code></pre>
+<h1 id="0x4-注册机"><a href="#0x4-注册机" class="headerlink" title="0x4 注册机"></a>0x4 注册机</h1><p>🈚️，参考：</p>
+<pre class=" language-cpp"><code class="language-cpp"><span class="token macro property">#<span class="token directive keyword">define</span> _CRT_SECURE_NO_WARNINGS        </span><span class="token comment" spellcheck="true">//去除安全函数的检查</span>
+<span class="token macro property">#<span class="token directive keyword">include</span><span class="token string">&lt;stdio.h></span></span>
+<span class="token macro property">#<span class="token directive keyword">include</span> <span class="token string">&lt;stdlib.h></span></span>
+<span class="token macro property">#<span class="token directive keyword">include</span> <span class="token string">&lt;windows.h></span></span>
+<span class="token keyword">int</span> <span class="token function">main</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+<span class="token operator">&amp;</span>#<span class="token number">123</span><span class="token punctuation">;</span>
+    <span class="token comment" spellcheck="true">//密码</span>
+    <span class="token keyword">char</span> key1<span class="token punctuation">[</span><span class="token number">3</span><span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token string">"CW"</span><span class="token punctuation">;</span>
+    <span class="token keyword">char</span> key2<span class="token punctuation">[</span><span class="token number">8</span><span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token string">"CRACKED"</span><span class="token punctuation">;</span>
+    <span class="token comment" spellcheck="true">//输入用户名</span>
+    <span class="token keyword">char</span> username<span class="token punctuation">[</span><span class="token number">10</span><span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token operator">&amp;</span>#<span class="token number">123</span><span class="token punctuation">;</span> <span class="token number">0</span> <span class="token operator">&amp;</span>#<span class="token number">125</span><span class="token punctuation">;</span><span class="token punctuation">;</span>
+    <span class="token function">printf</span><span class="token punctuation">(</span><span class="token string">"请输入用户名 长度必须大于等于4:"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token function">scanf_s</span><span class="token punctuation">(</span><span class="token string">"%s"</span><span class="token punctuation">,</span> username<span class="token punctuation">,</span> <span class="token number">10</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token comment" spellcheck="true">//判断长度</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token function">strlen</span><span class="token punctuation">(</span>username<span class="token punctuation">)</span> <span class="token operator">&lt;</span> <span class="token number">4</span><span class="token punctuation">)</span>
+    <span class="token operator">&amp;</span>#<span class="token number">123</span><span class="token punctuation">;</span>
+        <span class="token function">printf</span><span class="token punctuation">(</span><span class="token string">"长度必须大于等于4,请重新输入\n"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token operator">&amp;</span>#<span class="token number">125</span><span class="token punctuation">;</span>
+    <span class="token comment" spellcheck="true">//根据用户名生成密码</span>
+    <span class="token comment" spellcheck="true">//计算用户名的第一位</span>
+    <span class="token keyword">int</span> username1 <span class="token operator">=</span> username<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+    <span class="token keyword">int</span> result1 <span class="token operator">=</span> <span class="token punctuation">(</span>username1 <span class="token operator">&lt;&lt;</span> <span class="token number">0x3</span><span class="token punctuation">)</span> <span class="token operator">-</span> username1<span class="token punctuation">;</span>  <span class="token comment" spellcheck="true">//左移0x3位再减去原来的值</span>
+    <span class="token comment" spellcheck="true">//计算用户名第二位</span>
+    <span class="token keyword">int</span> username2 <span class="token operator">=</span> username<span class="token punctuation">[</span><span class="token number">1</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+    result1 <span class="token operator">=</span> <span class="token punctuation">(</span>username1 <span class="token operator">&lt;&lt;</span> <span class="token number">0x4</span><span class="token punctuation">)</span> <span class="token operator">+</span> result1<span class="token punctuation">;</span>        <span class="token comment" spellcheck="true">//左移4位再加上原来的结果</span>
+    <span class="token comment" spellcheck="true">//计算用户名的第四位</span>
+    <span class="token keyword">int</span> username4 <span class="token operator">=</span> username<span class="token punctuation">[</span><span class="token number">3</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+    <span class="token keyword">int</span> result2 <span class="token operator">=</span> username4 <span class="token operator">*</span> <span class="token number">0xB</span><span class="token punctuation">;</span>                <span class="token comment" spellcheck="true">//乘以0xB</span>
+    <span class="token comment" spellcheck="true">//计算用户名的第三位</span>
+    <span class="token keyword">int</span> username3 <span class="token operator">=</span> username<span class="token punctuation">[</span><span class="token number">2</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+    result2 <span class="token operator">=</span> <span class="token punctuation">(</span>username3 <span class="token operator">*</span> <span class="token number">0xE</span><span class="token punctuation">)</span> <span class="token operator">+</span> result2<span class="token punctuation">;</span>        <span class="token comment" spellcheck="true">//乘以0xE在加上第四位的结果</span>
+    <span class="token comment" spellcheck="true">//再次计算第一位</span>
+    <span class="token keyword">int</span> result3 <span class="token operator">=</span> username1 <span class="token operator">*</span> <span class="token number">0x29</span> <span class="token operator">*</span> <span class="token number">2</span><span class="token punctuation">;</span>            <span class="token comment" spellcheck="true">//乘以0x29再乘以2</span>
+    <span class="token comment" spellcheck="true">//将result3转为ASCII 并拼接密钥</span>
+    <span class="token keyword">char</span> key<span class="token punctuation">[</span><span class="token number">50</span><span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token operator">&amp;</span>#<span class="token number">123</span><span class="token punctuation">;</span> <span class="token number">0</span> <span class="token operator">&amp;</span>#<span class="token number">125</span><span class="token punctuation">;</span><span class="token punctuation">;</span>
+    <span class="token function">sprintf</span><span class="token punctuation">(</span>key<span class="token punctuation">,</span> <span class="token string">"%s-%d-%s"</span><span class="token punctuation">,</span> key1<span class="token punctuation">,</span> result3<span class="token punctuation">,</span> key2<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token comment" spellcheck="true">//打印key</span>
+    <span class="token function">printf</span><span class="token punctuation">(</span><span class="token string">"密钥为:%s\n"</span><span class="token punctuation">,</span> key<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token function">system</span><span class="token punctuation">(</span><span class="token string">"pause"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">return</span> <span class="token number">0</span><span class="token punctuation">;</span>
+<span class="token operator">&amp;</span>#<span class="token number">125</span><span class="token punctuation">;</span>
+</code></pre>
+</div><script src="/js/jquery.min.js"></script><script src="/js/main.js"></script></body></html>

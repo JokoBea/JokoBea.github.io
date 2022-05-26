@@ -1,0 +1,17 @@
+<!DOCTYPE html><html lang="zh"><head><meta http-equiv="content-type" content="text/html; charset=utf-8"><meta name="viewport" content="width=device-width, initial-scale=0.5"><link rel="stylesheet" href="/css/post.css"><link rel="icon" href="/img/favicon.png"><title>Hurn's Blog</title><meta name="generator" content="Hexo 5.4.0"><link rel="stylesheet" href="/css/prism.css" type="text/css"></head><body>　　<div class="inner"><h2></h2><blockquote>
+<p>title: DLL劫持的一个小问题</p>
+</blockquote>
+<h1 id="DLL劫持"><a href="#DLL劫持" class="headerlink" title="DLL劫持"></a>DLL劫持</h1><p>DLL导出的名称中带有 ?  @@YAXXZ 之类的，是因为导出的函数声明是C++格式的，而不是C语言类型，测试这种DLL也无法使用rundll32运行</p>
+<pre class=" language-java"><code class="language-java"><span class="token function">__declspec</span><span class="token punctuation">(</span>dllexport<span class="token punctuation">)</span> <span class="token keyword">void</span> <span class="token function">RHBinder__ShimExeMain</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">&amp;</span>#<span class="token number">123</span><span class="token punctuation">;</span> <span class="token function">Main</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token operator">&amp;</span>#<span class="token number">125</span><span class="token punctuation">;</span>
+</code></pre>
+<p><img src="/2022/05/26/DLL%E5%8A%AB%E6%8C%81%207f13f82014f4438da4c85d8a4cfb9d91/Untitled.png" alt="Untitled"></p>
+<p>生成C格式的DLL</p>
+<pre class=" language-java"><code class="language-java">EXTERN_C <span class="token function">__declspec</span><span class="token punctuation">(</span>dllexport<span class="token punctuation">)</span> <span class="token keyword">void</span> <span class="token function">RHBinder__ShimExeMain</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">&amp;</span>#<span class="token number">123</span><span class="token punctuation">;</span> <span class="token function">Main</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token operator">&amp;</span>#<span class="token number">125</span><span class="token punctuation">;</span>
+</code></pre>
+<p><img src="/2022/05/26/DLL%E5%8A%AB%E6%8C%81%207f13f82014f4438da4c85d8a4cfb9d91/Untitled%201.png" alt="Untitled"></p>
+<p>待优化：</p>
+<ul>
+<li>c++格式的函数会有 ？@@ 之类的符号，直接拷贝过去编译不下去</li>
+<li>有些exe可能有依赖，缺少了dll就运行不下去，可以拷贝整个目录到当前文件夹下来</li>
+</ul>
+</div><script src="/js/jquery.min.js"></script><script src="/js/main.js"></script></body></html>
