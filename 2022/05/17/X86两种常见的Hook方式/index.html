@@ -1,0 +1,135 @@
+<!DOCTYPE html><html lang="zh"><head><meta http-equiv="content-type" content="text/html; charset=utf-8"><meta name="viewport" content="width=device-width, initial-scale=0.5"><link rel="stylesheet" href="/css/post.css"><link rel="icon" href="/img/favicon.png"><title>Hurn's Blog</title><meta name="generator" content="Hexo 5.4.0"><link rel="stylesheet" href="/css/prism.css" type="text/css"></head><body>　　<div class="inner"><h2></h2><blockquote>
+<p>title: X86两种常见的Hook方式<br>tags: 免杀 </p>
+</blockquote>
+<h1 id="0x0-Hook相关的前置知识"><a href="#0x0-Hook相关的前置知识" class="headerlink" title="0x0 Hook相关的前置知识"></a>0x0 Hook相关的前置知识</h1><p>Hook翻译过来是钩子的意思，在Windows中程序是通过消息机制来传递的，也就是每一次鼠标点击、键盘敲击都会产生一次或多次消息，而Hook可以想象在这种消息的管道中，插入一个钩子，用来拦截、扩展处理等，有点像Java的Filter。</p>
+<p>实现这种拦截的方式和可拦截的地方很多，大多数是基于改变函数执行流程来实现的Hook，下面的IAT Hook、InlineHook也属于这种。</p>
+<h1 id="0x1-为什么能Hook"><a href="#0x1-为什么能Hook" class="headerlink" title="0x1 为什么能Hook"></a>0x1 为什么能Hook</h1><p>先看程序是如何执行API的，举个例子MessageBoxA是如何执行的，程序代码如下：</p>
+<pre class=" language-c++"><code class="language-c++">#include <iostream>
+#include <Windows.h>
+
+int main()
+&#123;
+    MessageBoxA(NULL, "nnn", "xxxx", MB_OK);
+    system("pause");
+    MessageBoxA(NULL, "nnn", "xxxx", MB_OK);
+&#125;
+</code></pre>
+<p>在xdbg中查看调用MessageBoxA实际是在调用 call dword ptr ds:[0x4DB098]， 0x4DB098地址是通过相对偏移计算来的，值指向真正的MessageBox函数的地址，在本程序里面调用MessageBox这个API最终都会到这个地方，也就是0x76B70A50，所以我们修改这个函数的值就能控制程序的流程了。</p>
+<p><img src="/2022/05/17/X86%E4%B8%A4%E7%A7%8D%E5%B8%B8%E8%A7%81%E7%9A%84Hook%E6%96%B9%E5%BC%8F/image-20220517150158363.png" alt="image-20220517150158363"></p>
+<p><img src="/2022/05/17/X86%E4%B8%A4%E7%A7%8D%E5%B8%B8%E8%A7%81%E7%9A%84Hook%E6%96%B9%E5%BC%8F/image-20220517151226338.png" alt="image-20220517151226338"></p>
+<h1 id="0x2-IATHook"><a href="#0x2-IATHook" class="headerlink" title="0x2 IATHook"></a>0x2 IATHook</h1><p>IAT Hook这种方式，是通过修改程序的导入表的地址来使程序转入Hook的流程。</p>
+<pre class=" language-c++"><code class="language-c++">// dllmain.cpp : 定义 DLL 应用程序的入口点。
+#include "pch.h"
+#include <stdio.h>
+#include <Windows.h>
+
+typedef int(WINAPI* pfMessageBoxA)(HWND, LPCSTR, LPCSTR, UINT);
+pfMessageBoxA OldMessageBoxA = NULL;
+
+int WINAPI MyMessageBoxA(HWND hWnd, LPCSTR lpText, LPCSTR lpCaption, UINT uType)
+&#123;
+    return OldMessageBoxA(hWnd, "MessageBoxA Hooked", lpCaption, uType);
+&#125;
+
+PIMAGE_NT_HEADERS GetLocalNtHead()
+&#123;
+    DWORD dwTemp = NULL;
+    PIMAGE_DOS_HEADER pDosHead = NULL;
+    PIMAGE_NT_HEADERS pNtHead = NULL;
+    HMODULE ImageBase = GetModuleHandle(NULL);                              // 取自身ImageBase
+    pDosHead = (PIMAGE_DOS_HEADER)(DWORD)ImageBase;                         // 取pDosHead地址
+    dwTemp = (DWORD)pDosHead + (DWORD)pDosHead->e_lfanew;
+    pNtHead = (PIMAGE_NT_HEADERS)dwTemp;                                    // 取出NtHead头地址
+    return pNtHead;
+&#125;
+
+void IATHook()
+&#123;
+    // 1. 找到要Hook的函数的地址
+    PVOID pFuncAddress = NULL;
+    pFuncAddress = GetProcAddress(GetModuleHandleA("user32.dll"), "MessageBoxA");  // 取Hook函数地址
+    OldMessageBoxA = (pfMessageBoxA)pFuncAddress;           // 保存原函数指针
+
+    // 2. 找到当前程序的要Hook函数的地址，将其替换
+    PIMAGE_NT_HEADERS pNtHead = GetLocalNtHead();          // 获取到程序自身NtHead
+    PIMAGE_FILE_HEADER pFileHead = (PIMAGE_FILE_HEADER)&pNtHead->FileHeader;
+    PIMAGE_OPTIONAL_HEADER pOpHead = (PIMAGE_OPTIONAL_HEADER)&pNtHead->OptionalHeader;
+
+    DWORD dwInputTable = pOpHead->DataDirectory[1].VirtualAddress;                    // 找出导入表偏移
+    DWORD dwTemp = (DWORD)GetModuleHandle(NULL) + dwInputTable;
+    PIMAGE_IMPORT_DESCRIPTOR   pImport = (PIMAGE_IMPORT_DESCRIPTOR)dwTemp;
+    PIMAGE_IMPORT_DESCRIPTOR   pCurrent = pImport;
+    DWORD* pFirstThunk;                                                            //导入表子表,IAT存储函数地址表.
+
+    //遍历导入表
+    while (pCurrent->Characteristics && pCurrent->FirstThunk != NULL)
+    &#123;
+      dwTemp = pCurrent->FirstThunk + (DWORD)GetModuleHandle(NULL);// 找到内存中的导入表
+      pFirstThunk = (DWORD*)dwTemp;                               // 赋值 pFirstThunk
+      while (*(DWORD*)pFirstThunk != NULL)                         // 不为NULl说明没有结束
+      &#123;
+        if (*(DWORD*)pFirstThunk == (DWORD)OldMessageBoxA)                 // 相等说明正是我们想要的地址
+        &#123;
+          // 3. 替换函数地址
+          DWORD oldProtected;
+          VirtualProtect(pFirstThunk, 0x1000, PAGE_EXECUTE_READWRITE, &oldProtected);  // 开启写权限
+          dwTemp = (DWORD)MyMessageBoxA;
+          memcpy(pFirstThunk, (DWORD*)&dwTemp, 4);                       // 将MyMessageBox地址拷贝替换
+          VirtualProtect(pFirstThunk, 0x1000, oldProtected, &oldProtected);     // 关闭写保护
+        &#125;
+        pFirstThunk++; // 继续递增循环
+      &#125;
+      pCurrent++;        // 每次是加1个导入表结构.
+    &#125;
+&#125;
+
+BOOL APIENTRY DllMain(HMODULE hModule, DWORD  ul_reason_for_call, LPVOID lpReserved)
+&#123;
+    IATHook();
+    return TRUE;
+&#125;
+</code></pre>
+<h1 id="0x3-InlineHook"><a href="#0x3-InlineHook" class="headerlink" title="0x3 InlineHook"></a>0x3 InlineHook</h1><pre class=" language-c++"><code class="language-c++">#include <Windows.h>
+#include <stdio.h>
+
+DWORD jump = 0;
+
+__declspec(naked) void Transfer()&#123;
+    __asm&#123;
+        mov edi, edi
+        push ebp
+        mov ebp, esp
+        mov ebx, jump
+        jmp ebx
+    &#125;
+&#125;
+
+bool APIENTRY DllMain(HANDLE handle, DWORD dword, LPVOID lpvoid)
+&#123;
+    HMODULE hwnd = GetModuleHandle(TEXT("user32.dll"));
+    DWORD base = (DWORD)GetProcAddress(hwnd, "MessageBoxA");
+_
+        // value 是要jmp 的中转函数的地址
+        DWORD value = (DWORD)Transfer - base - 5;
+
+        // jmp 为函数结束的地址
+        jump = base + 0x1a;
+
+        // base 为原来MessageBoxA 的地址
+        __asm&#123;
+            mov eax, base
+            // 覆盖原来Messagebox的指令，第一个为 0xe9 , 也就是 jmp
+            mov byte ptr[eax], 0xe9
+            
+            // 要 jmp 的地址
+            inc eax
+            // 值
+            mov ebx, value
+            mov dword ptr[eax], ebx
+        &#125;
+        VirtualProtect((LPVOID)base, 5, oldProtect, &oldProtect);
+    &#125;
+    return true;
+&#125;
+</code></pre>
+</div><script src="/js/jquery.min.js"></script><script src="/js/main.js"></script></body></html>
