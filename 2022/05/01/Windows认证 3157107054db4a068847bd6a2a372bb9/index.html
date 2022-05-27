@@ -3,7 +3,7 @@
 <p>本地认证中用来处理用户输入密码的进程即lsass.exe,密码会在这个进程中明文保存，供该进程将密码计算成NTLM Hash与sam进行比对。</p>
 <p>NTML 运算流程：</p>
 <p><code>用户密码-&gt;HEX编码-&gt;Unicode编码-&gt;MD4</code></p>
-<p><img src="/2022/05/26/Windows%E8%AE%A4%E8%AF%81%203157107054db4a068847bd6a2a372bb9/Untitled.png" alt="Untitled"></p>
+<p><img src="/2022/05/01/Windows%E8%AE%A4%E8%AF%81%203157107054db4a068847bd6a2a372bb9/Untitled.png" alt="Untitled"></p>
 <h1 id="二、网络认证-NTML"><a href="#二、网络认证-NTML" class="headerlink" title="二、网络认证 (NTML)"></a>二、网络认证 (NTML)</h1><p>网络认证即在工作组环境下远程登陆另一台电脑所采用的认证机制</p>
 <p>NTLM协议的认证过程分为三步，也叫挑战相应机制：</p>
 <ul>
@@ -28,7 +28,7 @@
 <p><code>其中的关键点在于：第二步中客户端发送的是NTLM哈希值与随机字符串加密的结果，而这个NTLM哈希是由用户输入的密码本地计算得出的，所以在这个步骤中，只要能提供正确的NTLM哈希即使不知道正确的密码也可通过认证，这也是能进行PTH攻击的原因。</code></p>
 <p>批量安装的机器可能账户密码信息都是一样的，所以可以用Hash去传递登陆。</p>
 <h1 id="三、域认证（Kerberos"><a href="#三、域认证（Kerberos" class="headerlink" title="三、域认证（Kerberos)"></a>三、域认证（Kerberos)</h1><p>简单概述：</p>
-<p><img src="/2022/05/26/Windows%E8%AE%A4%E8%AF%81%203157107054db4a068847bd6a2a372bb9/Untitled%201.png" alt="Untitled"></p>
+<p><img src="/2022/05/01/Windows%E8%AE%A4%E8%AF%81%203157107054db4a068847bd6a2a372bb9/Untitled%201.png" alt="Untitled"></p>
 <blockquote>
 <p>简单说：</p>
 </blockquote>
