@@ -10,7 +10,7 @@ int main()
     system("pause");
     MessageBoxA(NULL, "nnn", "xxxx", MB_OK);
 &#125;
-</code></pre>
+</Windows.h></iostream></code></pre>
 <p>在xdbg中查看调用MessageBoxA实际是在调用 call dword ptr ds:[0x4DB098]， 0x4DB098地址是通过相对偏移计算来的，值指向真正的MessageBox函数的地址，在本程序里面调用MessageBox这个API最终都会到这个地方，也就是0x76B70A50，所以我们修改这个函数的值就能控制程序的流程了。</p>
 <p><img src="/2022/05/17/X86%E4%B8%A4%E7%A7%8D%E5%B8%B8%E8%A7%81%E7%9A%84Hook%E6%96%B9%E5%BC%8F/image-20220517150158363.png" alt="image-20220517150158363"></p>
 <p><img src="/2022/05/17/X86%E4%B8%A4%E7%A7%8D%E5%B8%B8%E8%A7%81%E7%9A%84Hook%E6%96%B9%E5%BC%8F/image-20220517151226338.png" alt="image-20220517151226338"></p>
@@ -85,7 +85,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD  ul_reason_for_call, LPVOID lpReser
     IATHook();
     return TRUE;
 &#125;
-</code></pre>
+</Windows.h></stdio.h></code></pre>
 <h1 id="0x3-InlineHook"><a href="#0x3-InlineHook" class="headerlink" title="0x3 InlineHook"></a>0x3 InlineHook</h1><pre class=" language-c++"><code class="language-c++">#include <Windows.h>
 #include <stdio.h>
 
@@ -128,5 +128,5 @@ _
     &#125;
     return true;
 &#125;
-</code></pre>
+</stdio.h></Windows.h></code></pre>
 </div><script src="/js/jquery.min.js"></script><script src="/js/main.js"></script></body></html>
