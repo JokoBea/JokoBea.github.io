@@ -11,7 +11,7 @@
 </ul>
 <p>段机制是必须的，而且无法关闭，页机制是可选的。</p>
 <p>段和页之间的关系：</p>
-<p><img src="/2022/05/26/%E4%BF%9D%E6%8A%A4%E6%A8%A1%E5%BC%8F%206c989e233efa4460b95e009eda61b446/Untitled.png" alt="Untitled"></p>
+<p><img src="/2022/03/02/%E4%BF%9D%E6%8A%A4%E6%A8%A1%E5%BC%8F%206c989e233efa4460b95e009eda61b446/Untitled.png" alt="Untitled"></p>
 <h1 id="2-段机制"><a href="#2-段机制" class="headerlink" title="2. 段机制"></a>2. 段机制</h1><p>分段机制将内存（线性地址空间）划分为更小的受保护的内存块，以<strong>起始地址</strong>和<strong>长度限制</strong>这两个参数表示的内存块，可以用来存放code 、data、stake 、TSS或者LDT等，这些内存块就称之为<strong>段</strong>（Segment）。编译器把源程序编译成执行程序时用到的代码段、数据段、堆和栈等概念在这里可以与段联系起来，二者在含义上是一致的。从操作系统原理上看，编译器实际上采用了基于分段的虚存管理方式来生成执行程序的，即应用程序员看到的逻辑地址和位于计算机上的物理地址之间有映射关系，二者可以是不同的。</p>
 <p>段寄存器一共有8个： ES、CS、SS、DS、FS、GS、LDTR、TR</p>
 <h2 id="2-1-段寄存器的结构"><a href="#2-1-段寄存器的结构" class="headerlink" title="2.1  段寄存器的结构"></a>2.1  段寄存器的结构</h2><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">Segment</span></span></span><br><span class="line"><span class="class">&#123;</span></span><br><span class="line">    WORD Selecter;   <span class="comment">//16位的可见部分，段选择子</span></span><br><span class="line">    WORD Atrributes; <span class="comment">//16位的属性</span></span><br><span class="line">    DWORD Base;      <span class="comment">//32位的Base(从什么地方开始)</span></span><br><span class="line">    DWORD Limit;     <span class="comment">//32位的Limit(长度)</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
@@ -19,21 +19,21 @@
 <p><code>mov dword ptr ds:[0x123456],eax</code> </p>
 <p>真正读写的地址是 ds.base + 0x123456</p>
 <h3 id="2-1-1-Segment-Register-Selecter"><a href="#2-1-1-Segment-Register-Selecter" class="headerlink" title="2.1.1 Segment Register Selecter"></a>2.1.1 Segment Register Selecter</h3><p>Selecter, 段选择子的结构，16位的可见数，作为段描述符表中的索引去搜索段。这个值就是MOV DS,AX给的AX的值，从这个值中取赋值剩下的80位(96-16)。</p>
-<p><img src="/2022/05/26/%E4%BF%9D%E6%8A%A4%E6%A8%A1%E5%BC%8F%206c989e233efa4460b95e009eda61b446/Untitled%201.png" alt="Untitled"></p>
+<p><img src="/2022/03/02/%E4%BF%9D%E6%8A%A4%E6%A8%A1%E5%BC%8F%206c989e233efa4460b95e009eda61b446/Untitled%201.png" alt="Untitled"></p>
 <ul>
 <li>RPL：The requested Privilege Level of the Selector , 请求特权级别。</li>
 <li>TI：TI=0 查GDT表，TI=1 查LDT表。</li>
 <li>Index： 处理器将索引值乘以8在加上GDT或者LDT的基地址，就是要加载的段描述符</li>
 </ul>
 <p>段描述符表：</p>
-<p><img src="/2022/05/26/%E4%BF%9D%E6%8A%A4%E6%A8%A1%E5%BC%8F%206c989e233efa4460b95e009eda61b446/Untitled%202.png" alt="Untitled"></p>
+<p><img src="/2022/03/02/%E4%BF%9D%E6%8A%A4%E6%A8%A1%E5%BC%8F%206c989e233efa4460b95e009eda61b446/Untitled%202.png" alt="Untitled"></p>
 <p>段选择子解析:</p>
 <ul>
 <li>0x1B  0000 0000 0001 1011  RPL → 11 → 值为3，表示为3环的应用程序  TI → 0 → 表示去GDT表中找   Index → 0000 0000 0001 1 → 3 ， 表示在gdt表中的第三个描述符 00cf9300`0000ffff</li>
 <li>0x23  0000 0000 0010 0011  RPL , 3  TI ， GDT表  index , 2 , gdt表中的第 2 个 , 00cf9b00`0000ffff</li>
 </ul>
 <h3 id="2-2-2-Segment-Register-Atrributes"><a href="#2-2-2-Segment-Register-Atrributes" class="headerlink" title="2.2.2 Segment Register Atrributes"></a>2.2.2 Segment Register Atrributes</h3><ul>
-<li>xp sp3 下的段寄存器属性：  <img src="/2022/05/26/%E4%BF%9D%E6%8A%A4%E6%A8%A1%E5%BC%8F%206c989e233efa4460b95e009eda61b446/Untitled%203.png" alt="Untitled"></li>
+<li>xp sp3 下的段寄存器属性：  <img src="/2022/03/02/%E4%BF%9D%E6%8A%A4%E6%A8%A1%E5%BC%8F%206c989e233efa4460b95e009eda61b446/Untitled%203.png" alt="Untitled"></li>
 <li>证明寄存器的读写权限</li>
 </ul>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">()</span></span>&#123;</span><br><span class="line">    <span class="keyword">int</span> var = <span class="number">0</span>;</span><br><span class="line">    __asm&#123;</span><br><span class="line">			mov ax,ss                <span class="comment">// 证明ss可读可写, cs不可写</span></span><br><span class="line">			mov ds,ax</span><br><span class="line">			mov dword ptr ds:[var],eax</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
@@ -75,10 +75,10 @@
 <p><code>dq 8003f000</code>           以8字节为单位查看</p>
 <p><code>dq 8003f000 L40</code>   看40组数据</p>
 <p>段描述符表：</p>
-<p><img src="/2022/05/26/%E4%BF%9D%E6%8A%A4%E6%A8%A1%E5%BC%8F%206c989e233efa4460b95e009eda61b446/Untitled%204.png" alt="Untitled"></p>
+<p><img src="/2022/03/02/%E4%BF%9D%E6%8A%A4%E6%A8%A1%E5%BC%8F%206c989e233efa4460b95e009eda61b446/Untitled%204.png" alt="Untitled"></p>
 <p>段描述符的结构：</p>
 <p>前面四个字节(高，左八位数)是图上面32位，后面四个字节(低，右八位数)是图下面四个字节。</p>
-<p><img src="/2022/05/26/%E4%BF%9D%E6%8A%A4%E6%A8%A1%E5%BC%8F%206c989e233efa4460b95e009eda61b446/Untitled%205.png" alt="Untitled"></p>
+<p><img src="/2022/03/02/%E4%BF%9D%E6%8A%A4%E6%A8%A1%E5%BC%8F%206c989e233efa4460b95e009eda61b446/Untitled%205.png" alt="Untitled"></p>
 <h3 id="2-4-1-段描述符与段寄存器的对应关系"><a href="#2-4-1-段描述符与段寄存器的对应关系" class="headerlink" title="2.4.1 段描述符与段寄存器的对应关系"></a>2.4.1 段描述符与段寄存器的对应关系</h3><table>
 <thead>
 <tr>
@@ -119,10 +119,10 @@
 <p>第11位为0，则表示为数据段</p>
 <p>第11位为1，则表示为代码段</p>
 <p>所以00cf9<strong>b</strong>00`0000ffff ，该位大于、等于8时为代码段，小于则为数据段</p>
-<p><img src="/2022/05/26/%E4%BF%9D%E6%8A%A4%E6%A8%A1%E5%BC%8F%206c989e233efa4460b95e009eda61b446/Untitled%206.png" alt="Untitled"></p>
+<p><img src="/2022/03/02/%E4%BF%9D%E6%8A%A4%E6%A8%A1%E5%BC%8F%206c989e233efa4460b95e009eda61b446/Untitled%206.png" alt="Untitled"></p>
 <p><strong>数据段描述符（EWA）：</strong></p>
 <ul>
-<li>E，表示扩展方向，E = 0 ,向上扩展，E = 1 向下扩展  <img src="/2022/05/26/%E4%BF%9D%E6%8A%A4%E6%A8%A1%E5%BC%8F%206c989e233efa4460b95e009eda61b446/Untitled%207.png" alt="Untitled"></li>
+<li>E，表示扩展方向，E = 0 ,向上扩展，E = 1 向下扩展  <img src="/2022/03/02/%E4%BF%9D%E6%8A%A4%E6%A8%A1%E5%BC%8F%206c989e233efa4460b95e009eda61b446/Untitled%207.png" alt="Untitled"></li>
 <li>W，是否可写入，W = 1可写</li>
 <li>A，访问位，该段是否被访问过，每当处理器将该段选择符置入某个段寄存器时，就将该位置为1。</li>
 </ul>
@@ -148,7 +148,7 @@
 <li>A，访问位</li>
 </ul>
 <p><strong>Type域，当S=0时，表示为系统的门描述符</strong></p>
-<p><img src="/2022/05/26/%E4%BF%9D%E6%8A%A4%E6%A8%A1%E5%BC%8F%206c989e233efa4460b95e009eda61b446/Untitled%208.png" alt="Untitled"></p>
+<p><img src="/2022/03/02/%E4%BF%9D%E6%8A%A4%E6%A8%A1%E5%BC%8F%206c989e233efa4460b95e009eda61b446/Untitled%208.png" alt="Untitled"></p>
 <h3 id="2-4-4-DPL位"><a href="#2-4-4-DPL位" class="headerlink" title="2.4.4 DPL位"></a>2.4.4 DPL位</h3><p>DPL，在段描述符中，定义访问该段需要的什么样段权限。</p>
 <p>RPL，在段选择子中，表示用什么权限去访问该段。</p>
 <p>CPL , CPU当前的运行级别</p>
@@ -161,7 +161,7 @@
 <li>如果是非一致代码段，要求：**<code>CPL</code><strong>==</strong><code>DPL</code><strong>且</strong><code>RPL</code><strong>&lt;=</strong><code>DPL</code>**</li>
 <li>如果是一致代码段，要求：**<code>CPL</code><strong>&gt;=</strong><code>DPL</code>**</li>
 </ul>
-<p><img src="/2022/05/26/%E4%BF%9D%E6%8A%A4%E6%A8%A1%E5%BC%8F%206c989e233efa4460b95e009eda61b446/Untitled%209.png" alt="Untitled"></p>
+<p><img src="/2022/03/02/%E4%BF%9D%E6%8A%A4%E6%A8%A1%E5%BC%8F%206c989e233efa4460b95e009eda61b446/Untitled%209.png" alt="Untitled"></p>
 <p>CS = 001B ， 0000 0001 1011 , RPL = 3 ，表示当前运行的为三环程序</p>
 <h3 id="2-4-6-段间跳转"><a href="#2-4-6-段间跳转" class="headerlink" title="2.4.6 段间跳转"></a>2.4.6 段间跳转</h3><blockquote>
 <p>补充，代码执行，段内跳转 与 段间跳转<br>代码执行，就是 CS + EIP 跳转执行<br>段内跳转，不需要更改CS段的值，在段内跳转，指令有： <strong>jmp near ptr</strong> target<br>段间跳转，需要同时更改CS 和 EIP的值，指令: <strong>jmp far /call far / retf /int</strong> target , 要跳转的段是一致代码段或者非一致代码段，权限检查有所不同</p>
@@ -180,14 +180,14 @@
 <ul>
 <li>短调用，比如 <code>call 立即数/寄存器/内存</code> , 堆栈变化如下：</li>
 </ul>
-<p><img src="/2022/05/26/%E4%BF%9D%E6%8A%A4%E6%A8%A1%E5%BC%8F%206c989e233efa4460b95e009eda61b446/Untitled%2010.png" alt="Untitled"></p>
+<p><img src="/2022/03/02/%E4%BF%9D%E6%8A%A4%E6%A8%A1%E5%BC%8F%206c989e233efa4460b95e009eda61b446/Untitled%2010.png" alt="Untitled"></p>
 <p>调用**<code>CALL</code><strong>指令之后，</strong><code>CPU</code><strong>只将当前的</strong><code>EIP</code><strong>压入堆栈后跳转到目标地址，发生改变的寄存器只有</strong><code>ESP</code><strong>和</strong><code>EIP</code>**，即所谓的短调用。</p>
 <ul>
 <li>长调用分为两种，一种提权，一种不提权，调用格式为：指令格式：**<code>CALL CS:EIP</code><strong>，其中</strong><code>EIP</code><strong>是废弃的，</strong><code>CS</code><strong>为指向</strong><code>调用门</code><strong>的段选择子。但是值得注意的是</strong><code>CS</code><strong>一旦更换，它的</strong><code>EIP</code><strong>和</strong><code>SS</code><strong>要同时更换。在代码执行的时候，一定会用到堆栈，堆栈的段权限必须与</strong><code>CS</code><strong>匹配，这就是为什么</strong><code>SS</code>**必须更换。<ul>
-<li>长调用不提权，发生变化的有 ESP、CS、EIP  <img src="/2022/05/26/%E4%BF%9D%E6%8A%A4%E6%A8%A1%E5%BC%8F%206c989e233efa4460b95e009eda61b446/Untitled%2011.png" alt="Untitled"></li>
+<li>长调用不提权，发生变化的有 ESP、CS、EIP  <img src="/2022/03/02/%E4%BF%9D%E6%8A%A4%E6%A8%A1%E5%BC%8F%206c989e233efa4460b95e009eda61b446/Untitled%2011.png" alt="Untitled"></li>
 <li>长调用提权，发生变化的有ESP、SS、CS、EIP，当权限改变时就需要切换堆栈</li>
 </ul>
-  <img src="/2022/05/26/%E4%BF%9D%E6%8A%A4%E6%A8%A1%E5%BC%8F%206c989e233efa4460b95e009eda61b446/Untitled%2012.png" alt="Untitled">  <img src="/2022/05/26/%E4%BF%9D%E6%8A%A4%E6%A8%A1%E5%BC%8F%206c989e233efa4460b95e009eda61b446/Untitled%2013.png" alt="Untitled"></li>
+  <img src="/2022/03/02/%E4%BF%9D%E6%8A%A4%E6%A8%A1%E5%BC%8F%206c989e233efa4460b95e009eda61b446/Untitled%2012.png" alt="Untitled">  <img src="/2022/03/02/%E4%BF%9D%E6%8A%A4%E6%A8%A1%E5%BC%8F%206c989e233efa4460b95e009eda61b446/Untitled%2013.png" alt="Untitled"></li>
 </ul>
 <p><strong>总结：</strong></p>
 <ol>
@@ -203,7 +203,7 @@
 <li><strong>Segenment Selector是段选择子，这里要将权限设置为0环。</strong></li>
 </ol>
 <p>调用门：S=0 ， Type =1100</p>
-<p><img src="/2022/05/26/%E4%BF%9D%E6%8A%A4%E6%A8%A1%E5%BC%8F%206c989e233efa4460b95e009eda61b446/Untitled%2014.png" alt="Untitled"></p>
+<p><img src="/2022/03/02/%E4%BF%9D%E6%8A%A4%E6%A8%A1%E5%BC%8F%206c989e233efa4460b95e009eda61b446/Untitled%2014.png" alt="Untitled"></p>
 <blockquote>
 <p>offset 为EIP<br>Segment Selector 是另外一个代码段的段选择子</p>
 </blockquote>
@@ -221,11 +221,11 @@
 <p>中断表，IDT表，里面有三种门描述符：任务门、中断门、陷阱门，区别在于type域不同，每个描述符占用8个字节，Windows使用中断门用于系统调用和调用。</p>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">r idtr</span><br><span class="line">r idtl</span><br></pre></td></tr></table></figure>
 
-<p><img src="/2022/05/26/%E4%BF%9D%E6%8A%A4%E6%A8%A1%E5%BC%8F%206c989e233efa4460b95e009eda61b446/Untitled%2015.png" alt="Untitled"></p>
-<p><img src="/2022/05/26/%E4%BF%9D%E6%8A%A4%E6%A8%A1%E5%BC%8F%206c989e233efa4460b95e009eda61b446/Untitled%2016.png" alt="Untitled"></p>
+<p><img src="/2022/03/02/%E4%BF%9D%E6%8A%A4%E6%A8%A1%E5%BC%8F%206c989e233efa4460b95e009eda61b446/Untitled%2015.png" alt="Untitled"></p>
+<p><img src="/2022/03/02/%E4%BF%9D%E6%8A%A4%E6%A8%A1%E5%BC%8F%206c989e233efa4460b95e009eda61b446/Untitled%2016.png" alt="Untitled"></p>
 <ul>
 <li>指令格式，<code>INT N</code>  , N为中断表索引号</li>
-<li>执行步骤：  <img src="/2022/05/26/%E4%BF%9D%E6%8A%A4%E6%A8%A1%E5%BC%8F%206c989e233efa4460b95e009eda61b446/Untitled%2017.png" alt="Untitled"><ul>
+<li>执行步骤：  <img src="/2022/03/02/%E4%BF%9D%E6%8A%A4%E6%A8%A1%E5%BC%8F%206c989e233efa4460b95e009eda61b446/Untitled%2017.png" alt="Untitled"><ul>
 <li>在没有权限切换时，会向堆栈顺次压入**<code>EFLAG</code><strong>、</strong><code>CS</code><strong>和</strong><code>EIP</code><strong>；如果有权限切换，会向堆栈顺次压入</strong><code>SS</code><strong>、</strong><code>ESP</code><strong>、</strong><code>EFLAG</code><strong>、</strong><code>CS</code><strong>和</strong><code>EIP</code>**。</li>
 <li>**<code>CPU</code><strong>会索引到</strong><code>IDT</code><strong>表。后面的</strong><code>N</code><strong>表示查</strong><code>IDT表</code><strong>项的下标。对比调用门，中断门没有了</strong><code>RPL</code><strong>，故</strong><code>CPU</code><strong>只会校验</strong><code>CPL</code>**。</li>
 <li>在中断门中,不能通过**<code>RETF</code><strong>返回，而应该通过</strong><code>IRET</code><strong>/</strong><code>IRETD</code>**指令返回。<ul>
@@ -235,13 +235,13 @@
 </ul>
 </li>
 </ul>
-<h3 id="2-5-4-陷阱门"><a href="#2-5-4-陷阱门" class="headerlink" title="2.5.4 陷阱门"></a>2.5.4 陷阱门</h3><p><img src="/2022/05/26/%E4%BF%9D%E6%8A%A4%E6%A8%A1%E5%BC%8F%206c989e233efa4460b95e009eda61b446/Untitled%2018.png" alt="Untitled"></p>
+<h3 id="2-5-4-陷阱门"><a href="#2-5-4-陷阱门" class="headerlink" title="2.5.4 陷阱门"></a>2.5.4 陷阱门</h3><p><img src="/2022/03/02/%E4%BF%9D%E6%8A%A4%E6%A8%A1%E5%BC%8F%206c989e233efa4460b95e009eda61b446/Untitled%2018.png" alt="Untitled"></p>
 <p>陷阱门执行流程一模一样。与中断门的区别，中断门执行时，将**<code>IF位</code>**清零,但陷阱门不会。</p>
 <h3 id="2-5-5-任务段"><a href="#2-5-5-任务段" class="headerlink" title="2.5.5 任务段"></a>2.5.5 任务段</h3><p>TSS(Task-state segment )，任务状态段，Intel设计用来做进程切换，实际Windows和Linux都没有使用，TSS就是一块内存，大小为104字节，这个大小只能比104字节大，不能小于104字节，用来存一堆寄存器的值。</p>
 <ul>
 <li>TSS段寄存器</li>
 </ul>
-<p><img src="/2022/05/26/%E4%BF%9D%E6%8A%A4%E6%A8%A1%E5%BC%8F%206c989e233efa4460b95e009eda61b446/Untitled%2019.png" alt="Untitled"></p>
+<p><img src="/2022/03/02/%E4%BF%9D%E6%8A%A4%E6%A8%A1%E5%BC%8F%206c989e233efa4460b95e009eda61b446/Untitled%2019.png" alt="Untitled"></p>
 <ul>
 <li>TSS结构体  <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">typedef</span> <span class="class"><span class="keyword">struct</span> <span class="title">TSS</span> &#123;</span></span><br><span class="line">    DWORD link; <span class="comment">// 保存前一个 TSS 段选择子，使用 call 指令切换寄存器的时候由CPU填写。</span></span><br><span class="line">    <span class="comment">// 这 6 个值是固定不变的，用于提权，CPU 切换栈的时候用</span></span><br><span class="line">    DWORD esp0; <span class="comment">// 保存 0 环栈指针</span></span><br><span class="line">    DWORD ss0;  <span class="comment">// 保存 0 环栈段选择子</span></span><br><span class="line">    DWORD esp1; <span class="comment">// 保存 1 环栈指针</span></span><br><span class="line">    DWORD ss1;  <span class="comment">// 保存 1 环栈段选择子</span></span><br><span class="line">    DWORD esp2; <span class="comment">// 保存 2 环栈指针</span></span><br><span class="line">    DWORD ss2;  <span class="comment">// 保存 2 环栈段选择子</span></span><br><span class="line">    <span class="comment">// 下面这些都是用来做切换寄存器值用的，切换寄存器的时候由CPU自动填写。</span></span><br><span class="line">    DWORD cr3; </span><br><span class="line">    DWORD eip;  </span><br><span class="line">    DWORD eflags;</span><br><span class="line">    DWORD eax;</span><br><span class="line">    DWORD ecx;</span><br><span class="line">    DWORD edx;</span><br><span class="line">    DWORD ebx;</span><br><span class="line">    DWORD esp;</span><br><span class="line">    DWORD ebp;</span><br><span class="line">    DWORD esi;</span><br><span class="line">    DWORD edi;</span><br><span class="line">    DWORD es;</span><br><span class="line">    DWORD cs;</span><br><span class="line">    DWORD ss;</span><br><span class="line">    DWORD ds;</span><br><span class="line">    DWORD fs;</span><br><span class="line">    DWORD gs;</span><br><span class="line">    DWORD ldt_selector;<span class="comment">//ldt段选择子,用于换ldtr寄存器，一个TSS对应一个LDT表，就算你有100个任务，那么ldtr寄存器里面存储的也是当前ldt表，也就是任务切换时，LDT表会切换，但GDT表不会切换</span></span><br><span class="line">    <span class="comment">// 这个暂时忽略</span></span><br><span class="line">    DWORD io_map;</span><br><span class="line">&#125; TSS;</span><br></pre></td></tr></table></figure>
 </li>
@@ -250,11 +250,11 @@
 <li>tr寄存器的值是从TSS段描述符中加载出来的。</li>
 <li>TSS任务段的base和limit是从tr寄存器中读取出来的。</li>
 </ol>
-  <img src="/2022/05/26/%E4%BF%9D%E6%8A%A4%E6%A8%A1%E5%BC%8F%206c989e233efa4460b95e009eda61b446/Untitled%2020.png" alt="Untitled"><blockquote>
+  <img src="/2022/03/02/%E4%BF%9D%E6%8A%A4%E6%A8%A1%E5%BC%8F%206c989e233efa4460b95e009eda61b446/Untitled%2020.png" alt="Untitled"><blockquote>
 <p>在操作系统启动时，会从gdt表中找到TSS段描述符，将该描述符加载到tr寄存器中，确定了tr寄存器也就确定了当前TSS任务段在什么位置以及有多大。</p>
 </blockquote>
 </li>
-<li>TSS段描述符  <img src="/2022/05/26/%E4%BF%9D%E6%8A%A4%E6%A8%A1%E5%BC%8F%206c989e233efa4460b95e009eda61b446/Untitled%2021.png" alt="Untitled"><blockquote>
+<li>TSS段描述符  <img src="/2022/03/02/%E4%BF%9D%E6%8A%A4%E6%A8%A1%E5%BC%8F%206c989e233efa4460b95e009eda61b446/Untitled%2021.png" alt="Untitled"><blockquote>
 <p>高四字节的第9位是一个判断位，如果此时该TSS段描述符已经被加载到tr寄存器中，那么该位为1，16进制下为B。如果该TSS段描述符没有被加载到tr寄存器中，那么该位为0，16进制下为9。</p>
 </blockquote>
 </li>
