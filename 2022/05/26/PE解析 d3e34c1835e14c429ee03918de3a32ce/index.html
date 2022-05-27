@@ -14,17 +14,8 @@
 <p>用xdbg查看这个地址：</p>
 <p><img src="/2022/05/26/PE%E8%A7%A3%E6%9E%90%20d3e34c1835e14c429ee03918de3a32ce/Untitled%203.png" alt="Untitled"></p>
 <p>导入表的结构，5个DWORD元素，一个导入表占20个字节。</p>
-<pre class=" language-cpp"><code class="language-cpp"><span class="token keyword">typedef</span> <span class="token keyword">struct</span> _IMAGE_IMPORT_DESCRIPTOR <span class="token operator">&amp;</span>#<span class="token number">123</span><span class="token punctuation">;</span>
-    <span class="token keyword">union</span> <span class="token operator">&amp;</span>#<span class="token number">123</span><span class="token punctuation">;</span>
-        DWORD   Characteristics<span class="token punctuation">;</span>
-        DWORD   OriginalFirstThunk<span class="token punctuation">;</span>         <span class="token comment" spellcheck="true">// 指向导入表名称的RVA</span>
-    <span class="token operator">&amp;</span>#<span class="token number">125</span><span class="token punctuation">;</span> DUMMYUNIONNAME<span class="token punctuation">;</span>
-    DWORD   TimeDateStamp<span class="token punctuation">;</span>                  <span class="token comment" spellcheck="true">// 默认为0（非重点）</span>
-    DWORD   ForwarderChain<span class="token punctuation">;</span>                 <span class="token comment" spellcheck="true">// 默认为0（非重点）</span>
-    DWORD   Name<span class="token punctuation">;</span>                           <span class="token comment" spellcheck="true">// 指向DLL名字的RVA</span>
-    DWORD   FirstThunk<span class="token punctuation">;</span>                     <span class="token comment" spellcheck="true">// 导入地址表IAT的RVA</span>
-<span class="token operator">&amp;</span>#<span class="token number">125</span><span class="token punctuation">;</span> IMAGE_IMPORT_DESCRIPTOR<span class="token punctuation">;</span>
-</code></pre>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">typedef</span> <span class="class"><span class="keyword">struct</span> _<span class="title">IMAGE_IMPORT_DESCRIPTOR</span> &#123;</span></span><br><span class="line">    <span class="class"><span class="keyword">union</span> &#123;</span></span><br><span class="line">        DWORD   Characteristics;</span><br><span class="line">        DWORD   OriginalFirstThunk;         <span class="comment">// 指向导入表名称的RVA</span></span><br><span class="line">    &#125; DUMMYUNIONNAME;</span><br><span class="line">    DWORD   TimeDateStamp;                  <span class="comment">// 默认为0（非重点）</span></span><br><span class="line">    DWORD   ForwarderChain;                 <span class="comment">// 默认为0（非重点）</span></span><br><span class="line">    DWORD   Name;                           <span class="comment">// 指向DLL名字的RVA</span></span><br><span class="line">    DWORD   FirstThunk;                     <span class="comment">// 导入地址表IAT的RVA</span></span><br><span class="line">&#125; IMAGE_IMPORT_DESCRIPTOR;</span><br></pre></td></tr></table></figure>
+
 <p><img src="/2022/05/26/PE%E8%A7%A3%E6%9E%90%20d3e34c1835e14c429ee03918de3a32ce/Untitled%204.png" alt="Untitled"></p>
 <blockquote>
 <p>第一个导入表（小端序，且都是RVA）：</p>
@@ -40,21 +31,8 @@
 <p>方式二，在<code>xdbg</code>中查看call 调用，也可以看到<code>call MessageBoxw</code> 实际是<code>call ds:[0x41B098]</code> 也就是第一个导入表中的FirstThunk，这个地址的值为 <code>user32.MessageBoxW</code></p>
 <p><img src="/2022/05/26/PE%E8%A7%A3%E6%9E%90%20d3e34c1835e14c429ee03918de3a32ce/Untitled%207.png" alt="Untitled"></p>
 <p>另外补充导入表中的OriginalFirstThunk，实际指向结构体IMAGE_THUNK_DATA</p>
-<pre class=" language-cpp"><code class="language-cpp"><span class="token keyword">typedef</span> <span class="token keyword">struct</span> _IMAGE_THUNK_DATA32 <span class="token operator">&amp;</span>#<span class="token number">123</span><span class="token punctuation">;</span>
-    <span class="token keyword">union</span> <span class="token operator">&amp;</span>#<span class="token number">123</span><span class="token punctuation">;</span>
-        DWORD ForwarderString<span class="token punctuation">;</span>      <span class="token comment" spellcheck="true">// PBYTE </span>
-        DWORD Function<span class="token punctuation">;</span>             <span class="token comment" spellcheck="true">// PDWORD</span>
-        DWORD Ordinal<span class="token punctuation">;</span>              <span class="token comment" spellcheck="true">// 序号</span>
-        DWORD AddressOfData<span class="token punctuation">;</span>        <span class="token comment" spellcheck="true">// 指向 PIMAGE_IMPORT_BY_NAME</span>
-    <span class="token operator">&amp;</span>#<span class="token number">125</span><span class="token punctuation">;</span> u1<span class="token punctuation">;</span>
-<span class="token operator">&amp;</span>#<span class="token number">125</span><span class="token punctuation">;</span> IMAGE_THUNK_DATA32<span class="token punctuation">;</span>
-<span class="token keyword">typedef</span> IMAGE_THUNK_DATA32 <span class="token operator">*</span> PIMAGE_THUNK_DATA32<span class="token punctuation">;</span>
-</code></pre>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">typedef</span> <span class="class"><span class="keyword">struct</span> _<span class="title">IMAGE_THUNK_DATA32</span> &#123;</span></span><br><span class="line">    <span class="class"><span class="keyword">union</span> &#123;</span></span><br><span class="line">        DWORD ForwarderString;      <span class="comment">// PBYTE </span></span><br><span class="line">        DWORD Function;             <span class="comment">// PDWORD</span></span><br><span class="line">        DWORD Ordinal;              <span class="comment">// 序号</span></span><br><span class="line">        DWORD AddressOfData;        <span class="comment">// 指向 PIMAGE_IMPORT_BY_NAME</span></span><br><span class="line">    &#125; u1;</span><br><span class="line">&#125; IMAGE_THUNK_DATA32;</span><br><span class="line"><span class="keyword">typedef</span> IMAGE_THUNK_DATA32 * PIMAGE_THUNK_DATA32;</span><br></pre></td></tr></table></figure>
+
 <p><img src="/2022/05/26/PE%E8%A7%A3%E6%9E%90%20d3e34c1835e14c429ee03918de3a32ce/Untitled%208.png" alt="Untitled"></p>
 <p>该结构中我们需要关注<code>AddressOfData</code>结构成员，该成员中的数据最高位（红色）如果为1(去掉1)说明是函数的导出序号，而如果最高位为0则说明是一个指向<code>IMAGE_IMPROT_BY_NAME</code>结构(导入表)的RVA（蓝色）地址，此处因为我们找的是导入表所以最高位全部为零。</p>
-<pre class=" language-cpp"><code class="language-cpp"><span class="token keyword">typedef</span> <span class="token keyword">struct</span> _IMAGE_IMPORT_BY_NAME <span class="token operator">&amp;</span>#<span class="token number">123</span><span class="token punctuation">;</span>
-    WORD    Hint<span class="token punctuation">;</span>       <span class="token comment" spellcheck="true">// 编译器生成的</span>
-    CHAR    Name<span class="token punctuation">[</span><span class="token number">1</span><span class="token punctuation">]</span><span class="token punctuation">;</span>  <span class="token comment" spellcheck="true">// 函数名称，以0结尾的字符串</span>
-<span class="token operator">&amp;</span>#<span class="token number">125</span><span class="token punctuation">;</span> IMAGE_IMPORT_BY_NAME<span class="token punctuation">,</span> <span class="token operator">*</span>PIMAGE_IMPORT_BY_NAME<span class="token punctuation">;</span>
-</code></pre>
-</div><script src="/js/jquery.min.js"></script><script src="/js/main.js"></script></body></html>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">typedef</span> <span class="class"><span class="keyword">struct</span> _<span class="title">IMAGE_IMPORT_BY_NAME</span> &#123;</span></span><br><span class="line">    WORD    Hint;       <span class="comment">// 编译器生成的</span></span><br><span class="line">    CHAR    Name[<span class="number">1</span>];  <span class="comment">// 函数名称，以0结尾的字符串</span></span><br><span class="line">&#125; IMAGE_IMPORT_BY_NAME, *PIMAGE_IMPORT_BY_NAME;</span><br></pre></td></tr></table></figure></div><script src="/js/jquery.min.js"></script><script src="/js/main.js"></script></body></html>

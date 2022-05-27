@@ -1,132 +1,22 @@
 <!DOCTYPE html><html lang="zh"><head><meta http-equiv="content-type" content="text/html; charset=utf-8"><meta name="viewport" content="width=device-width, initial-scale=0.5"><link rel="stylesheet" href="/css/post.css"><link rel="icon" href="/img/favicon.png"><title>X86两种常见的Hook方式</title><meta name="generator" content="Hexo 5.4.0"><link rel="stylesheet" href="/css/prism.css" type="text/css"></head><body>　　<div class="inner"><h2>X86两种常见的Hook方式</h2><h1 id="0x0-Hook相关的前置知识"><a href="#0x0-Hook相关的前置知识" class="headerlink" title="0x0 Hook相关的前置知识"></a>0x0 Hook相关的前置知识</h1><p>Hook翻译过来是钩子的意思，在Windows中程序是通过消息机制来传递的，也就是每一次鼠标点击、键盘敲击都会产生一次或多次消息，而Hook可以想象在这种消息的管道中，插入一个钩子，用来拦截、扩展处理等，有点像Java的Filter。</p>
 <p>实现这种拦截的方式和可拦截的地方很多，大多数是基于改变函数执行流程来实现的Hook，下面的IAT Hook、InlineHook也属于这种。</p>
 <h1 id="0x1-为什么能Hook"><a href="#0x1-为什么能Hook" class="headerlink" title="0x1 为什么能Hook"></a>0x1 为什么能Hook</h1><p>先看程序是如何执行API的，举个例子MessageBoxA是如何执行的，程序代码如下：</p>
-<pre class=" language-c++"><code class="language-c++">#include <iostream>
-#include <Windows.h>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;iostream&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;Windows.h&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">()</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="built_in">MessageBoxA</span>(<span class="literal">NULL</span>, <span class="string">&quot;nnn&quot;</span>, <span class="string">&quot;xxxx&quot;</span>, MB_OK);</span><br><span class="line">    <span class="built_in">system</span>(<span class="string">&quot;pause&quot;</span>);</span><br><span class="line">    <span class="built_in">MessageBoxA</span>(<span class="literal">NULL</span>, <span class="string">&quot;nnn&quot;</span>, <span class="string">&quot;xxxx&quot;</span>, MB_OK);</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
 
-int main()
-&#123;
-    MessageBoxA(NULL, "nnn", "xxxx", MB_OK);
-    system("pause");
-    MessageBoxA(NULL, "nnn", "xxxx", MB_OK);
-&#125;
-</Windows.h></iostream></code></pre>
 <p>在xdbg中查看调用MessageBoxA实际是在调用 call dword ptr ds:[0x4DB098]， 0x4DB098地址是通过相对偏移计算来的，值指向真正的MessageBox函数的地址，在本程序里面调用MessageBox这个API最终都会到这个地方，也就是0x76B70A50，所以我们修改这个函数的值就能控制程序的流程了。</p>
 <p><img src="/2022/05/17/X86%E4%B8%A4%E7%A7%8D%E5%B8%B8%E8%A7%81%E7%9A%84Hook%E6%96%B9%E5%BC%8F/image-20220517150158363.png" alt="image-20220517150158363"></p>
 <p><img src="/2022/05/17/X86%E4%B8%A4%E7%A7%8D%E5%B8%B8%E8%A7%81%E7%9A%84Hook%E6%96%B9%E5%BC%8F/image-20220517151226338.png" alt="image-20220517151226338"></p>
 <h1 id="0x2-IATHook"><a href="#0x2-IATHook" class="headerlink" title="0x2 IATHook"></a>0x2 IATHook</h1><p>IAT Hook这种方式，是通过修改程序的导入表的地址来使程序转入Hook的流程。</p>
-<pre class=" language-c++"><code class="language-c++">// dllmain.cpp : 定义 DLL 应用程序的入口点。
-#include "pch.h"
-#include <stdio.h>
-#include <Windows.h>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// dllmain.cpp : 定义 DLL 应用程序的入口点。</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&quot;pch.h&quot;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;stdio.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;Windows.h&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">typedef</span> <span class="title">int</span><span class="params">(WINAPI* pfMessageBoxA)</span><span class="params">(HWND, LPCSTR, LPCSTR, UINT)</span></span>;</span><br><span class="line">pfMessageBoxA OldMessageBoxA = <span class="literal">NULL</span>;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">int</span> WINAPI <span class="title">MyMessageBoxA</span><span class="params">(HWND hWnd, LPCSTR lpText, LPCSTR lpCaption, UINT uType)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	<span class="keyword">return</span> <span class="built_in">OldMessageBoxA</span>(hWnd, <span class="string">&quot;MessageBoxA Hooked&quot;</span>, lpCaption, uType);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function">PIMAGE_NT_HEADERS <span class="title">GetLocalNtHead</span><span class="params">()</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    DWORD dwTemp = <span class="literal">NULL</span>;</span><br><span class="line">    PIMAGE_DOS_HEADER pDosHead = <span class="literal">NULL</span>;</span><br><span class="line">    PIMAGE_NT_HEADERS pNtHead = <span class="literal">NULL</span>;</span><br><span class="line">    HMODULE ImageBase = <span class="built_in">GetModuleHandle</span>(<span class="literal">NULL</span>);                              <span class="comment">// 取自身ImageBase</span></span><br><span class="line">    pDosHead = (PIMAGE_DOS_HEADER)(DWORD)ImageBase;                         <span class="comment">// 取pDosHead地址</span></span><br><span class="line">    dwTemp = (DWORD)pDosHead + (DWORD)pDosHead-&gt;e_lfanew;</span><br><span class="line">    pNtHead = (PIMAGE_NT_HEADERS)dwTemp;                                    <span class="comment">// 取出NtHead头地址</span></span><br><span class="line">    <span class="keyword">return</span> pNtHead;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">IATHook</span><span class="params">()</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="comment">// 1. 找到要Hook的函数的地址</span></span><br><span class="line">    PVOID pFuncAddress = <span class="literal">NULL</span>;</span><br><span class="line">    pFuncAddress = <span class="built_in">GetProcAddress</span>(<span class="built_in">GetModuleHandleA</span>(<span class="string">&quot;user32.dll&quot;</span>), <span class="string">&quot;MessageBoxA&quot;</span>);  <span class="comment">// 取Hook函数地址</span></span><br><span class="line">    OldMessageBoxA = (pfMessageBoxA)pFuncAddress;           <span class="comment">// 保存原函数指针</span></span><br><span class="line"></span><br><span class="line">    <span class="comment">// 2. 找到当前程序的要Hook函数的地址，将其替换</span></span><br><span class="line">    PIMAGE_NT_HEADERS pNtHead = <span class="built_in">GetLocalNtHead</span>();          <span class="comment">// 获取到程序自身NtHead</span></span><br><span class="line">    PIMAGE_FILE_HEADER pFileHead = (PIMAGE_FILE_HEADER)&amp;pNtHead-&gt;FileHeader;</span><br><span class="line">    PIMAGE_OPTIONAL_HEADER pOpHead = (PIMAGE_OPTIONAL_HEADER)&amp;pNtHead-&gt;OptionalHeader;</span><br><span class="line"></span><br><span class="line">    DWORD dwInputTable = pOpHead-&gt;DataDirectory[<span class="number">1</span>].VirtualAddress;					<span class="comment">// 找出导入表偏移</span></span><br><span class="line">    DWORD dwTemp = (DWORD)<span class="built_in">GetModuleHandle</span>(<span class="literal">NULL</span>) + dwInputTable;</span><br><span class="line">    PIMAGE_IMPORT_DESCRIPTOR   pImport = (PIMAGE_IMPORT_DESCRIPTOR)dwTemp;</span><br><span class="line">    PIMAGE_IMPORT_DESCRIPTOR   pCurrent = pImport;</span><br><span class="line">    DWORD* pFirstThunk;															<span class="comment">//导入表子表,IAT存储函数地址表.</span></span><br><span class="line"></span><br><span class="line">    <span class="comment">//遍历导入表</span></span><br><span class="line">    <span class="keyword">while</span> (pCurrent-&gt;Characteristics &amp;&amp; pCurrent-&gt;FirstThunk != <span class="literal">NULL</span>)</span><br><span class="line">    &#123;</span><br><span class="line">      dwTemp = pCurrent-&gt;FirstThunk + (DWORD)<span class="built_in">GetModuleHandle</span>(<span class="literal">NULL</span>);<span class="comment">// 找到内存中的导入表</span></span><br><span class="line">      pFirstThunk = (DWORD*)dwTemp;                               <span class="comment">// 赋值 pFirstThunk</span></span><br><span class="line">      <span class="keyword">while</span> (*(DWORD*)pFirstThunk != <span class="literal">NULL</span>)                         <span class="comment">// 不为NULl说明没有结束</span></span><br><span class="line">      &#123;</span><br><span class="line">        <span class="keyword">if</span> (*(DWORD*)pFirstThunk == (DWORD)OldMessageBoxA) 				<span class="comment">// 相等说明正是我们想要的地址</span></span><br><span class="line">        &#123;</span><br><span class="line">          <span class="comment">// 3. 替换函数地址</span></span><br><span class="line">          DWORD oldProtected;</span><br><span class="line">          <span class="built_in">VirtualProtect</span>(pFirstThunk, <span class="number">0x1000</span>, PAGE_EXECUTE_READWRITE, &amp;oldProtected);  <span class="comment">// 开启写权限</span></span><br><span class="line">          dwTemp = (DWORD)MyMessageBoxA;</span><br><span class="line">          <span class="built_in">memcpy</span>(pFirstThunk, (DWORD*)&amp;dwTemp, <span class="number">4</span>);       				<span class="comment">// 将MyMessageBox地址拷贝替换</span></span><br><span class="line">          <span class="built_in">VirtualProtect</span>(pFirstThunk, <span class="number">0x1000</span>, oldProtected, &amp;oldProtected);     <span class="comment">// 关闭写保护</span></span><br><span class="line">        &#125;</span><br><span class="line">        pFirstThunk++; <span class="comment">// 继续递增循环</span></span><br><span class="line">      &#125;</span><br><span class="line">      pCurrent++;        <span class="comment">// 每次是加1个导入表结构.</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function">BOOL APIENTRY <span class="title">DllMain</span><span class="params">(HMODULE hModule, DWORD  ul_reason_for_call, LPVOID lpReserved)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="built_in">IATHook</span>();</span><br><span class="line">    <span class="keyword">return</span> TRUE;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
-typedef int(WINAPI* pfMessageBoxA)(HWND, LPCSTR, LPCSTR, UINT);
-pfMessageBoxA OldMessageBoxA = NULL;
+<h1 id="0x3-InlineHook"><a href="#0x3-InlineHook" class="headerlink" title="0x3 InlineHook"></a>0x3 InlineHook</h1><figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;Windows.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;stdio.h&gt;</span></span></span><br><span class="line"></span><br><span class="line">DWORD jump = <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">__declspec(naked) <span class="function"><span class="keyword">void</span> <span class="title">Transfer</span><span class="params">()</span></span>&#123;</span><br><span class="line">	__asm&#123;</span><br><span class="line">		mov edi, edi</span><br><span class="line">		push ebp</span><br><span class="line">		mov ebp, esp</span><br><span class="line">		mov ebx, jump</span><br><span class="line">		jmp ebx</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">bool</span> APIENTRY <span class="title">DllMain</span><span class="params">(HANDLE handle, DWORD dword, LPVOID lpvoid)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	HMODULE hwnd = <span class="built_in">GetModuleHandle</span>(<span class="built_in">TEXT</span>(<span class="string">&quot;user32.dll&quot;</span>));</span><br><span class="line">	DWORD base = (DWORD)<span class="built_in">GetProcAddress</span>(hwnd, <span class="string">&quot;MessageBoxA&quot;</span>);</span><br><span class="line">_</span><br><span class="line">		<span class="comment">// value 是要jmp 的中转函数的地址</span></span><br><span class="line">		DWORD value = (DWORD)Transfer - base - <span class="number">5</span>;</span><br><span class="line"></span><br><span class="line">		<span class="comment">// jmp 为函数结束的地址</span></span><br><span class="line">		jump = base + <span class="number">0x1a</span>;</span><br><span class="line"></span><br><span class="line">		<span class="comment">// base 为原来MessageBoxA 的地址</span></span><br><span class="line">		__asm&#123;</span><br><span class="line">			mov eax, base</span><br><span class="line">			<span class="comment">// 覆盖原来Messagebox的指令，第一个为 0xe9 , 也就是 jmp</span></span><br><span class="line">			mov byte ptr[eax], <span class="number">0xe9</span></span><br><span class="line">			</span><br><span class="line">			<span class="comment">// 要 jmp 的地址</span></span><br><span class="line">			inc eax</span><br><span class="line">			<span class="comment">// 值</span></span><br><span class="line">			mov ebx, value</span><br><span class="line">			mov dword ptr[eax], ebx</span><br><span class="line">		&#125;</span><br><span class="line">		<span class="built_in">VirtualProtect</span>((LPVOID)base, <span class="number">5</span>, oldProtect, &amp;oldProtect);</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">return</span> <span class="literal">true</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
-int WINAPI MyMessageBoxA(HWND hWnd, LPCSTR lpText, LPCSTR lpCaption, UINT uType)
-&#123;
-    return OldMessageBoxA(hWnd, "MessageBoxA Hooked", lpCaption, uType);
-&#125;
 
-PIMAGE_NT_HEADERS GetLocalNtHead()
-&#123;
-    DWORD dwTemp = NULL;
-    PIMAGE_DOS_HEADER pDosHead = NULL;
-    PIMAGE_NT_HEADERS pNtHead = NULL;
-    HMODULE ImageBase = GetModuleHandle(NULL);                              // 取自身ImageBase
-    pDosHead = (PIMAGE_DOS_HEADER)(DWORD)ImageBase;                         // 取pDosHead地址
-    dwTemp = (DWORD)pDosHead + (DWORD)pDosHead->e_lfanew;
-    pNtHead = (PIMAGE_NT_HEADERS)dwTemp;                                    // 取出NtHead头地址
-    return pNtHead;
-&#125;
 
-void IATHook()
-&#123;
-    // 1. 找到要Hook的函数的地址
-    PVOID pFuncAddress = NULL;
-    pFuncAddress = GetProcAddress(GetModuleHandleA("user32.dll"), "MessageBoxA");  // 取Hook函数地址
-    OldMessageBoxA = (pfMessageBoxA)pFuncAddress;           // 保存原函数指针
 
-    // 2. 找到当前程序的要Hook函数的地址，将其替换
-    PIMAGE_NT_HEADERS pNtHead = GetLocalNtHead();          // 获取到程序自身NtHead
-    PIMAGE_FILE_HEADER pFileHead = (PIMAGE_FILE_HEADER)&pNtHead->FileHeader;
-    PIMAGE_OPTIONAL_HEADER pOpHead = (PIMAGE_OPTIONAL_HEADER)&pNtHead->OptionalHeader;
 
-    DWORD dwInputTable = pOpHead->DataDirectory[1].VirtualAddress;                    // 找出导入表偏移
-    DWORD dwTemp = (DWORD)GetModuleHandle(NULL) + dwInputTable;
-    PIMAGE_IMPORT_DESCRIPTOR   pImport = (PIMAGE_IMPORT_DESCRIPTOR)dwTemp;
-    PIMAGE_IMPORT_DESCRIPTOR   pCurrent = pImport;
-    DWORD* pFirstThunk;                                                            //导入表子表,IAT存储函数地址表.
 
-    //遍历导入表
-    while (pCurrent->Characteristics && pCurrent->FirstThunk != NULL)
-    &#123;
-      dwTemp = pCurrent->FirstThunk + (DWORD)GetModuleHandle(NULL);// 找到内存中的导入表
-      pFirstThunk = (DWORD*)dwTemp;                               // 赋值 pFirstThunk
-      while (*(DWORD*)pFirstThunk != NULL)                         // 不为NULl说明没有结束
-      &#123;
-        if (*(DWORD*)pFirstThunk == (DWORD)OldMessageBoxA)                 // 相等说明正是我们想要的地址
-        &#123;
-          // 3. 替换函数地址
-          DWORD oldProtected;
-          VirtualProtect(pFirstThunk, 0x1000, PAGE_EXECUTE_READWRITE, &oldProtected);  // 开启写权限
-          dwTemp = (DWORD)MyMessageBoxA;
-          memcpy(pFirstThunk, (DWORD*)&dwTemp, 4);                       // 将MyMessageBox地址拷贝替换
-          VirtualProtect(pFirstThunk, 0x1000, oldProtected, &oldProtected);     // 关闭写保护
-        &#125;
-        pFirstThunk++; // 继续递增循环
-      &#125;
-      pCurrent++;        // 每次是加1个导入表结构.
-    &#125;
-&#125;
 
-BOOL APIENTRY DllMain(HMODULE hModule, DWORD  ul_reason_for_call, LPVOID lpReserved)
-&#123;
-    IATHook();
-    return TRUE;
-&#125;
-</Windows.h></stdio.h></code></pre>
-<h1 id="0x3-InlineHook"><a href="#0x3-InlineHook" class="headerlink" title="0x3 InlineHook"></a>0x3 InlineHook</h1><pre class=" language-c++"><code class="language-c++">#include <Windows.h>
-#include <stdio.h>
 
-DWORD jump = 0;
 
-__declspec(naked) void Transfer()&#123;
-    __asm&#123;
-        mov edi, edi
-        push ebp
-        mov ebp, esp
-        mov ebx, jump
-        jmp ebx
-    &#125;
-&#125;
-
-bool APIENTRY DllMain(HANDLE handle, DWORD dword, LPVOID lpvoid)
-&#123;
-    HMODULE hwnd = GetModuleHandle(TEXT("user32.dll"));
-    DWORD base = (DWORD)GetProcAddress(hwnd, "MessageBoxA");
-_
-        // value 是要jmp 的中转函数的地址
-        DWORD value = (DWORD)Transfer - base - 5;
-
-        // jmp 为函数结束的地址
-        jump = base + 0x1a;
-
-        // base 为原来MessageBoxA 的地址
-        __asm&#123;
-            mov eax, base
-            // 覆盖原来Messagebox的指令，第一个为 0xe9 , 也就是 jmp
-            mov byte ptr[eax], 0xe9
-            
-            // 要 jmp 的地址
-            inc eax
-            // 值
-            mov ebx, value
-            mov dword ptr[eax], ebx
-        &#125;
-        VirtualProtect((LPVOID)base, 5, oldProtect, &oldProtect);
-    &#125;
-    return true;
-&#125;
-</stdio.h></Windows.h></code></pre>
 </div><script src="/js/jquery.min.js"></script><script src="/js/main.js"></script></body></html>
