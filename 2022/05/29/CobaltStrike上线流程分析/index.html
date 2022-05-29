@@ -1,0 +1,22 @@
+<!DOCTYPE html><html lang="zh"><head><meta http-equiv="content-type" content="text/html; charset=utf-8"><meta name="viewport" content="width=device-width, initial-scale=0.5"><link rel="stylesheet" href="/css/post.css"><link rel="icon" href="/img/favicon.png"><title>CobaltStrike上线流程分析</title><meta name="generator" content="Hexo 5.4.0"><link rel="stylesheet" href="/css/prism.css" type="text/css"></head><body>　　<div class="inner"><h2>CobaltStrike上线流程分析</h2><p>文中将 CobaltStrike 分为 Controller、TeamServer、Beacon 三端。分析Beacon也就是Payload如何生成的，在目标机器上会如何执行，TeamServer又如何响应。</p>
+<h1 id="0x1-Beacon-Playload-生成"><a href="#0x1-Beacon-Playload-生成" class="headerlink" title="0x1. Beacon/Playload 生成"></a>0x1. Beacon/Playload 生成</h1><p>在Controller点击生成Playload后会有两个动作，dialogAction，dialogResult ，生成和保存结果。</p>
+<p>以生成stagePlayload为例： </p>
+<p><img src="/2022/05/29/CobaltStrike%E4%B8%8A%E7%BA%BF%E6%B5%81%E7%A8%8B%E5%88%86%E6%9E%90/image-20220529090759427.png" alt="image-20220529090759427"></p>
+<p> <code>aggressor.dialogs.WindowsExecutableDialog#dialogAction</code></p>
+<p><img src="/2022/05/29/CobaltStrike%E4%B8%8A%E7%BA%BF%E6%B5%81%E7%A8%8B%E5%88%86%E6%9E%90/image-20220529090940768.png" alt="image-20220529090940768"></p>
+<p>生成shellcode</p>
+<p><img src="/2022/05/29/CobaltStrike%E4%B8%8A%E7%BA%BF%E6%B5%81%E7%A8%8B%E5%88%86%E6%9E%90/image-20220529093320095.png" alt="image-20220529093320095"></p>
+<p><code>common.ScListener#getPayloadStager</code>选择payload的类型，这里就是<code>reverse_http</code></p>
+<p><img src="/2022/05/29/CobaltStrike%E4%B8%8A%E7%BA%BF%E6%B5%81%E7%A8%8B%E5%88%86%E6%9E%90/image-20220529101359973.png" alt="image-20220529101359973"></p>
+<p>跟进<code>stagers.Stagers#shellcode</code>，resolve函数这个地方会创建一个Stager出来，实际是多态，根据不同的payloadType创建不同的Stager（可以看stagers目录），使用这个Stager去生成真正的payload</p>
+<p><img src="/2022/05/29/CobaltStrike%E4%B8%8A%E7%BA%BF%E6%B5%81%E7%A8%8B%E5%88%86%E6%9E%90/image-20220529102505410.png" alt="image-20220529102505410"></p>
+<p>跟进resolve方法</p>
+<p><img src="/2022/05/29/CobaltStrike%E4%B8%8A%E7%BA%BF%E6%B5%81%E7%A8%8B%E5%88%86%E6%9E%90/image-20220529102158709.png" alt="image-20220529102158709"></p>
+<p><code>stagers.GenericStager</code>下面几个都是抽象方法</p>
+<p><img src="/2022/05/29/CobaltStrike%E4%B8%8A%E7%BA%BF%E6%B5%81%E7%A8%8B%E5%88%86%E6%9E%90/image-20220529103254974.png" alt="image-20220529103254974"></p>
+<p><code>stagers.GenericHTTPStager#generate</code></p>
+<p><img src="/2022/05/29/CobaltStrike%E4%B8%8A%E7%BA%BF%E6%B5%81%E7%A8%8B%E5%88%86%E6%9E%90/image-20220529104250262.png" alt="image-20220529104250262"></p>
+<p>跟进SafeDialogs.saveFile 发现最终是回调自己的dialogResult方法，进行修补文件。</p>
+<p><img src="/2022/05/29/CobaltStrike%E4%B8%8A%E7%BA%BF%E6%B5%81%E7%A8%8B%E5%88%86%E6%9E%90/image-20220529095053934.png" alt="image-20220529095053934"></p>
+<h1 id="Beacon执行"><a href="#Beacon执行" class="headerlink" title="Beacon执行"></a>Beacon执行</h1><p>如何响应</p>
+<h1 id="TeamServer-响应"><a href="#TeamServer-响应" class="headerlink" title="TeamServer 响应"></a>TeamServer 响应</h1></div><script src="/js/jquery.min.js"></script><script src="/js/main.js"></script></body></html>
