@@ -10,10 +10,6 @@
 <p>直接改完之后发现有不能生成stageExe，不知道是否有暗桩</p>
 <p>按这个改URL的位数：</p>
 <p><a target="_blank" rel="noopener" href="https://ucasers.cn/%E5%AF%B9cobaltstrike4.4%E7%9A%84%E7%AE%80%E5%8D%95%E9%AD%94%E6%94%B9/#title-14">https://ucasers.cn/%E5%AF%B9cobaltstrike4.4%E7%9A%84%E7%AE%80%E5%8D%95%E9%AD%94%E6%94%B9/#title-14</a></p>
-<p>x86</p>
-<p><img src="/2022/05/28/CobaltStrike%E7%89%B9%E5%BE%81Bypass/image-20220530123128877.png" alt="image-20220530123128877"></p>
-<p>x64</p>
-<p><img src="/2022/05/28/CobaltStrike%E7%89%B9%E5%BE%81Bypass/image-20220530124654818.png" alt="image-20220530124654818"></p>
 <h1 id="新出的漏洞"><a href="#新出的漏洞" class="headerlink" title="新出的漏洞"></a>新出的漏洞</h1><p><a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s?__biz=Mzg2NjQ2NzU3Ng==&amp;mid=2247489846&amp;idx=1&amp;sn=181c223cab4bce4e06def94604166348">https://mp.weixin.qq.com/s?__biz=Mzg2NjQ2NzU3Ng==&amp;mid=2247489846&amp;idx=1&amp;sn=181c223cab4bce4e06def94604166348</a></p>
 <p>cloudstrike/WebServer.java</p>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> (!uri.startsWith(<span class="string">&quot;/&quot;</span>)) &#123;</span><br><span class="line">    <span class="keyword">return</span> <span class="keyword">this</span>.processResponse(uri, method, header, param, <span class="keyword">false</span>, <span class="keyword">null</span>, <span class="keyword">new</span> Response(<span class="string">&quot;400 Bad Request&quot;</span>, <span class="string">&quot;text/plain&quot;</span>, <span class="string">&quot;&quot;</span>));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
