@@ -48,7 +48,7 @@
 <h1 id="yara"><a href="#yara" class="headerlink" title="yara"></a>yara</h1><p>测yara的时候发现还有一个规则过不去：</p>
 <p><img src="/2022/05/28/CobaltStrike%E7%89%B9%E5%BE%81Bypass/image-20220529212607619.png" alt="image-20220529212607619"></p>
 <p><img src="/2022/05/28/CobaltStrike%E7%89%B9%E5%BE%81Bypass/image-20220529212557428.png" alt="image-20220529212557428"></p>
-<p>这部分在内存里面可以看到是字符串 <code>sprnt</code> 这个东西有点像什么加密库里面的函数， 69 69 69 69 则是字符串<code>iiii</code> 这部分应该能通过profile进行内存替换，具体没有测试。</p>
+<p>这部分在内存里面可以看到是字符串 <code>sprnt</code> 这个东西有点像什么加密库里面的函数， 69 69 69 69 则是字符串<code>iiii</code> 这部分应该能通过profile进行内存替换，具体没有测试，相信大厂不会拿这种简单的字符串做特征检测。</p>
 <p><img src="/2022/05/28/CobaltStrike%E7%89%B9%E5%BE%81Bypass/image-20220528221401438.png" alt="image-20220528221401438"></p>
 <h1 id="最后"><a href="#最后" class="headerlink" title="最后"></a>最后</h1><p>服务端主要改了stageURI相关的一些特征，beacon端建议直接hook sleep ，c2profile的一些默认的行为，比如进程注入、命名管道、字符串等，都可以自定义更改。</p>
 <p>后面可以考虑怎么把一些已经重写过的beacon加入进来。</p>
