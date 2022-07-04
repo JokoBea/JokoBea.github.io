@@ -1,4 +1,168 @@
-<!DOCTYPE html><html lang="zh"><head><meta http-equiv="content-type" content="text/html; charset=utf-8"><meta name="viewport" content="width=device-width, initial-scale=0.5"><link rel="stylesheet" href="/css/post.css"><link rel="icon" href="/img/favicon.png"><title>Windows相关认证协议总结</title><meta name="generator" content="Hexo 5.4.0"><link rel="stylesheet" href="/css/prism.css" type="text/css"></head><body>　　<div class="inner"><h2>Windows相关认证协议总结</h2><h1 id="Windows认证"><a href="#Windows认证" class="headerlink" title="Windows认证"></a>Windows认证</h1><p>Windows的认证包括三个部分，用户直接操作计算机登陆账户（本地认证），远程连接到工作组中的某个设备（网络认证），登陆到域环境中的某个设备（域认证）</p>
+<!DOCTYPE html>
+<html lang=zh>
+<head>
+    <!-- so meta -->
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="HandheldFriendly" content="True">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5" />
+    <meta name="description" content="Windows认证Windows的认证包括三个部分，用户直接操作计算机登陆账户（本地认证），远程连接到工作组中的某个设备（网络认证），登陆到域环境中的某个设备（域认证） 一、本地认证用户输入密码，系统收到密码后将用户输入的密码计算成NTLM Hash，然后与sam数据库（%SystemRoot%\system32\config\sam）中该用户的哈希比对，匹配则登陆成功，不匹配则登陆失败。  本地">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Windows相关认证协议总结">
+<meta property="og:url" content="http://example.com/2022/05/01/Windows%E8%AE%A4%E8%AF%81%203157107054db4a068847bd6a2a372bb9/index.html">
+<meta property="og:site_name" content="Hurn&#39;s Blog">
+<meta property="og:description" content="Windows认证Windows的认证包括三个部分，用户直接操作计算机登陆账户（本地认证），远程连接到工作组中的某个设备（网络认证），登陆到域环境中的某个设备（域认证） 一、本地认证用户输入密码，系统收到密码后将用户输入的密码计算成NTLM Hash，然后与sam数据库（%SystemRoot%\system32\config\sam）中该用户的哈希比对，匹配则登陆成功，不匹配则登陆失败。  本地">
+<meta property="og:locale">
+<meta property="og:image" content="http://example.com/2022/05/01/Windows%E8%AE%A4%E8%AF%81%203157107054db4a068847bd6a2a372bb9/Untitled.png">
+<meta property="og:image" content="http://example.com/2022/05/01/Windows%E8%AE%A4%E8%AF%81%203157107054db4a068847bd6a2a372bb9/Untitled%201.png">
+<meta property="og:image" content="https://i.loli.net/2020/03/17/ThO8agxHmMw2kLP.png">
+<meta property="og:image" content="https://i.loli.net/2020/03/17/HGu5lEAer8BxMgV.png">
+<meta property="og:image" content="https://i.loli.net/2020/03/17/hMjVW2bYoH7Lkit.png">
+<meta property="og:image" content="https://i.loli.net/2020/03/17/9tJlxdMmTzgIEq3.png">
+<meta property="og:image" content="https://i.loli.net/2020/03/17/5o3MSEryKj2wqcg.png">
+<meta property="og:image" content="https://i.loli.net/2020/03/17/q1FvQ38gADLnsK4.png">
+<meta property="og:image" content="https://i.loli.net/2020/03/17/cuoiX1FRGM5fdEt.png">
+<meta property="og:image" content="https://i.loli.net/2020/03/17/Cx1h9fN7LVvWRDz.png">
+<meta property="og:image" content="https://i.loli.net/2020/03/17/HlR6F2CEP8tUxJj.png">
+<meta property="article:published_time" content="2022-05-01T00:20:00.000Z">
+<meta property="article:modified_time" content="2022-05-01T00:20:00.000Z">
+<meta property="article:author" content="Hurn">
+<meta property="article:tag" content="域">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://example.com/2022/05/01/Windows%E8%AE%A4%E8%AF%81%203157107054db4a068847bd6a2a372bb9/Untitled.png">
+    
+    
+      
+        
+          <link rel="shortcut icon" href="/images/favicon.ico">
+        
+      
+      
+        
+          <link rel="icon" type="image/png" href="/images/favicon-192x192.png" sizes="192x192">
+        
+      
+      
+        
+          <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon.png">
+        
+      
+    
+    <!-- title -->
+    <title>Windows相关认证协议总结</title>
+    <!-- styles -->
+    
+<link rel="stylesheet" href="/css/style.css">
+
+    <!-- persian styles -->
+    
+    <!-- rss -->
+    
+    
+	<!-- mathjax -->
+	
+<meta name="generator" content="Hexo 5.4.0"><link rel="stylesheet" href="/css/prism.css" type="text/css"></head>
+
+<body class="max-width mx-auto px3 ltr">
+    
+      <div id="header-post">
+  <a id="menu-icon" href="#" aria-label="Menu"><i class="fas fa-bars fa-lg"></i></a>
+  <a id="menu-icon-tablet" href="#" aria-label="Menu"><i class="fas fa-bars fa-lg"></i></a>
+  <a id="top-icon-tablet" href="#" aria-label="Top" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');" style="display:none;"><i class="fas fa-chevron-up fa-lg"></i></a>
+  <span id="menu">
+    <span id="nav">
+      <ul>
+        <!--
+       --><li><a href="/">Home</a></li><!--
+     --><!--
+       --><li><a href="/about/">About</a></li><!--
+     --><!--
+       --><li><a href="/archives/">Writing</a></li><!--
+     --><!--
+       --><li><a target="_blank" rel="noopener" href="http://github.com/probberechts">Projects</a></li><!--
+     -->
+      </ul>
+    </span>
+    <br/>
+    <span id="actions">
+      <ul>
+        
+        <li><a class="icon" aria-label="Previous post" href="/2022/05/17/X86%E4%B8%A4%E7%A7%8D%E5%B8%B8%E8%A7%81%E7%9A%84Hook%E6%96%B9%E5%BC%8F/"><i class="fas fa-chevron-left" aria-hidden="true" onmouseover="$('#i-prev').toggle();" onmouseout="$('#i-prev').toggle();"></i></a></li>
+        
+        
+        <li><a class="icon" aria-label="Next post" href="/2022/04/05/DLL%E5%8A%AB%E6%8C%81%207f13f82014f4438da4c85d8a4cfb9d91/"><i class="fas fa-chevron-right" aria-hidden="true" onmouseover="$('#i-next').toggle();" onmouseout="$('#i-next').toggle();"></i></a></li>
+        
+        <li><a class="icon" aria-label="Back to top" href="#" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');"><i class="fas fa-chevron-up" aria-hidden="true" onmouseover="$('#i-top').toggle();" onmouseout="$('#i-top').toggle();"></i></a></li>
+        <li><a class="icon" aria-label="Share post" href="#"><i class="fas fa-share-alt" aria-hidden="true" onmouseover="$('#i-share').toggle();" onmouseout="$('#i-share').toggle();" onclick="$('#share').toggle();return false;"></i></a></li>
+      </ul>
+      <span id="i-prev" class="info" style="display:none;">Previous post</span>
+      <span id="i-next" class="info" style="display:none;">Next post</span>
+      <span id="i-top" class="info" style="display:none;">Back to top</span>
+      <span id="i-share" class="info" style="display:none;">Share post</span>
+    </span>
+    <br/>
+    <div id="share" style="display: none">
+      <ul>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.facebook.com/sharer.php?u=http://example.com/2022/05/01/Windows%E8%AE%A4%E8%AF%81%203157107054db4a068847bd6a2a372bb9/"><i class="fab fa-facebook " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://twitter.com/share?url=http://example.com/2022/05/01/Windows%E8%AE%A4%E8%AF%81%203157107054db4a068847bd6a2a372bb9/&text=Windows相关认证协议总结"><i class="fab fa-twitter " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.linkedin.com/shareArticle?url=http://example.com/2022/05/01/Windows%E8%AE%A4%E8%AF%81%203157107054db4a068847bd6a2a372bb9/&title=Windows相关认证协议总结"><i class="fab fa-linkedin " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://pinterest.com/pin/create/bookmarklet/?url=http://example.com/2022/05/01/Windows%E8%AE%A4%E8%AF%81%203157107054db4a068847bd6a2a372bb9/&is_video=false&description=Windows相关认证协议总结"><i class="fab fa-pinterest " aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="mailto:?subject=Windows相关认证协议总结&body=Check out this article: http://example.com/2022/05/01/Windows%E8%AE%A4%E8%AF%81%203157107054db4a068847bd6a2a372bb9/"><i class="fas fa-envelope " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://getpocket.com/save?url=http://example.com/2022/05/01/Windows%E8%AE%A4%E8%AF%81%203157107054db4a068847bd6a2a372bb9/&title=Windows相关认证协议总结"><i class="fab fa-get-pocket " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://reddit.com/submit?url=http://example.com/2022/05/01/Windows%E8%AE%A4%E8%AF%81%203157107054db4a068847bd6a2a372bb9/&title=Windows相关认证协议总结"><i class="fab fa-reddit " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.stumbleupon.com/submit?url=http://example.com/2022/05/01/Windows%E8%AE%A4%E8%AF%81%203157107054db4a068847bd6a2a372bb9/&title=Windows相关认证协议总结"><i class="fab fa-stumbleupon " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://digg.com/submit?url=http://example.com/2022/05/01/Windows%E8%AE%A4%E8%AF%81%203157107054db4a068847bd6a2a372bb9/&title=Windows相关认证协议总结"><i class="fab fa-digg " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.tumblr.com/share/link?url=http://example.com/2022/05/01/Windows%E8%AE%A4%E8%AF%81%203157107054db4a068847bd6a2a372bb9/&name=Windows相关认证协议总结&description="><i class="fab fa-tumblr " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://news.ycombinator.com/submitlink?u=http://example.com/2022/05/01/Windows%E8%AE%A4%E8%AF%81%203157107054db4a068847bd6a2a372bb9/&t=Windows相关认证协议总结"><i class="fab fa-hacker-news " aria-hidden="true"></i></a></li>
+</ul>
+
+    </div>
+    <div id="toc">
+      <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#Windows%E8%AE%A4%E8%AF%81"><span class="toc-number">1.</span> <span class="toc-text">Windows认证</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E4%B8%80%E3%80%81%E6%9C%AC%E5%9C%B0%E8%AE%A4%E8%AF%81"><span class="toc-number">2.</span> <span class="toc-text">一、本地认证</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E4%BA%8C%E3%80%81%E7%BD%91%E7%BB%9C%E8%AE%A4%E8%AF%81-NTML"><span class="toc-number">3.</span> <span class="toc-text">二、网络认证 (NTML)</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E4%B8%89%E3%80%81%E5%9F%9F%E8%AE%A4%E8%AF%81%EF%BC%88Kerberos"><span class="toc-number">4.</span> <span class="toc-text">三、域认证（Kerberos)</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#0-%E6%A6%82%E5%BF%B5"><span class="toc-number">4.1.</span> <span class="toc-text">0. 概念</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#1-%E7%94%A8%E6%88%B7%E7%99%BB%E9%99%86"><span class="toc-number">4.2.</span> <span class="toc-text">1.用户登陆</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#2-%E8%AF%B7%E6%B1%82%E8%BA%AB%E4%BB%BD%E8%AE%A4%E8%AF%81"><span class="toc-number">4.3.</span> <span class="toc-text">2.请求身份认证</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#2-1-%E5%AE%A2%E6%88%B7%E7%AB%AF%E5%90%91AS-%E8%BA%AB%E4%BB%BD%E8%AE%A4%E8%AF%81%E6%9C%8D%E5%8A%A1-%E5%8F%91%E9%80%81%E8%AE%A4%E8%AF%81%E8%AF%B7%E6%B1%82"><span class="toc-number">4.3.1.</span> <span class="toc-text">2.1 客户端向AS(身份认证服务)发送认证请求</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-2-AS%E7%A1%AE%E8%AE%A4Client%E7%AB%AF%E7%99%BB%E5%BD%95%E8%80%85%E7%94%A8%E6%88%B7%E8%BA%AB%E4%BB%BD"><span class="toc-number">4.3.2.</span> <span class="toc-text">2.2 AS确认Client端登录者用户身份</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#3-%E8%AF%B7%E6%B1%82%E6%9C%8D%E5%8A%A1%E6%8E%88%E6%9D%83"><span class="toc-number">4.4.</span> <span class="toc-text">3. 请求服务授权</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#3-1-%E5%AE%A2%E6%88%B7%E7%AB%AF%E5%90%91TGS%E5%8F%91%E9%80%81%E8%AF%B7%E6%B1%82%E6%9C%8D%E5%8A%A1%E6%8E%88%E6%9D%83%E8%AF%B7%E6%B1%82"><span class="toc-number">4.4.1.</span> <span class="toc-text">3.1 客户端向TGS发送请求服务授权请求</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#3-2-TGS%E8%BA%AB%E4%BB%BD%E8%AE%A4%E8%AF%81"><span class="toc-number">4.4.2.</span> <span class="toc-text">3.2 TGS身份认证</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#3-3-TGS%E4%B8%BAClient%E5%93%8D%E5%BA%94%E6%9C%8D%E5%8A%A1%E6%8E%88%E6%9D%83%E7%A5%A8%E6%8D%AE"><span class="toc-number">4.4.3.</span> <span class="toc-text">3.3 TGS为Client响应服务授权票据</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#4-%E5%8F%91%E9%80%81%E6%9C%8D%E5%8A%A1%E8%AF%B7%E6%B1%82"><span class="toc-number">4.5.</span> <span class="toc-text">4.发送服务请求</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#4-1-Client%E5%90%91Service-Server%E5%8F%91%E9%80%81%E6%9C%8D%E5%8A%A1%E8%AF%B7%E6%B1%82"><span class="toc-number">4.5.1.</span> <span class="toc-text">4.1 Client向Service Server发送服务请求</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#4-2-SS%E5%93%8D%E5%BA%94Client"><span class="toc-number">4.5.2.</span> <span class="toc-text">4.2 SS响应Client</span></a></li></ol></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%9B%9B%E3%80%81%E7%9B%B8%E5%85%B3%E6%94%BB%E5%87%BB%E9%9D%A2%E6%80%BB%E7%BB%93"><span class="toc-number">5.</span> <span class="toc-text">四、相关攻击面总结</span></a></li></ol>
+    </div>
+  </span>
+</div>
+
+    
+    <div class="content index py4">
+        
+        <article class="post" itemscope itemtype="http://schema.org/BlogPosting">
+  <header>
+    
+    <h1 class="posttitle" itemprop="name headline">
+        Windows相关认证协议总结
+    </h1>
+
+
+
+    <div class="meta">
+      <span class="author" itemprop="author" itemscope itemtype="http://schema.org/Person">
+        <span itemprop="name">Hurn</span>
+      </span>
+      
+    <div class="postdate">
+      
+        <time datetime="2022-05-01T00:20:00.000Z" itemprop="datePublished">2022-05-01</time>
+        
+      
+    </div>
+
+
+      
+
+      
+    <div class="article-tag">
+        <i class="fas fa-tag"></i>
+        <a class="tag-link-link" href="/tags/%E5%9F%9F/" rel="tag">域</a>
+    </div>
+
+
+    </div>
+  </header>
+  
+
+  <div class="content" itemprop="articleBody">
+    <h1 id="Windows认证"><a href="#Windows认证" class="headerlink" title="Windows认证"></a>Windows认证</h1><p>Windows的认证包括三个部分，用户直接操作计算机登陆账户（本地认证），远程连接到工作组中的某个设备（网络认证），登陆到域环境中的某个设备（域认证）</p>
 <h1 id="一、本地认证"><a href="#一、本地认证" class="headerlink" title="一、本地认证"></a>一、本地认证</h1><p>用户输入密码，系统收到密码后将用户输入的密码计算成NTLM Hash，然后与sam数据库（%SystemRoot%\system32\config\sam）中该用户的哈希比对，匹配则登陆成功，不匹配则登陆失败。 </p>
 <p>本地认证中用来处理用户输入密码的进程即lsass.exe,密码会在这个进程中明文保存，供该进程将密码计算成NTLM Hash与sam进行比对。</p>
 <p>NTML 运算流程：</p>
@@ -156,4 +320,143 @@
 <p>参考：</p>
 <p><a target="_blank" rel="noopener" href="https://daiker.gitbook.io/windows-protocol/">https://daiker.gitbook.io/windows-protocol/</a></p>
 <p><a target="_blank" rel="noopener" href="https://ares-x.com/2020/03/17/%E5%9F%9F%E6%B8%97%E9%80%8F%E5%AD%A6%E4%B9%A0%EF%BC%88%E4%BA%8C%EF%BC%89Kerberos%E5%8D%8F%E8%AE%AE/">https://ares-x.com/2020/03/17/域渗透学习（二）Kerberos协议/</a></p>
-</div><script src="/js/jquery.min.js"></script><script src="/js/main.js"></script></body></html>
+
+  </div>
+</article>
+
+
+
+        
+          <div id="footer-post-container">
+  <div id="footer-post">
+
+    <div id="nav-footer" style="display: none">
+      <ul>
+         
+          <li><a href="/">Home</a></li>
+         
+          <li><a href="/about/">About</a></li>
+         
+          <li><a href="/archives/">Writing</a></li>
+         
+          <li><a target="_blank" rel="noopener" href="http://github.com/probberechts">Projects</a></li>
+        
+      </ul>
+    </div>
+
+    <div id="toc-footer" style="display: none">
+      <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#Windows%E8%AE%A4%E8%AF%81"><span class="toc-number">1.</span> <span class="toc-text">Windows认证</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E4%B8%80%E3%80%81%E6%9C%AC%E5%9C%B0%E8%AE%A4%E8%AF%81"><span class="toc-number">2.</span> <span class="toc-text">一、本地认证</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E4%BA%8C%E3%80%81%E7%BD%91%E7%BB%9C%E8%AE%A4%E8%AF%81-NTML"><span class="toc-number">3.</span> <span class="toc-text">二、网络认证 (NTML)</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E4%B8%89%E3%80%81%E5%9F%9F%E8%AE%A4%E8%AF%81%EF%BC%88Kerberos"><span class="toc-number">4.</span> <span class="toc-text">三、域认证（Kerberos)</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#0-%E6%A6%82%E5%BF%B5"><span class="toc-number">4.1.</span> <span class="toc-text">0. 概念</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#1-%E7%94%A8%E6%88%B7%E7%99%BB%E9%99%86"><span class="toc-number">4.2.</span> <span class="toc-text">1.用户登陆</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#2-%E8%AF%B7%E6%B1%82%E8%BA%AB%E4%BB%BD%E8%AE%A4%E8%AF%81"><span class="toc-number">4.3.</span> <span class="toc-text">2.请求身份认证</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#2-1-%E5%AE%A2%E6%88%B7%E7%AB%AF%E5%90%91AS-%E8%BA%AB%E4%BB%BD%E8%AE%A4%E8%AF%81%E6%9C%8D%E5%8A%A1-%E5%8F%91%E9%80%81%E8%AE%A4%E8%AF%81%E8%AF%B7%E6%B1%82"><span class="toc-number">4.3.1.</span> <span class="toc-text">2.1 客户端向AS(身份认证服务)发送认证请求</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-2-AS%E7%A1%AE%E8%AE%A4Client%E7%AB%AF%E7%99%BB%E5%BD%95%E8%80%85%E7%94%A8%E6%88%B7%E8%BA%AB%E4%BB%BD"><span class="toc-number">4.3.2.</span> <span class="toc-text">2.2 AS确认Client端登录者用户身份</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#3-%E8%AF%B7%E6%B1%82%E6%9C%8D%E5%8A%A1%E6%8E%88%E6%9D%83"><span class="toc-number">4.4.</span> <span class="toc-text">3. 请求服务授权</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#3-1-%E5%AE%A2%E6%88%B7%E7%AB%AF%E5%90%91TGS%E5%8F%91%E9%80%81%E8%AF%B7%E6%B1%82%E6%9C%8D%E5%8A%A1%E6%8E%88%E6%9D%83%E8%AF%B7%E6%B1%82"><span class="toc-number">4.4.1.</span> <span class="toc-text">3.1 客户端向TGS发送请求服务授权请求</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#3-2-TGS%E8%BA%AB%E4%BB%BD%E8%AE%A4%E8%AF%81"><span class="toc-number">4.4.2.</span> <span class="toc-text">3.2 TGS身份认证</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#3-3-TGS%E4%B8%BAClient%E5%93%8D%E5%BA%94%E6%9C%8D%E5%8A%A1%E6%8E%88%E6%9D%83%E7%A5%A8%E6%8D%AE"><span class="toc-number">4.4.3.</span> <span class="toc-text">3.3 TGS为Client响应服务授权票据</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#4-%E5%8F%91%E9%80%81%E6%9C%8D%E5%8A%A1%E8%AF%B7%E6%B1%82"><span class="toc-number">4.5.</span> <span class="toc-text">4.发送服务请求</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#4-1-Client%E5%90%91Service-Server%E5%8F%91%E9%80%81%E6%9C%8D%E5%8A%A1%E8%AF%B7%E6%B1%82"><span class="toc-number">4.5.1.</span> <span class="toc-text">4.1 Client向Service Server发送服务请求</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#4-2-SS%E5%93%8D%E5%BA%94Client"><span class="toc-number">4.5.2.</span> <span class="toc-text">4.2 SS响应Client</span></a></li></ol></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%9B%9B%E3%80%81%E7%9B%B8%E5%85%B3%E6%94%BB%E5%87%BB%E9%9D%A2%E6%80%BB%E7%BB%93"><span class="toc-number">5.</span> <span class="toc-text">四、相关攻击面总结</span></a></li></ol>
+    </div>
+
+    <div id="share-footer" style="display: none">
+      <ul>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.facebook.com/sharer.php?u=http://example.com/2022/05/01/Windows%E8%AE%A4%E8%AF%81%203157107054db4a068847bd6a2a372bb9/"><i class="fab fa-facebook fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://twitter.com/share?url=http://example.com/2022/05/01/Windows%E8%AE%A4%E8%AF%81%203157107054db4a068847bd6a2a372bb9/&text=Windows相关认证协议总结"><i class="fab fa-twitter fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.linkedin.com/shareArticle?url=http://example.com/2022/05/01/Windows%E8%AE%A4%E8%AF%81%203157107054db4a068847bd6a2a372bb9/&title=Windows相关认证协议总结"><i class="fab fa-linkedin fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://pinterest.com/pin/create/bookmarklet/?url=http://example.com/2022/05/01/Windows%E8%AE%A4%E8%AF%81%203157107054db4a068847bd6a2a372bb9/&is_video=false&description=Windows相关认证协议总结"><i class="fab fa-pinterest fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="mailto:?subject=Windows相关认证协议总结&body=Check out this article: http://example.com/2022/05/01/Windows%E8%AE%A4%E8%AF%81%203157107054db4a068847bd6a2a372bb9/"><i class="fas fa-envelope fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://getpocket.com/save?url=http://example.com/2022/05/01/Windows%E8%AE%A4%E8%AF%81%203157107054db4a068847bd6a2a372bb9/&title=Windows相关认证协议总结"><i class="fab fa-get-pocket fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://reddit.com/submit?url=http://example.com/2022/05/01/Windows%E8%AE%A4%E8%AF%81%203157107054db4a068847bd6a2a372bb9/&title=Windows相关认证协议总结"><i class="fab fa-reddit fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.stumbleupon.com/submit?url=http://example.com/2022/05/01/Windows%E8%AE%A4%E8%AF%81%203157107054db4a068847bd6a2a372bb9/&title=Windows相关认证协议总结"><i class="fab fa-stumbleupon fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://digg.com/submit?url=http://example.com/2022/05/01/Windows%E8%AE%A4%E8%AF%81%203157107054db4a068847bd6a2a372bb9/&title=Windows相关认证协议总结"><i class="fab fa-digg fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.tumblr.com/share/link?url=http://example.com/2022/05/01/Windows%E8%AE%A4%E8%AF%81%203157107054db4a068847bd6a2a372bb9/&name=Windows相关认证协议总结&description="><i class="fab fa-tumblr fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://news.ycombinator.com/submitlink?u=http://example.com/2022/05/01/Windows%E8%AE%A4%E8%AF%81%203157107054db4a068847bd6a2a372bb9/&t=Windows相关认证协议总结"><i class="fab fa-hacker-news fa-lg" aria-hidden="true"></i></a></li>
+</ul>
+
+    </div>
+
+    <div id="actions-footer">
+        <a id="menu" class="icon" href="#" onclick="$('#nav-footer').toggle();return false;"><i class="fas fa-bars fa-lg" aria-hidden="true"></i> Menu</a>
+        <a id="toc" class="icon" href="#" onclick="$('#toc-footer').toggle();return false;"><i class="fas fa-list fa-lg" aria-hidden="true"></i> TOC</a>
+        <a id="share" class="icon" href="#" onclick="$('#share-footer').toggle();return false;"><i class="fas fa-share-alt fa-lg" aria-hidden="true"></i> Share</a>
+        <a id="top" style="display:none" class="icon" href="#" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');"><i class="fas fa-chevron-up fa-lg" aria-hidden="true"></i> Top</a>
+    </div>
+
+  </div>
+</div>
+
+        
+        <footer id="footer">
+  <div class="footer-left">
+    Copyright &copy;
+    
+    
+    2016-2022
+    Hurn
+  </div>
+  <div class="footer-right">
+    <nav>
+      <ul>
+        <!--
+       --><li><a href="/">Home</a></li><!--
+     --><!--
+       --><li><a href="/about/">About</a></li><!--
+     --><!--
+       --><li><a href="/archives/">Writing</a></li><!--
+     --><!--
+       --><li><a target="_blank" rel="noopener" href="http://github.com/probberechts">Projects</a></li><!--
+     -->
+      </ul>
+    </nav>
+  </div>
+</footer>
+
+    </div>
+    <!-- styles -->
+
+
+
+  <link rel="preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.2/css/all.min.css" crossorigin="anonymous" onload="this.onload=null;this.rel='stylesheet'"/>
+
+
+    <!-- jquery -->
+ 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js" crossorigin="anonymous"></script> 
+
+
+
+
+<!-- clipboard -->
+
+  
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.7/clipboard.min.js" crossorigin="anonymous"></script> 
+  
+  <script type="text/javascript">
+  $(function() {
+    // copy-btn HTML
+    var btn = "<span class=\"btn-copy tooltipped tooltipped-sw\" aria-label=\"Copy to clipboard!\">";
+    btn += '<i class="far fa-clone"></i>';
+    btn += '</span>'; 
+    // mount it!
+    $(".highlight table").before(btn);
+    var clip = new ClipboardJS('.btn-copy', {
+      text: function(trigger) {
+        return Array.from(trigger.nextElementSibling.querySelectorAll('.code')).reduce((str,it)=>str+it.innerText+'\n','')
+      }
+    });
+    clip.on('success', function(e) {
+      e.trigger.setAttribute('aria-label', "Copied!");
+      e.clearSelection();
+    })
+  })
+  </script>
+
+
+<script src="/js/main.js"></script>
+
+<!-- search -->
+
+<!-- Google Analytics -->
+
+<!-- Baidu Analytics -->
+
+<!-- Cloudflare Analytics -->
+
+<!-- Umami Analytics -->
+
+<!-- Disqus Comments -->
+
+<!-- utterances Comments -->
+
+</body>
+</html>

