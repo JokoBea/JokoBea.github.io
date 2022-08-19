@@ -1,0 +1,23 @@
+<!DOCTYPE html><html lang="zh"><head><meta http-equiv="content-type" content="text/html; charset=utf-8"><meta name="viewport" content="width=device-width, initial-scale=0.5"><link rel="stylesheet" href="/css/post.css"><link rel="icon" href="/img/favicon.png"><title>如何混一个C2</title><meta name="generator" content="Hexo 5.4.0"><link rel="stylesheet" href="/css/prism.css" type="text/css"></head><body>　　<div class="inner"><h2>如何混一个C2</h2><p>一直在用CS，倒不是这个东西不好用，是太好用了大家都喜欢用，功能很全、很丰富，可视化的界面、可定制的profile、非常多的社区插件、截图、进程注入、凭证导出、横向移动等功能…</p>
+<p>所以大家都喜欢用，大家都喜欢研究，杀软也很喜欢研究，加了很多特征库，改完一版本到什么演练玩了两天就被杀了或者传沙箱分析了，改了改去就很烦…  对于个人来讲，因为用这个东西，去搞很多东西跟人家专门搞这个的人去对抗，浪费时间不太值得，主要是不想在这个方面专门去研究很深，只是想能满足个人需求即可，另外CS很多功都不是刚需，都有替代品，这就是为什么要再混个C2了。</p>
+<p>真实原因是最近太闲了。</p>
+<p>可预见的坑会很多，但是太闲了，干了再说…</p>
+<p>技术语言： 客户端：C艹  +  Server后端: Java + html/css （Web界面）</p>
+<blockquote>
+<p>不选Go是因为Github上已有CobaltStrike的Go Beacon ，在Linux、Darwin系统上够用，所以没必要再搞。</p>
+<p>为什么用C艹，因为之前写过shellcode好转换…  </p>
+<p>为什么不用C#，因为不会…</p>
+<p>为什么用混呢，因为只想写写能用，不求多牛逼…（只要我没追求，就没有人能卷我..）</p>
+</blockquote>
+<p>理想情况:</p>
+<ol>
+<li>可视化的命令、文件界面管理，支持云函数等隐藏姿势</li>
+<li>支持shellcode + ReflectiveDLL，不会落地真正的DLL，最好还能加密一层</li>
+<li>有一定的自动权限维持功能</li>
+</ol>
+<p>day1 （8.19-8.20）</p>
+<ul>
+<li>服务端完成的任务接受、下发，心跳</li>
+<li>客户端完成心跳管理和回连</li>
+</ul>
+</div><script src="/js/jquery.min.js"></script><script src="/js/main.js"></script></body></html>
