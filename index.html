@@ -1,1 +1,513 @@
-<!DOCTYPE html><html lang="zh"><head><meta http-equiv="content-type" content="text/html; charset=utf-8"><meta name="viewport" content="width=device-width, initial-scale=0.5"><link rel="stylesheet" href="/css/bootstrap.min.css"><link rel="stylesheet" href="/css/bootstrap-theme.min.css"><link rel="stylesheet" href="/css/home.css"><link rel="icon" href="/img/favicon.png"><title>Hurn's Blog</title><meta name="generator" content="Hexo 5.4.0"><link rel="stylesheet" href="/css/prism.css" type="text/css"></head><body>　　<nav class="navbar navbar-default navbar-fixed-top" style="opacity:.9;" role="navigation"><div class="container-fluid"><div class="navbar-header"><button class="navbar-toggle collapsed" type="button" data-toggle="collapse" data-target="#bs-example-navbar-collapse-1"><span class="sr-only">Toggle navigation</span><span class="icon-bar"></span><span class="icon-bar"></span><span class="icon-bar"></span></button><a class="navbar-brand" href="#"></a></div><div class="navbar-collapse collapse" id="bs-example-navbar-collapse-1" style="height:1px;"><ul class="nav navbar-nav navbar-right"><li class="active"><a href="/" target="_blank">Home</a></li><li><a href="/tags" target="_blank">Archives</a></li><li><a href="/about/" target="_blank">AboutMe</a></li></ul></div></div></nav><div class="outer"><ul class="list-group"><li class="list-group-item title"><div class="date">2022年8月21日</div><br><a href="/2022/08/21/CryptoPP/" target="_blank">CryptoPP</a></li><li class="list-group-item title"><div class="date">2022年8月20日</div><br><a href="/2022/08/20/如何混一个C2/" target="_blank">如何混一个C2</a></li><li class="list-group-item title"><div class="date">2022年7月5日</div><br><a href="/2022/07/05/Springboot利用/" target="_blank">Springboot利用</a></li><li class="list-group-item title"><div class="date">2022年7月3日</div><br><a href="/2022/07/03/Go并发/" target="_blank">Go并发</a></li><li class="list-group-item title"><div class="date">2022年6月20日</div><br><a href="/2022/06/20/XXE/" target="_blank">XXE</a></li><li class="list-group-item title"><div class="date">2022年6月17日</div><br><a href="/2022/06/17/JWT/" target="_blank">JWT</a></li><li class="list-group-item title"><div class="date">2022年6月14日</div><br><a href="/2022/06/14/SpringBootCMS代码审计/" target="_blank">SpringBootCMS代码审计</a></li><li class="list-group-item title"><div class="date">2022年6月13日</div><br><a href="/2022/06/13/Java表达式注入/" target="_blank">Java表达式注入</a></li><li class="list-group-item title"><div class="date">2022年6月13日</div><br><a href="/2022/06/13/log4j/" target="_blank">log4j</a></li><li class="list-group-item title"><div class="date">2022年6月12日</div><br><a href="/2022/06/12/数据库执行命令总结/" target="_blank">数据库执行命令总结</a></li></ul></div><div class="paginator"><span class="page-number current">1</span><a class="page-number" href="/page/2/">2</a><a class="page-number" href="/page/3/">3</a><a class="page-number" href="/page/4/">4</a><a class="extend next" rel="next" href="/page/2/">下一页</a></div><div class="footer"><p class="text-center">即使天无雨，我亦留此地</p></div><script src="/js/jquery.min.js"></script><script src="/js/main.js"></script><script src="/js/bootstrap.min.js"></script></body></html>
+<!DOCTYPE html>
+<html>
+<head>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8">
+    <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" name="viewport">
+    <title>
+        Hurn's Blog 
+    </title>
+     
+    
+<link rel="stylesheet" href="/css/grid.css">
+
+    
+<link rel="stylesheet" href="/css/custom.css">
+
+    
+<link rel="stylesheet" href="/css/ringo.css">
+
+     
+        <link rel="icon" type="image/x-icon" href="/img/favicon.ico " />
+     
+     
+     
+        <meta name=" " content="" />
+     
+        <meta name=" " content="" />
+     
+ 
+<meta name="generator" content="Hexo 5.4.0"><link rel="stylesheet" href="/css/prism.css" type="text/css"></head>
+
+  <body>
+    <header id="header" class="clearfix" onclick="window.open('/', '_self')">
+    <div class="site-name">
+        <a href="/" id="logo" class="site-title">
+            Hurn&#39;s Blog
+        </a>
+        <p class="description site-description">
+            <span style="padding-top:20px; font-size: 10px">
+                
+            </span>
+        </p>
+    </div>
+</header>
+<div id="sidebar" role="complementary">
+    <section class="widget">
+        <ul class="menu widget-list">
+            
+        </ul>
+    </section>
+    <section class="widget sidebar-foot">
+        <ul class="widget-list">
+            <li>Theme <a rel="nofollow" target="_blank" href="https://github.com/HeliumOI/hexo-theme-ringo">Ringo</a>
+                by <a target="_blank" href="/ "> Hurn  </a></li>
+            <li>Proudly powered by  <a rel="nofollow" target="_blank" href="https://hexo.io/">Hexo</a></li>
+        </ul>
+    </section>
+</div>
+
+<div id="helpbar">
+    <div class="back-to-top">
+        <button id="back2top">↑</button>
+        <script>
+            back2top.onclick = function() {
+                var movement = document.body.scrollTop || document.documentElement.scrollTop;
+                scrollBy(0, -movement);
+            }
+        </script>
+    </div>
+</div>
+      <main class="main">
+        <div id="body">
+          <div class="container">
+            
+    <article class="post post-atmain" itemscope itemtype="http://schema.org/BlogPosting">
+        <h2 class="post-title" itemprop="name headline">
+            <a itemprop="url" class="post-title-link" href="/2022/08/21/CryptoPP/">
+                CryptoPP
+            </a>
+        </h2>
+        <ul class="post-meta">
+            <li>
+                <time datetime="2020-09-04T20:18:00+00:00" itemprop="datePublished">
+                    2022-08-21
+                </time>
+            </li>
+            <li>
+            
+            </li>
+        </ul>
+        <div class="post-content">
+            
+                 
+                    写C2用到加密库，Crypto++库，安装完引入到别的项目中提示报错如下，开始以为是两边的运行库不一致，自闭了大半天还换了台机器，都没搞定。
+
+打了几局游戏回来想这个事情，对比两边的配置文件，发现把启用增强指令集关掉就好了，有点坑，默认下回来的项目自带这个选项。
+
+最后，如果cryptolib...
+                 
+             
+            <p class="more">
+                <a href="/2022/08/21/CryptoPP/">READ MORE</a>
+            </p>
+        </div>
+    </article>
+
+    <article class="post post-atmain" itemscope itemtype="http://schema.org/BlogPosting">
+        <h2 class="post-title" itemprop="name headline">
+            <a itemprop="url" class="post-title-link" href="/2022/08/20/%E5%A6%82%E4%BD%95%E6%B7%B7%E4%B8%80%E4%B8%AAC2/">
+                如何混一个C2
+            </a>
+        </h2>
+        <ul class="post-meta">
+            <li>
+                <time datetime="2020-09-04T20:18:00+00:00" itemprop="datePublished">
+                    2022-08-20
+                </time>
+            </li>
+            <li>
+            
+            </li>
+        </ul>
+        <div class="post-content">
+            
+                 
+                    一直在用CS，倒不是这个东西不好用，是太好用了大家都喜欢用，功能很全、很丰富，可视化的界面、可定制的profile、非常多的社区插件、截图、进程注入、凭证导出、横向移动等功能…
+所以大家都喜欢用，大家都喜欢研究，杀软也很喜欢研究，加了很多特征库，改完一版本到什么演练玩了两天就被杀了或者传沙箱分...
+                 
+             
+            <p class="more">
+                <a href="/2022/08/20/%E5%A6%82%E4%BD%95%E6%B7%B7%E4%B8%80%E4%B8%AAC2/">READ MORE</a>
+            </p>
+        </div>
+    </article>
+
+    <article class="post post-atmain" itemscope itemtype="http://schema.org/BlogPosting">
+        <h2 class="post-title" itemprop="name headline">
+            <a itemprop="url" class="post-title-link" href="/2022/07/05/Springboot%E5%88%A9%E7%94%A8/">
+                Springboot利用
+            </a>
+        </h2>
+        <ul class="post-meta">
+            <li>
+                <time datetime="2020-09-04T20:18:00+00:00" itemprop="datePublished">
+                    2022-07-05
+                </time>
+            </li>
+            <li>
+            
+            </li>
+        </ul>
+        <div class="post-content">
+            
+                 
+                    0x1. heapdump密码导出
+heapdump ，快照导出
+
+
+需要能访问到 /heapdump 或 /actuator/heapdump 接口 
+
+工具下载链接 ，使用以下语句进行搜索：
+1234# 搜索password等关键字select * from java.util.Hasht...
+                 
+             
+            <p class="more">
+                <a href="/2022/07/05/Springboot%E5%88%A9%E7%94%A8/">READ MORE</a>
+            </p>
+        </div>
+    </article>
+
+    <article class="post post-atmain" itemscope itemtype="http://schema.org/BlogPosting">
+        <h2 class="post-title" itemprop="name headline">
+            <a itemprop="url" class="post-title-link" href="/2022/07/03/Go%E5%B9%B6%E5%8F%91/">
+                Go并发
+            </a>
+        </h2>
+        <ul class="post-meta">
+            <li>
+                <time datetime="2020-09-04T20:18:00+00:00" itemprop="datePublished">
+                    2022-07-03
+                </time>
+            </li>
+            <li>
+            
+            </li>
+        </ul>
+        <div class="post-content">
+            
+                 
+                    
+学习、记录几种基础并发模式
+
+Golang中最显眼的标签之一就是高并发，在Go里面使用go关键字轻松实现Gorutine并发，那么在并发中如何控制资源、交换数据呢，下面记录几种基础的并发模式
+0x1. 锁通过锁来控制资源
+
+互斥锁
+
+1234567891011func main() &#12...
+                 
+             
+            <p class="more">
+                <a href="/2022/07/03/Go%E5%B9%B6%E5%8F%91/">READ MORE</a>
+            </p>
+        </div>
+    </article>
+
+    <article class="post post-atmain" itemscope itemtype="http://schema.org/BlogPosting">
+        <h2 class="post-title" itemprop="name headline">
+            <a itemprop="url" class="post-title-link" href="/2022/06/20/XXE/">
+                XXE
+            </a>
+        </h2>
+        <ul class="post-meta">
+            <li>
+                <time datetime="2020-09-04T20:18:00+00:00" itemprop="datePublished">
+                    2022-06-20
+                </time>
+            </li>
+            <li>
+            
+            </li>
+        </ul>
+        <div class="post-content">
+            
+                 
+                    0x1. XML文档XML是一种数据格式，类似于JSON，在Java中较为流行，在XML文档结构中包括XML文档声明、DTD定义文档的格式、XML文档元素三部分：
+
+XML文档描述:
+
+1
+
+
+DTD，定义文档的格式:
+
+12345678
+
+
+这里面DOCTYPE定义 message 为xml...
+                 
+             
+            <p class="more">
+                <a href="/2022/06/20/XXE/">READ MORE</a>
+            </p>
+        </div>
+    </article>
+
+    <article class="post post-atmain" itemscope itemtype="http://schema.org/BlogPosting">
+        <h2 class="post-title" itemprop="name headline">
+            <a itemprop="url" class="post-title-link" href="/2022/06/17/JWT/">
+                JWT
+            </a>
+        </h2>
+        <ul class="post-meta">
+            <li>
+                <time datetime="2020-09-04T20:18:00+00:00" itemprop="datePublished">
+                    2022-06-17
+                </time>
+            </li>
+            <li>
+            
+            </li>
+        </ul>
+        <div class="post-content">
+            
+                 
+                    0x1. JWT概念JWT（Json Web Token），是一种非常流行的跨域认证方式，在传统的cookie/session认证种，无法做到一个Token在公司的不同网站之间认证，所以需要用到JWT这种认证方式。JWT通常包括三部分：Header（头部）、Payload（负载）和Signat...
+                 
+             
+            <p class="more">
+                <a href="/2022/06/17/JWT/">READ MORE</a>
+            </p>
+        </div>
+    </article>
+
+    <article class="post post-atmain" itemscope itemtype="http://schema.org/BlogPosting">
+        <h2 class="post-title" itemprop="name headline">
+            <a itemprop="url" class="post-title-link" href="/2022/06/14/SpringBootCMS%E4%BB%A3%E7%A0%81%E5%AE%A1%E8%AE%A1/">
+                SpringBootCMS代码审计
+            </a>
+        </h2>
+        <ul class="post-meta">
+            <li>
+                <time datetime="2020-09-04T20:18:00+00:00" itemprop="datePublished">
+                    2022-06-14
+                </time>
+            </li>
+            <li>
+            
+            </li>
+        </ul>
+        <div class="post-content">
+            
+                 
+                    身份认证
+
+上传
+
+可能没啥用
+
+注入点ActivitySignMapper.pageAll            /activitySign/list
+ActivitySignMapper.countAll
+
+FormSubmitMapper.pageAll        /formSubm...
+                 
+             
+            <p class="more">
+                <a href="/2022/06/14/SpringBootCMS%E4%BB%A3%E7%A0%81%E5%AE%A1%E8%AE%A1/">READ MORE</a>
+            </p>
+        </div>
+    </article>
+
+    <article class="post post-atmain" itemscope itemtype="http://schema.org/BlogPosting">
+        <h2 class="post-title" itemprop="name headline">
+            <a itemprop="url" class="post-title-link" href="/2022/06/13/Java%E8%A1%A8%E8%BE%BE%E5%BC%8F%E6%B3%A8%E5%85%A5/">
+                Java表达式注入
+            </a>
+        </h2>
+        <ul class="post-meta">
+            <li>
+                <time datetime="2020-09-04T20:18:00+00:00" itemprop="datePublished">
+                    2022-06-13
+                </time>
+            </li>
+            <li>
+            
+            </li>
+        </ul>
+        <div class="post-content">
+            
+                 
+                    Java中提供非常多的表达式方便开发者操作数据和对象，当表达式的参数可控时也会方便攻击者。
+0x1. EL 表达式注入EL表达式， 也就是Expression Languag，提供了在 JSP 中简化表达式的方法，让JSP的代码更加简化、数据操作会起来更加方便，另外EL表达式还可以操作Java...
+                 
+             
+            <p class="more">
+                <a href="/2022/06/13/Java%E8%A1%A8%E8%BE%BE%E5%BC%8F%E6%B3%A8%E5%85%A5/">READ MORE</a>
+            </p>
+        </div>
+    </article>
+
+    <article class="post post-atmain" itemscope itemtype="http://schema.org/BlogPosting">
+        <h2 class="post-title" itemprop="name headline">
+            <a itemprop="url" class="post-title-link" href="/2022/06/13/log4j/">
+                log4j
+            </a>
+        </h2>
+        <ul class="post-meta">
+            <li>
+                <time datetime="2020-09-04T20:18:00+00:00" itemprop="datePublished">
+                    2022-06-13
+                </time>
+            </li>
+            <li>
+            
+            </li>
+        </ul>
+        <div class="post-content">
+            
+                 
+                    0x0. Apache Log4j2Apache Log4j2 ， 简单来说是Java中的一套日志系统，用来控制如何输出、打印日志，功能很多，比如：可以定义各种格式、控制日志信息输送的目的地是控制台、文件、GUI组件，甚至是套接口服务器、NT的事件记录器、UNIX Syslog守护进程等，非常...
+                 
+             
+            <p class="more">
+                <a href="/2022/06/13/log4j/">READ MORE</a>
+            </p>
+        </div>
+    </article>
+
+    <article class="post post-atmain" itemscope itemtype="http://schema.org/BlogPosting">
+        <h2 class="post-title" itemprop="name headline">
+            <a itemprop="url" class="post-title-link" href="/2022/06/12/%E6%95%B0%E6%8D%AE%E5%BA%93%E6%89%A7%E8%A1%8C%E5%91%BD%E4%BB%A4%E6%80%BB%E7%BB%93/">
+                数据库执行命令总结
+            </a>
+        </h2>
+        <ul class="post-meta">
+            <li>
+                <time datetime="2020-09-04T20:18:00+00:00" itemprop="datePublished">
+                    2022-06-12
+                </time>
+            </li>
+            <li>
+            
+            </li>
+        </ul>
+        <div class="post-content">
+            
+                 
+                    0x1. MSSQL0x1.1 XP_CMDSHELL这是个MSSQL内置用来执行命令的组件
+
+判断xp_cmdshell状态
+
+123456// xtype为对象类型，xtype=&#x27;x&#x27;这里表示xp_cmdshell的对象类型为扩展存储过程。select * from m...
+                 
+             
+            <p class="more">
+                <a href="/2022/06/12/%E6%95%B0%E6%8D%AE%E5%BA%93%E6%89%A7%E8%A1%8C%E5%91%BD%E4%BB%A4%E6%80%BB%E7%BB%93/">READ MORE</a>
+            </p>
+        </div>
+    </article>
+
+
+
+    <ol class="page-navigator">
+      <span class="page-number current">1</span><a class="page-number" href="/page/2/">2</a><a class="page-number" href="/page/3/">3</a><a class="page-number" href="/page/4/">4</a><a class="extend next" rel="next" href="/page/2/">»</a>
+    </ol>
+  
+             
+            <footer id="footer" role="contentinfo">
+    
+        &copy; 2020 - 2023
+        <br />
+    
+    
+    <br />
+    
+    
+        <script async src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+        <span id="busuanzi_value_site_pv">......</span> visits ·
+        <span id="busuanzi_value_site_uv">......</span> visitors 
+    
+</footer>
+          </div>
+        </div>
+      </main>
+      <!-- highlight support -->
+
+    
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.1.0/build/styles/default.min.css">
+
+
+<script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.1.0/build/highlight.min.js"></script>
+ 
+<script>
+        hljs.initHighlightingOnLoad();
+</script>
+ 
+<!-- prettify support -->
+ 
+<!-- mathjax support -->
+
+    
+    <script type="text/x-mathjax-config">
+      MathJax.Hub.Config({
+        tex2jax: {
+          inlineMath: [ ['$','$'], ["\\(","\\)"] ],
+          processEscapes: true,
+          skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+        }
+      });
+      MathJax.Hub.Queue(function() {
+        var all = MathJax.Hub.getAllJax(), i;
+        for(i=0; i < all.length; i += 1) {
+            all[i].SourceElement().parentNode.className += ' has-jax';
+        }
+      });
+    </script>
+    <script type="text/javascript" src=""></script>
+
+
+<!-- fancybox support -->
+ 
+<!-- viewerjs support -->
+
+    
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/viewerjs@1.10.0/dist/viewer.min.css">
+
+
+<script src="https://cdn.jsdelivr.net/npm/viewerjs@1.10.0/dist/viewer.min.js"></script>
+
+<script type="text/javascript">
+    Viewer.setDefaults({
+        zoomRatio: [0.5],
+        show: function () {
+            this.viewer.zoomTo(1);
+        },
+    });
+    
+    var imageList = document.querySelector('.post-content').getElementsByTagName('img');
+    
+    var imageArray = new Array();
+    Array.prototype.forEach.call(imageList, element => {
+        if (element.alt != "no-view" && element.className != "no-view") {
+            imageArray.push(element);
+        }
+    });
+    
+    Array.prototype.forEach.call(imageArray, element => {
+        var viewer1 = new Viewer(element);
+        viewer1.images = imageArray;
+        viewer1.length = imageArray.length;
+    });
+</script>
+ 
+<!-- google analytics support -->
+
+
+
+ 
+ 
+
+<!-- lazyload support -->
+
+    
+<script src="https://cdn.jsdelivr.net/npm/vanilla-lazyload@17.4.0/dist/lazyload.min.js"></script>
+
+<script>
+    new LazyLoad({
+        elements_selector: '.post-content img'
+    });
+</script>
+ 
+  </body>
+
+</html>

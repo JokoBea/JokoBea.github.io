@@ -1,1 +1,487 @@
-<!DOCTYPE html><html lang="zh"><head><meta http-equiv="content-type" content="text/html; charset=utf-8"><meta name="viewport" content="width=device-width, initial-scale=0.5"><link rel="stylesheet" href="/css/bootstrap.min.css"><link rel="stylesheet" href="/css/bootstrap-theme.min.css"><link rel="stylesheet" href="/css/home.css"><link rel="icon" href="/img/favicon.png"><title>Hurn's Blog</title><meta name="generator" content="Hexo 5.4.0"><link rel="stylesheet" href="/css/prism.css" type="text/css"></head><body>　　<nav class="navbar navbar-default navbar-fixed-top" style="opacity:.9;" role="navigation"><div class="container-fluid"><div class="navbar-header"><button class="navbar-toggle collapsed" type="button" data-toggle="collapse" data-target="#bs-example-navbar-collapse-1"><span class="sr-only">Toggle navigation</span><span class="icon-bar"></span><span class="icon-bar"></span><span class="icon-bar"></span></button><a class="navbar-brand" href="#"></a></div><div class="navbar-collapse collapse" id="bs-example-navbar-collapse-1" style="height:1px;"><ul class="nav navbar-nav navbar-right"><li class="active"><a href="/" target="_blank">Home</a></li><li><a href="/tags" target="_blank">Archives</a></li><li><a href="/about/" target="_blank">AboutMe</a></li></ul></div></div></nav><div class="outer"><ul class="list-group"><li class="list-group-item title"><div class="date">2022年5月23日</div><br><a href="/2022/05/23/JNDI注入/" target="_blank">JNDI</a></li><li class="list-group-item title"><div class="date">2022年5月18日</div><br><a href="/2022/05/18/Commons Collections/" target="_blank">Commons Collections 1-12</a></li><li class="list-group-item title"><div class="date">2022年5月17日</div><br><a href="/2022/05/17/X86两种常见的Hook方式/" target="_blank">X86两种常见的Hook方式</a></li><li class="list-group-item title"><div class="date">2022年5月9日</div><br><a href="/2022/05/09/域渗透手法总结/" target="_blank">域渗透常规手法</a></li><li class="list-group-item title"><div class="date">2022年5月1日</div><br><a href="/2022/05/01/Windows认证 3157107054db4a068847bd6a2a372bb9/" target="_blank">Windows认证及协议</a></li><li class="list-group-item title"><div class="date">2022年4月5日</div><br><a href="/2022/04/05/DLL劫持 7f13f82014f4438da4c85d8a4cfb9d91/" target="_blank">DLL劫持的一个小问题</a></li><li class="list-group-item title"><div class="date">2022年3月2日</div><br><a href="/2022/03/02/保护模式 6c989e233efa4460b95e009eda61b446/" target="_blank">保护模式——段机制</a></li><li class="list-group-item title"><div class="date">2022年2月14日</div><br><a href="/2022/02/14/仿CobaltStrike的Shellcode/" target="_blank">仿CobaltStrike生成Shellcode</a></li><li class="list-group-item title"><div class="date">2022年1月9日</div><br><a href="/2022/01/09/通过回调函数执行shellcode/" target="_blank">通过回调函数执行shellcode</a></li><li class="list-group-item title"><div class="date">2022年1月9日</div><br><a href="/2022/01/09/沙箱环境检测和绕过/" target="_blank">AV沙箱环境检测和绕过</a></li></ul></div><div class="paginator"><a class="extend prev" rel="prev" href="/page/2/">上一页</a><a class="page-number" href="/">1</a><a class="page-number" href="/page/2/">2</a><span class="page-number current">3</span><a class="page-number" href="/page/4/">4</a><a class="extend next" rel="next" href="/page/4/">下一页</a></div><div class="footer"><p class="text-center">即使天无雨，我亦留此地</p></div><script src="/js/jquery.min.js"></script><script src="/js/main.js"></script><script src="/js/bootstrap.min.js"></script></body></html>
+<!DOCTYPE html>
+<html>
+<head>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8">
+    <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" name="viewport">
+    <title>
+        Hurn's Blog 
+    </title>
+     
+    
+<link rel="stylesheet" href="/css/grid.css">
+
+    
+<link rel="stylesheet" href="/css/custom.css">
+
+    
+<link rel="stylesheet" href="/css/ringo.css">
+
+     
+        <link rel="icon" type="image/x-icon" href="/img/favicon.ico " />
+     
+     
+     
+        <meta name=" " content="" />
+     
+        <meta name=" " content="" />
+     
+ 
+<meta name="generator" content="Hexo 5.4.0"><link rel="stylesheet" href="/css/prism.css" type="text/css"></head>
+
+  <body>
+    <header id="header" class="clearfix" onclick="window.open('/', '_self')">
+    <div class="site-name">
+        <a href="/" id="logo" class="site-title">
+            Hurn&#39;s Blog
+        </a>
+        <p class="description site-description">
+            <span style="padding-top:20px; font-size: 10px">
+                
+            </span>
+        </p>
+    </div>
+</header>
+<div id="sidebar" role="complementary">
+    <section class="widget">
+        <ul class="menu widget-list">
+            
+        </ul>
+    </section>
+    <section class="widget sidebar-foot">
+        <ul class="widget-list">
+            <li>Theme <a rel="nofollow" target="_blank" href="https://github.com/HeliumOI/hexo-theme-ringo">Ringo</a>
+                by <a target="_blank" href="/ "> Hurn  </a></li>
+            <li>Proudly powered by  <a rel="nofollow" target="_blank" href="https://hexo.io/">Hexo</a></li>
+        </ul>
+    </section>
+</div>
+
+<div id="helpbar">
+    <div class="back-to-top">
+        <button id="back2top">↑</button>
+        <script>
+            back2top.onclick = function() {
+                var movement = document.body.scrollTop || document.documentElement.scrollTop;
+                scrollBy(0, -movement);
+            }
+        </script>
+    </div>
+</div>
+      <main class="main">
+        <div id="body">
+          <div class="container">
+            
+    <article class="post post-atmain" itemscope itemtype="http://schema.org/BlogPosting">
+        <h2 class="post-title" itemprop="name headline">
+            <a itemprop="url" class="post-title-link" href="/2022/05/23/JNDI%E6%B3%A8%E5%85%A5/">
+                JNDI
+            </a>
+        </h2>
+        <ul class="post-meta">
+            <li>
+                <time datetime="2020-09-04T20:18:00+00:00" itemprop="datePublished">
+                    2022-05-23
+                </time>
+            </li>
+            <li>
+            
+            </li>
+        </ul>
+        <div class="post-content">
+            
+                 
+                    0x1 JNDI一些概念：
+Refrence ，引用，在JNDI绑定对象时可以直接序列化对象进行绑定，但是有的类太大了，所以可以绑定这个类的引用在JNDI中，这个引用包含去哪找这个类、如何构建这个类的信息。
+codebase 就是在 ctx.lookup中写的地址rmi://1.1.1.1/O...
+                 
+             
+            <p class="more">
+                <a href="/2022/05/23/JNDI%E6%B3%A8%E5%85%A5/">READ MORE</a>
+            </p>
+        </div>
+    </article>
+
+    <article class="post post-atmain" itemscope itemtype="http://schema.org/BlogPosting">
+        <h2 class="post-title" itemprop="name headline">
+            <a itemprop="url" class="post-title-link" href="/2022/05/18/Commons%20Collections/">
+                Commons Collections 1-12
+            </a>
+        </h2>
+        <ul class="post-meta">
+            <li>
+                <time datetime="2020-09-04T20:18:00+00:00" itemprop="datePublished">
+                    2022-05-18
+                </time>
+            </li>
+            <li>
+            
+            </li>
+        </ul>
+        <div class="post-content">
+            
+                 
+                    0x0 前言一说JavaWeb安全就想到反序列化，一说反序列化就是CC链，那CC链是什么，这个链为什么这么重要呢？Apache Commons是Apache开源的Java通用类项目在Java中项目中被广泛的使用，Apache Commons当中有一个组件叫做Apache Commons Col...
+                 
+             
+            <p class="more">
+                <a href="/2022/05/18/Commons%20Collections/">READ MORE</a>
+            </p>
+        </div>
+    </article>
+
+    <article class="post post-atmain" itemscope itemtype="http://schema.org/BlogPosting">
+        <h2 class="post-title" itemprop="name headline">
+            <a itemprop="url" class="post-title-link" href="/2022/05/17/X86%E4%B8%A4%E7%A7%8D%E5%B8%B8%E8%A7%81%E7%9A%84Hook%E6%96%B9%E5%BC%8F/">
+                X86两种常见的Hook方式
+            </a>
+        </h2>
+        <ul class="post-meta">
+            <li>
+                <time datetime="2020-09-04T20:18:00+00:00" itemprop="datePublished">
+                    2022-05-17
+                </time>
+            </li>
+            <li>
+            
+            </li>
+        </ul>
+        <div class="post-content">
+            
+                 
+                    0x0 Hook相关的前置知识Hook翻译过来是钩子的意思，在Windows中程序是通过消息机制来传递的，也就是每一次鼠标点击、键盘敲击都会产生一次或多次消息，而Hook可以想象在这种消息的管道中，插入一个钩子，用来拦截、扩展处理等，有点像Java的Filter。
+实现这种拦截的方式和可拦截的...
+                 
+             
+            <p class="more">
+                <a href="/2022/05/17/X86%E4%B8%A4%E7%A7%8D%E5%B8%B8%E8%A7%81%E7%9A%84Hook%E6%96%B9%E5%BC%8F/">READ MORE</a>
+            </p>
+        </div>
+    </article>
+
+    <article class="post post-atmain" itemscope itemtype="http://schema.org/BlogPosting">
+        <h2 class="post-title" itemprop="name headline">
+            <a itemprop="url" class="post-title-link" href="/2022/05/09/%E5%9F%9F%E6%B8%97%E9%80%8F%E6%89%8B%E6%B3%95%E6%80%BB%E7%BB%93/">
+                域渗透常规手法
+            </a>
+        </h2>
+        <ul class="post-meta">
+            <li>
+                <time datetime="2020-09-04T20:18:00+00:00" itemprop="datePublished">
+                    2022-05-09
+                </time>
+            </li>
+            <li>
+            
+            </li>
+        </ul>
+        <div class="post-content">
+            
+                 
+                    记录一些常见的域内攻击手法，持续更新。
+0x1 横向移动PTH为什么能PTH：
+在域环境中，用户登录计算机时一般使用域账号，大量计算机在安装时会使用相同的本地管理员账号和密码，因此，如果计算机的本地管理员账号和密码也相同，攻击者就能使用哈希传递攻击的方法来登录内网中的其他主机。使用该方法，攻击...
+                 
+             
+            <p class="more">
+                <a href="/2022/05/09/%E5%9F%9F%E6%B8%97%E9%80%8F%E6%89%8B%E6%B3%95%E6%80%BB%E7%BB%93/">READ MORE</a>
+            </p>
+        </div>
+    </article>
+
+    <article class="post post-atmain" itemscope itemtype="http://schema.org/BlogPosting">
+        <h2 class="post-title" itemprop="name headline">
+            <a itemprop="url" class="post-title-link" href="/2022/05/01/Windows%E8%AE%A4%E8%AF%81%203157107054db4a068847bd6a2a372bb9/">
+                Windows认证及协议
+            </a>
+        </h2>
+        <ul class="post-meta">
+            <li>
+                <time datetime="2020-09-04T20:18:00+00:00" itemprop="datePublished">
+                    2022-05-01
+                </time>
+            </li>
+            <li>
+            
+            </li>
+        </ul>
+        <div class="post-content">
+            
+                 
+                    Windows认证及协议Windows的认证包括三个部分，用户直接操作计算机登陆账户（本地认证），远程连接到工作组中的某个设备（网络认证），登陆到域环境中的某个设备（域认证）
+一、本地认证用户输入密码，系统收到密码后将用户输入的密码计算成NTLM Hash，然后与sam数据库（%SystemR...
+                 
+             
+            <p class="more">
+                <a href="/2022/05/01/Windows%E8%AE%A4%E8%AF%81%203157107054db4a068847bd6a2a372bb9/">READ MORE</a>
+            </p>
+        </div>
+    </article>
+
+    <article class="post post-atmain" itemscope itemtype="http://schema.org/BlogPosting">
+        <h2 class="post-title" itemprop="name headline">
+            <a itemprop="url" class="post-title-link" href="/2022/04/05/DLL%E5%8A%AB%E6%8C%81%207f13f82014f4438da4c85d8a4cfb9d91/">
+                DLL劫持的一个小问题
+            </a>
+        </h2>
+        <ul class="post-meta">
+            <li>
+                <time datetime="2020-09-04T20:18:00+00:00" itemprop="datePublished">
+                    2022-04-05
+                </time>
+            </li>
+            <li>
+            
+            </li>
+        </ul>
+        <div class="post-content">
+            
+                 
+                    DLL劫持DLL导出的名称中带有 ?  @@YAXXZ 之类的，是因为导出的函数声明是C++格式的，而不是C语言类型，测试这种DLL也无法使用rundll32运行
+1__declspec(dllexport) void RHBinder__ShimExeMain__declspec(dllex...
+                 
+             
+            <p class="more">
+                <a href="/2022/04/05/DLL%E5%8A%AB%E6%8C%81%207f13f82014f4438da4c85d8a4cfb9d91/">READ MORE</a>
+            </p>
+        </div>
+    </article>
+
+    <article class="post post-atmain" itemscope itemtype="http://schema.org/BlogPosting">
+        <h2 class="post-title" itemprop="name headline">
+            <a itemprop="url" class="post-title-link" href="/2022/03/02/%E4%BF%9D%E6%8A%A4%E6%A8%A1%E5%BC%8F%206c989e233efa4460b95e009eda61b446/">
+                保护模式——段机制
+            </a>
+        </h2>
+        <ul class="post-meta">
+            <li>
+                <time datetime="2020-09-04T20:18:00+00:00" itemprop="datePublished">
+                    2022-03-02
+                </time>
+            </li>
+            <li>
+            
+            </li>
+        </ul>
+        <div class="post-content">
+            
+                 
+                    保护模式1. CPU工作模式X86 CPU的三个工作模式： 实模式、保护模式和虚拟8086模式
+实模式，Intel早期的8086 CPU提供了20根地址，可寻址空间范围即 02^20(00000HFFFFFH)的 1MB内存空间，数据处理为16位，通过段地址 *16 + 偏移的方式进行地址转换...
+                 
+             
+            <p class="more">
+                <a href="/2022/03/02/%E4%BF%9D%E6%8A%A4%E6%A8%A1%E5%BC%8F%206c989e233efa4460b95e009eda61b446/">READ MORE</a>
+            </p>
+        </div>
+    </article>
+
+    <article class="post post-atmain" itemscope itemtype="http://schema.org/BlogPosting">
+        <h2 class="post-title" itemprop="name headline">
+            <a itemprop="url" class="post-title-link" href="/2022/02/14/%E4%BB%BFCobaltStrike%E7%9A%84Shellcode/">
+                仿CobaltStrike生成Shellcode
+            </a>
+        </h2>
+        <ul class="post-meta">
+            <li>
+                <time datetime="2020-09-04T20:18:00+00:00" itemprop="datePublished">
+                    2022-02-14
+                </time>
+            </li>
+            <li>
+            
+            </li>
+        </ul>
+        <div class="post-content">
+            
+                 
+                    研究CS的人越来越多，指不定有多少未公开的特征，等用上的时候被检测出来了，不如自己整一个，自己写C2可能会碰到如何生成Shellcode的问题，下文就是解决这个问题。
+CS的httpStager.bin
+解开cobaltstrike.jar，resources中包含CS的各stager，可以看...
+                 
+             
+            <p class="more">
+                <a href="/2022/02/14/%E4%BB%BFCobaltStrike%E7%9A%84Shellcode/">READ MORE</a>
+            </p>
+        </div>
+    </article>
+
+    <article class="post post-atmain" itemscope itemtype="http://schema.org/BlogPosting">
+        <h2 class="post-title" itemprop="name headline">
+            <a itemprop="url" class="post-title-link" href="/2022/01/09/%E6%B2%99%E7%AE%B1%E7%8E%AF%E5%A2%83%E6%A3%80%E6%B5%8B%E5%92%8C%E7%BB%95%E8%BF%87/">
+                AV沙箱环境检测和绕过
+            </a>
+        </h2>
+        <ul class="post-meta">
+            <li>
+                <time datetime="2020-09-04T20:18:00+00:00" itemprop="datePublished">
+                    2022-01-09
+                </time>
+            </li>
+            <li>
+            
+            </li>
+        </ul>
+        <div class="post-content">
+            
+                 
+                    最近马一直被传沙箱，导致检测红的项越来越多，甚至开始有IOC情报了，本文主要针对微步和VT网站上的各沙箱进行环境检测和分析，如果判断为沙箱则退出运行，提高免杀能力，解决人与人之间的各种不信任感。
+环境检测准备
+需要一个服务端来接受沙箱的数据，一个客户端将相关信息带出沙箱。
+
+服务端服务端接受的...
+                 
+             
+            <p class="more">
+                <a href="/2022/01/09/%E6%B2%99%E7%AE%B1%E7%8E%AF%E5%A2%83%E6%A3%80%E6%B5%8B%E5%92%8C%E7%BB%95%E8%BF%87/">READ MORE</a>
+            </p>
+        </div>
+    </article>
+
+    <article class="post post-atmain" itemscope itemtype="http://schema.org/BlogPosting">
+        <h2 class="post-title" itemprop="name headline">
+            <a itemprop="url" class="post-title-link" href="/2022/01/09/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F/">
+                设计模式
+            </a>
+        </h2>
+        <ul class="post-meta">
+            <li>
+                <time datetime="2020-09-04T20:18:00+00:00" itemprop="datePublished">
+                    2022-01-09
+                </time>
+            </li>
+            <li>
+            
+            </li>
+        </ul>
+        <div class="post-content">
+            
+                 
+                    1. 观察者模式
+定义对象间的一种一对多的依赖关系，当一个对象的状态发生改变时，所有依赖的对象都得到通知并自动更新。
+将功能分割后，不用再维护各组件间的统一性，使用此模式动态更新。
+适用于一个对象改变后需要通知其他对象的场景。
+案例，模仿热水器的工作
+
+12345678910111213141...
+                 
+             
+            <p class="more">
+                <a href="/2022/01/09/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F/">READ MORE</a>
+            </p>
+        </div>
+    </article>
+
+
+
+    <ol class="page-navigator">
+      <a class="extend prev" rel="prev" href="/page/2/">«</a><a class="page-number" href="/">1</a><a class="page-number" href="/page/2/">2</a><span class="page-number current">3</span><a class="page-number" href="/page/4/">4</a><a class="extend next" rel="next" href="/page/4/">»</a>
+    </ol>
+  
+             
+            <footer id="footer" role="contentinfo">
+    
+        &copy; 2020 - 2023
+        <br />
+    
+    
+    <br />
+    
+    
+        <script async src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+        <span id="busuanzi_value_site_pv">......</span> visits ·
+        <span id="busuanzi_value_site_uv">......</span> visitors 
+    
+</footer>
+          </div>
+        </div>
+      </main>
+      <!-- highlight support -->
+
+    
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.1.0/build/styles/default.min.css">
+
+
+<script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.1.0/build/highlight.min.js"></script>
+ 
+<script>
+        hljs.initHighlightingOnLoad();
+</script>
+ 
+<!-- prettify support -->
+ 
+<!-- mathjax support -->
+
+    
+    <script type="text/x-mathjax-config">
+      MathJax.Hub.Config({
+        tex2jax: {
+          inlineMath: [ ['$','$'], ["\\(","\\)"] ],
+          processEscapes: true,
+          skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+        }
+      });
+      MathJax.Hub.Queue(function() {
+        var all = MathJax.Hub.getAllJax(), i;
+        for(i=0; i < all.length; i += 1) {
+            all[i].SourceElement().parentNode.className += ' has-jax';
+        }
+      });
+    </script>
+    <script type="text/javascript" src=""></script>
+
+
+<!-- fancybox support -->
+ 
+<!-- viewerjs support -->
+
+    
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/viewerjs@1.10.0/dist/viewer.min.css">
+
+
+<script src="https://cdn.jsdelivr.net/npm/viewerjs@1.10.0/dist/viewer.min.js"></script>
+
+<script type="text/javascript">
+    Viewer.setDefaults({
+        zoomRatio: [0.5],
+        show: function () {
+            this.viewer.zoomTo(1);
+        },
+    });
+    
+    var imageList = document.querySelector('.post-content').getElementsByTagName('img');
+    
+    var imageArray = new Array();
+    Array.prototype.forEach.call(imageList, element => {
+        if (element.alt != "no-view" && element.className != "no-view") {
+            imageArray.push(element);
+        }
+    });
+    
+    Array.prototype.forEach.call(imageArray, element => {
+        var viewer1 = new Viewer(element);
+        viewer1.images = imageArray;
+        viewer1.length = imageArray.length;
+    });
+</script>
+ 
+<!-- google analytics support -->
+
+
+
+ 
+ 
+
+<!-- lazyload support -->
+
+    
+<script src="https://cdn.jsdelivr.net/npm/vanilla-lazyload@17.4.0/dist/lazyload.min.js"></script>
+
+<script>
+    new LazyLoad({
+        elements_selector: '.post-content img'
+    });
+</script>
+ 
+  </body>
+
+</html>

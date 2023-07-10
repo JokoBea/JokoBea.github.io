@@ -1,1 +1,356 @@
-<!DOCTYPE html><html lang="zh"><head><meta http-equiv="content-type" content="text/html; charset=utf-8"><meta name="viewport" content="width=device-width, initial-scale=0.5"><link rel="stylesheet" href="/css/post.css"><link rel="icon" href="/img/favicon.png"><title>Hurn's Blog</title><meta name="generator" content="Hexo 5.4.0"><link rel="stylesheet" href="/css/prism.css" type="text/css"></head><body>　　<div class="outer"><ul class="list-group"><li class="list-group-item title"><div class="date">2022年5月23日</div><br><a href="/2022/05/23/JNDI注入/" target="_blank">JNDI</a></li><li class="list-group-item title"><div class="date">2022年5月18日</div><br><a href="/2022/05/18/Commons Collections/" target="_blank">Commons Collections 1-12</a></li><li class="list-group-item title"><div class="date">2022年5月17日</div><br><a href="/2022/05/17/X86两种常见的Hook方式/" target="_blank">X86两种常见的Hook方式</a></li><li class="list-group-item title"><div class="date">2022年5月9日</div><br><a href="/2022/05/09/域渗透手法总结/" target="_blank">域渗透常规手法</a></li><li class="list-group-item title"><div class="date">2022年5月1日</div><br><a href="/2022/05/01/Windows认证 3157107054db4a068847bd6a2a372bb9/" target="_blank">Windows认证及协议</a></li><li class="list-group-item title"><div class="date">2022年4月5日</div><br><a href="/2022/04/05/DLL劫持 7f13f82014f4438da4c85d8a4cfb9d91/" target="_blank">DLL劫持的一个小问题</a></li><li class="list-group-item title"><div class="date">2022年3月2日</div><br><a href="/2022/03/02/保护模式 6c989e233efa4460b95e009eda61b446/" target="_blank">保护模式——段机制</a></li><li class="list-group-item title"><div class="date">2022年2月14日</div><br><a href="/2022/02/14/仿CobaltStrike的Shellcode/" target="_blank">仿CobaltStrike生成Shellcode</a></li><li class="list-group-item title"><div class="date">2022年1月9日</div><br><a href="/2022/01/09/通过回调函数执行shellcode/" target="_blank">通过回调函数执行shellcode</a></li><li class="list-group-item title"><div class="date">2022年1月9日</div><br><a href="/2022/01/09/沙箱环境检测和绕过/" target="_blank">AV沙箱环境检测和绕过</a></li></ul></div><div class="paginator"><a class="extend prev" rel="prev" href="/archives/page/2/">上一页</a><a class="page-number" href="/archives/">1</a><a class="page-number" href="/archives/page/2/">2</a><span class="page-number current">3</span><a class="page-number" href="/archives/page/4/">4</a><a class="extend next" rel="next" href="/archives/page/4/">下一页</a></div><div class="footer"><p class="text-center">即使天无雨，我亦留此地</p></div><script src="/js/jquery.min.js"></script><script src="/js/main.js"></script></body></html>
+<!DOCTYPE html>
+<html>
+<head>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8">
+    <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" name="viewport">
+    <title>
+        archive - Hurn's Blog 
+    </title>
+     
+    
+<link rel="stylesheet" href="/css/grid.css">
+
+    
+<link rel="stylesheet" href="/css/custom.css">
+
+    
+<link rel="stylesheet" href="/css/ringo.css">
+
+     
+        <link rel="icon" type="image/x-icon" href="/img/favicon.ico " />
+     
+     
+     
+        <meta name=" " content="" />
+     
+        <meta name=" " content="" />
+     
+ 
+<meta name="generator" content="Hexo 5.4.0"><link rel="stylesheet" href="/css/prism.css" type="text/css"></head>
+
+  <body>
+    <header id="header" class="clearfix" onclick="window.open('/', '_self')">
+    <div class="site-name">
+        <a href="/" id="logo" class="site-title">
+            Hurn&#39;s Blog
+        </a>
+        <p class="description site-description">
+            <span style="padding-top:20px; font-size: 10px">
+                
+            </span>
+        </p>
+    </div>
+</header>
+<div id="sidebar" role="complementary">
+    <section class="widget">
+        <ul class="menu widget-list">
+            
+        </ul>
+    </section>
+    <section class="widget sidebar-foot">
+        <ul class="widget-list">
+            <li>Theme <a rel="nofollow" target="_blank" href="https://github.com/HeliumOI/hexo-theme-ringo">Ringo</a>
+                by <a target="_blank" href="/ "> Hurn  </a></li>
+            <li>Proudly powered by  <a rel="nofollow" target="_blank" href="https://hexo.io/">Hexo</a></li>
+        </ul>
+    </section>
+</div>
+
+<div id="helpbar">
+    <div class="back-to-top">
+        <button id="back2top">↑</button>
+        <script>
+            back2top.onclick = function() {
+                var movement = document.body.scrollTop || document.documentElement.scrollTop;
+                scrollBy(0, -movement);
+            }
+        </script>
+    </div>
+</div>
+      <main class="main">
+        <div id="body">
+          <div class="container">
+            <div class="col-12" id="main" role="main">
+   
+   
+    
+    
+      
+      
+          
+          <div class="post post-atmain archive-model">
+            <h2 class="archive-month">
+              2022.05
+            </h2>
+          </div>
+      
+      <article class="post post-atmain archive-model" itemscope="" itemtype="http://schema.org/BlogPosting">
+        <h2 class="archive-title" itemprop="name headline">
+          <a itemprop="url" href="/2022/05/23/JNDI%E6%B3%A8%E5%85%A5/">
+            <time class="archive-time" itemprop="datePublished">
+              05.23
+            </time>
+            · JNDI
+          </a>
+        </h2>
+      </article>
+    
+      
+      
+      <article class="post post-atmain archive-model" itemscope="" itemtype="http://schema.org/BlogPosting">
+        <h2 class="archive-title" itemprop="name headline">
+          <a itemprop="url" href="/2022/05/18/Commons%20Collections/">
+            <time class="archive-time" itemprop="datePublished">
+              05.18
+            </time>
+            · Commons Collections 1-12
+          </a>
+        </h2>
+      </article>
+    
+      
+      
+      <article class="post post-atmain archive-model" itemscope="" itemtype="http://schema.org/BlogPosting">
+        <h2 class="archive-title" itemprop="name headline">
+          <a itemprop="url" href="/2022/05/17/X86%E4%B8%A4%E7%A7%8D%E5%B8%B8%E8%A7%81%E7%9A%84Hook%E6%96%B9%E5%BC%8F/">
+            <time class="archive-time" itemprop="datePublished">
+              05.17
+            </time>
+            · X86两种常见的Hook方式
+          </a>
+        </h2>
+      </article>
+    
+      
+      
+      <article class="post post-atmain archive-model" itemscope="" itemtype="http://schema.org/BlogPosting">
+        <h2 class="archive-title" itemprop="name headline">
+          <a itemprop="url" href="/2022/05/09/%E5%9F%9F%E6%B8%97%E9%80%8F%E6%89%8B%E6%B3%95%E6%80%BB%E7%BB%93/">
+            <time class="archive-time" itemprop="datePublished">
+              05.09
+            </time>
+            · 域渗透常规手法
+          </a>
+        </h2>
+      </article>
+    
+      
+      
+      <article class="post post-atmain archive-model" itemscope="" itemtype="http://schema.org/BlogPosting">
+        <h2 class="archive-title" itemprop="name headline">
+          <a itemprop="url" href="/2022/05/01/Windows%E8%AE%A4%E8%AF%81%203157107054db4a068847bd6a2a372bb9/">
+            <time class="archive-time" itemprop="datePublished">
+              05.01
+            </time>
+            · Windows认证及协议
+          </a>
+        </h2>
+      </article>
+    
+      
+      
+          
+          <div class="post post-atmain archive-model">
+            <h2 class="archive-month">
+              2022.04
+            </h2>
+          </div>
+      
+      <article class="post post-atmain archive-model" itemscope="" itemtype="http://schema.org/BlogPosting">
+        <h2 class="archive-title" itemprop="name headline">
+          <a itemprop="url" href="/2022/04/05/DLL%E5%8A%AB%E6%8C%81%207f13f82014f4438da4c85d8a4cfb9d91/">
+            <time class="archive-time" itemprop="datePublished">
+              04.05
+            </time>
+            · DLL劫持的一个小问题
+          </a>
+        </h2>
+      </article>
+    
+      
+      
+          
+          <div class="post post-atmain archive-model">
+            <h2 class="archive-month">
+              2022.03
+            </h2>
+          </div>
+      
+      <article class="post post-atmain archive-model" itemscope="" itemtype="http://schema.org/BlogPosting">
+        <h2 class="archive-title" itemprop="name headline">
+          <a itemprop="url" href="/2022/03/02/%E4%BF%9D%E6%8A%A4%E6%A8%A1%E5%BC%8F%206c989e233efa4460b95e009eda61b446/">
+            <time class="archive-time" itemprop="datePublished">
+              03.02
+            </time>
+            · 保护模式——段机制
+          </a>
+        </h2>
+      </article>
+    
+      
+      
+          
+          <div class="post post-atmain archive-model">
+            <h2 class="archive-month">
+              2022.02
+            </h2>
+          </div>
+      
+      <article class="post post-atmain archive-model" itemscope="" itemtype="http://schema.org/BlogPosting">
+        <h2 class="archive-title" itemprop="name headline">
+          <a itemprop="url" href="/2022/02/14/%E4%BB%BFCobaltStrike%E7%9A%84Shellcode/">
+            <time class="archive-time" itemprop="datePublished">
+              02.14
+            </time>
+            · 仿CobaltStrike生成Shellcode
+          </a>
+        </h2>
+      </article>
+    
+      
+      
+          
+          <div class="post post-atmain archive-model">
+            <h2 class="archive-month">
+              2022.01
+            </h2>
+          </div>
+      
+      <article class="post post-atmain archive-model" itemscope="" itemtype="http://schema.org/BlogPosting">
+        <h2 class="archive-title" itemprop="name headline">
+          <a itemprop="url" href="/2022/01/09/%E6%B2%99%E7%AE%B1%E7%8E%AF%E5%A2%83%E6%A3%80%E6%B5%8B%E5%92%8C%E7%BB%95%E8%BF%87/">
+            <time class="archive-time" itemprop="datePublished">
+              01.09
+            </time>
+            · AV沙箱环境检测和绕过
+          </a>
+        </h2>
+      </article>
+    
+      
+      
+      <article class="post post-atmain archive-model" itemscope="" itemtype="http://schema.org/BlogPosting">
+        <h2 class="archive-title" itemprop="name headline">
+          <a itemprop="url" href="/2022/01/09/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F/">
+            <time class="archive-time" itemprop="datePublished">
+              01.09
+            </time>
+            · 设计模式
+          </a>
+        </h2>
+      </article>
+    
+</div>
+
+    <ol class="page-navigator">
+      <a class="extend prev" rel="prev" href="/archives/page/2/">«</a><a class="page-number" href="/archives/">1</a><a class="page-number" href="/archives/page/2/">2</a><span class="page-number current">3</span><a class="page-number" href="/archives/page/4/">4</a><a class="extend next" rel="next" href="/archives/page/4/">»</a>
+    </ol>
+  
+             
+            <footer id="footer" role="contentinfo">
+    
+        &copy; 2020 - 2023
+        <br />
+    
+    
+    <br />
+    
+    
+        <script async src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+        <span id="busuanzi_value_site_pv">......</span> visits ·
+        <span id="busuanzi_value_site_uv">......</span> visitors 
+    
+</footer>
+          </div>
+        </div>
+      </main>
+      <!-- highlight support -->
+
+    
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.1.0/build/styles/default.min.css">
+
+
+<script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.1.0/build/highlight.min.js"></script>
+ 
+<script>
+        hljs.initHighlightingOnLoad();
+</script>
+ 
+<!-- prettify support -->
+ 
+<!-- mathjax support -->
+
+    
+    <script type="text/x-mathjax-config">
+      MathJax.Hub.Config({
+        tex2jax: {
+          inlineMath: [ ['$','$'], ["\\(","\\)"] ],
+          processEscapes: true,
+          skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+        }
+      });
+      MathJax.Hub.Queue(function() {
+        var all = MathJax.Hub.getAllJax(), i;
+        for(i=0; i < all.length; i += 1) {
+            all[i].SourceElement().parentNode.className += ' has-jax';
+        }
+      });
+    </script>
+    <script type="text/javascript" src=""></script>
+
+
+<!-- fancybox support -->
+ 
+<!-- viewerjs support -->
+
+    
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/viewerjs@1.10.0/dist/viewer.min.css">
+
+
+<script src="https://cdn.jsdelivr.net/npm/viewerjs@1.10.0/dist/viewer.min.js"></script>
+
+<script type="text/javascript">
+    Viewer.setDefaults({
+        zoomRatio: [0.5],
+        show: function () {
+            this.viewer.zoomTo(1);
+        },
+    });
+    
+    var imageList = document.querySelector('.post-content').getElementsByTagName('img');
+    
+    var imageArray = new Array();
+    Array.prototype.forEach.call(imageList, element => {
+        if (element.alt != "no-view" && element.className != "no-view") {
+            imageArray.push(element);
+        }
+    });
+    
+    Array.prototype.forEach.call(imageArray, element => {
+        var viewer1 = new Viewer(element);
+        viewer1.images = imageArray;
+        viewer1.length = imageArray.length;
+    });
+</script>
+ 
+<!-- google analytics support -->
+
+
+
+ 
+ 
+
+<!-- lazyload support -->
+
+    
+<script src="https://cdn.jsdelivr.net/npm/vanilla-lazyload@17.4.0/dist/lazyload.min.js"></script>
+
+<script>
+    new LazyLoad({
+        elements_selector: '.post-content img'
+    });
+</script>
+ 
+  </body>
+
+</html>

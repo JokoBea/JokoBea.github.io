@@ -1,6 +1,0 @@
-<!DOCTYPE html><html lang="zh"><head><meta http-equiv="content-type" content="text/html; charset=utf-8"><meta name="viewport" content="width=device-width, initial-scale=0.5"><link rel="stylesheet" href="/css/post.css"><link rel="icon" href="/img/favicon.png"><title>CryptoPP</title><meta name="generator" content="Hexo 5.4.0"><link rel="stylesheet" href="/css/prism.css" type="text/css"></head><body>　　<div class="inner"><h2>CryptoPP</h2><p>写C2用到加密库，Crypto++库，安装完引入到别的项目中提示报错如下，开始以为是两边的运行库不一致，自闭了大半天还换了台机器，都没搞定。</p>
-<p><img src="/2022/08/21/CryptoPP/image-20220821215838892.png" alt="image-20220821215838892"></p>
-<p>打了几局游戏回来想这个事情，对比两边的配置文件，发现把<code>启用增强指令集</code>关掉就好了，有点坑，默认下回来的项目自带这个选项。</p>
-<p><img src="/2022/08/21/CryptoPP/image-20220821233117643.png" alt="image-20220821233117643"></p>
-<p>最后，如果cryptolib.lib 是Release Win32编译出来的，项目最好也选Release Win32.</p>
-</div><script src="/js/jquery.min.js"></script><script src="/js/main.js"></script></body></html>

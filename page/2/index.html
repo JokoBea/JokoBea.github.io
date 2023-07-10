@@ -1,1 +1,494 @@
-<!DOCTYPE html><html lang="zh"><head><meta http-equiv="content-type" content="text/html; charset=utf-8"><meta name="viewport" content="width=device-width, initial-scale=0.5"><link rel="stylesheet" href="/css/bootstrap.min.css"><link rel="stylesheet" href="/css/bootstrap-theme.min.css"><link rel="stylesheet" href="/css/home.css"><link rel="icon" href="/img/favicon.png"><title>Hurn's Blog</title><meta name="generator" content="Hexo 5.4.0"><link rel="stylesheet" href="/css/prism.css" type="text/css"></head><body>　　<nav class="navbar navbar-default navbar-fixed-top" style="opacity:.9;" role="navigation"><div class="container-fluid"><div class="navbar-header"><button class="navbar-toggle collapsed" type="button" data-toggle="collapse" data-target="#bs-example-navbar-collapse-1"><span class="sr-only">Toggle navigation</span><span class="icon-bar"></span><span class="icon-bar"></span><span class="icon-bar"></span></button><a class="navbar-brand" href="#"></a></div><div class="navbar-collapse collapse" id="bs-example-navbar-collapse-1" style="height:1px;"><ul class="nav navbar-nav navbar-right"><li class="active"><a href="/" target="_blank">Home</a></li><li><a href="/tags" target="_blank">Archives</a></li><li><a href="/about/" target="_blank">AboutMe</a></li></ul></div></div></nav><div class="outer"><ul class="list-group"><li class="list-group-item title"><div class="date">2022年6月12日</div><br><a href="/2022/06/12/难搞的Defender/" target="_blank">难搞的Defender</a></li><li class="list-group-item title"><div class="date">2022年6月11日</div><br><a href="/2022/06/11/域内漏洞整理/" target="_blank">域内漏洞整理</a></li><li class="list-group-item title"><div class="date">2022年6月11日</div><br><a href="/2022/06/11/凭证导出/" target="_blank">凭证导出</a></li><li class="list-group-item title"><div class="date">2022年6月11日</div><br><a href="/2022/06/11/Exchange漏洞复现/" target="_blank">Exchange漏洞复现</a></li><li class="list-group-item title"><div class="date">2022年6月8日</div><br><a href="/2022/06/08/Fastjson分析/" target="_blank">Fastjson浅析</a></li><li class="list-group-item title"><div class="date">2022年6月6日</div><br><a href="/2022/06/06/CobaltStrike上线流程分析/" target="_blank">CobaltStrike上线流程分析</a></li><li class="list-group-item title"><div class="date">2022年5月31日</div><br><a href="/2022/05/31/吃瓜Follina-Office-RCE/" target="_blank">Follina Office RCE 复现</a></li><li class="list-group-item title"><div class="date">2022年5月28日</div><br><a href="/2022/05/28/CobaltStrike特征Bypass/" target="_blank">CobaltStrike特征Bypass</a></li><li class="list-group-item title"><div class="date">2022年5月26日</div><br><a href="/2022/05/26/2 Afkayas fad7e6f3684147f8abf9e53d6d8c0d4d/" target="_blank">crakeme2</a></li><li class="list-group-item title"><div class="date">2022年5月26日</div><br><a href="/2022/05/26/1 Acid Burn f9346fdb358c4f61a8da59806a00acac/" target="_blank">creakeme1</a></li></ul></div><div class="paginator"><a class="extend prev" rel="prev" href="/">上一页</a><a class="page-number" href="/">1</a><span class="page-number current">2</span><a class="page-number" href="/page/3/">3</a><a class="page-number" href="/page/4/">4</a><a class="extend next" rel="next" href="/page/3/">下一页</a></div><div class="footer"><p class="text-center">即使天无雨，我亦留此地</p></div><script src="/js/jquery.min.js"></script><script src="/js/main.js"></script><script src="/js/bootstrap.min.js"></script></body></html>
+<!DOCTYPE html>
+<html>
+<head>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8">
+    <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" name="viewport">
+    <title>
+        Hurn's Blog 
+    </title>
+     
+    
+<link rel="stylesheet" href="/css/grid.css">
+
+    
+<link rel="stylesheet" href="/css/custom.css">
+
+    
+<link rel="stylesheet" href="/css/ringo.css">
+
+     
+        <link rel="icon" type="image/x-icon" href="/img/favicon.ico " />
+     
+     
+     
+        <meta name=" " content="" />
+     
+        <meta name=" " content="" />
+     
+ 
+<meta name="generator" content="Hexo 5.4.0"><link rel="stylesheet" href="/css/prism.css" type="text/css"></head>
+
+  <body>
+    <header id="header" class="clearfix" onclick="window.open('/', '_self')">
+    <div class="site-name">
+        <a href="/" id="logo" class="site-title">
+            Hurn&#39;s Blog
+        </a>
+        <p class="description site-description">
+            <span style="padding-top:20px; font-size: 10px">
+                
+            </span>
+        </p>
+    </div>
+</header>
+<div id="sidebar" role="complementary">
+    <section class="widget">
+        <ul class="menu widget-list">
+            
+        </ul>
+    </section>
+    <section class="widget sidebar-foot">
+        <ul class="widget-list">
+            <li>Theme <a rel="nofollow" target="_blank" href="https://github.com/HeliumOI/hexo-theme-ringo">Ringo</a>
+                by <a target="_blank" href="/ "> Hurn  </a></li>
+            <li>Proudly powered by  <a rel="nofollow" target="_blank" href="https://hexo.io/">Hexo</a></li>
+        </ul>
+    </section>
+</div>
+
+<div id="helpbar">
+    <div class="back-to-top">
+        <button id="back2top">↑</button>
+        <script>
+            back2top.onclick = function() {
+                var movement = document.body.scrollTop || document.documentElement.scrollTop;
+                scrollBy(0, -movement);
+            }
+        </script>
+    </div>
+</div>
+      <main class="main">
+        <div id="body">
+          <div class="container">
+            
+    <article class="post post-atmain" itemscope itemtype="http://schema.org/BlogPosting">
+        <h2 class="post-title" itemprop="name headline">
+            <a itemprop="url" class="post-title-link" href="/2022/06/12/%E9%9A%BE%E6%90%9E%E7%9A%84Defender/">
+                难搞的Defender
+            </a>
+        </h2>
+        <ul class="post-meta">
+            <li>
+                <time datetime="2020-09-04T20:18:00+00:00" itemprop="datePublished">
+                    2022-06-12
+                </time>
+            </li>
+            <li>
+            
+            </li>
+        </ul>
+        <div class="post-content">
+            
+                 
+                    静态处理过的程序，运行之后会因为一些CS的行为被杀，正常上线不操作没问题（前提要配置一份profile），当执行命令或者执行其他job的时候被杀，而且还能识别出来是CobaltStrike的行为。
+
+目前猜测有两个可能是特征，一是在shellcode下载beacon.dll回来运行Create...
+                 
+             
+            <p class="more">
+                <a href="/2022/06/12/%E9%9A%BE%E6%90%9E%E7%9A%84Defender/">READ MORE</a>
+            </p>
+        </div>
+    </article>
+
+    <article class="post post-atmain" itemscope itemtype="http://schema.org/BlogPosting">
+        <h2 class="post-title" itemprop="name headline">
+            <a itemprop="url" class="post-title-link" href="/2022/06/11/%E5%9F%9F%E5%86%85%E6%BC%8F%E6%B4%9E%E6%95%B4%E7%90%86/">
+                域内漏洞整理
+            </a>
+        </h2>
+        <ul class="post-meta">
+            <li>
+                <time datetime="2020-09-04T20:18:00+00:00" itemprop="datePublished">
+                    2022-06-11
+                </time>
+            </li>
+            <li>
+            
+            </li>
+        </ul>
+        <div class="post-content">
+            
+                 
+                    整理几个域内常见的漏洞
+0x1. MS17-010https://github.com/worawit/MS17-010
+https://github.com/worawit/MS17-010
+0x2. zerologonCVE-2020-1472, 也叫zerologon，该漏洞的产生来源于...
+                 
+             
+            <p class="more">
+                <a href="/2022/06/11/%E5%9F%9F%E5%86%85%E6%BC%8F%E6%B4%9E%E6%95%B4%E7%90%86/">READ MORE</a>
+            </p>
+        </div>
+    </article>
+
+    <article class="post post-atmain" itemscope itemtype="http://schema.org/BlogPosting">
+        <h2 class="post-title" itemprop="name headline">
+            <a itemprop="url" class="post-title-link" href="/2022/06/11/%E5%87%AD%E8%AF%81%E5%AF%BC%E5%87%BA/">
+                凭证导出
+            </a>
+        </h2>
+        <ul class="post-meta">
+            <li>
+                <time datetime="2020-09-04T20:18:00+00:00" itemprop="datePublished">
+                    2022-06-11
+                </time>
+            </li>
+            <li>
+            
+            </li>
+        </ul>
+        <div class="post-content">
+            
+                 
+                    记录一些Windows凭证导出tips
+0x1 离线导出Hash前提条件是都需要管理员的方式
+0x1.1 procdump12345678procdump64.exe  -accepteula  -ma lsass.exe C:\Users\lsass.dmp# 自带压缩软件压缩一下makec...
+                 
+             
+            <p class="more">
+                <a href="/2022/06/11/%E5%87%AD%E8%AF%81%E5%AF%BC%E5%87%BA/">READ MORE</a>
+            </p>
+        </div>
+    </article>
+
+    <article class="post post-atmain" itemscope itemtype="http://schema.org/BlogPosting">
+        <h2 class="post-title" itemprop="name headline">
+            <a itemprop="url" class="post-title-link" href="/2022/06/11/Exchange%E6%BC%8F%E6%B4%9E%E5%A4%8D%E7%8E%B0/">
+                Exchange漏洞复现
+            </a>
+        </h2>
+        <ul class="post-meta">
+            <li>
+                <time datetime="2020-09-04T20:18:00+00:00" itemprop="datePublished">
+                    2022-06-11
+                </time>
+            </li>
+            <li>
+            
+            </li>
+        </ul>
+        <div class="post-content">
+            
+                 
+                    0x1. CVE-2020-0688影响版本：
+Microsoft Exchange Server 2010 Service Pack 3
+Microsoft Exchange Server 2013
+Microsoft Exchange Server 2016
+Microsoft Excha...
+                 
+             
+            <p class="more">
+                <a href="/2022/06/11/Exchange%E6%BC%8F%E6%B4%9E%E5%A4%8D%E7%8E%B0/">READ MORE</a>
+            </p>
+        </div>
+    </article>
+
+    <article class="post post-atmain" itemscope itemtype="http://schema.org/BlogPosting">
+        <h2 class="post-title" itemprop="name headline">
+            <a itemprop="url" class="post-title-link" href="/2022/06/08/Fastjson%E5%88%86%E6%9E%90/">
+                Fastjson浅析
+            </a>
+        </h2>
+        <ul class="post-meta">
+            <li>
+                <time datetime="2020-09-04T20:18:00+00:00" itemprop="datePublished">
+                    2022-06-08
+                </time>
+            </li>
+            <li>
+            
+            </li>
+        </ul>
+        <div class="post-content">
+            
+                 
+                    0x0 FastjsonJava中会有将json数据与java bean序列化、反序列化绑定的需求，在Fastjson中提供两个主要接口toJsonString和parseObject来分别实现序列化和反序列化，使用Fastjson可以很方便的将json字符串反序列化成对象，并且基于@type...
+                 
+             
+            <p class="more">
+                <a href="/2022/06/08/Fastjson%E5%88%86%E6%9E%90/">READ MORE</a>
+            </p>
+        </div>
+    </article>
+
+    <article class="post post-atmain" itemscope itemtype="http://schema.org/BlogPosting">
+        <h2 class="post-title" itemprop="name headline">
+            <a itemprop="url" class="post-title-link" href="/2022/06/06/CobaltStrike%E4%B8%8A%E7%BA%BF%E6%B5%81%E7%A8%8B%E5%88%86%E6%9E%90/">
+                CobaltStrike上线流程分析
+            </a>
+        </h2>
+        <ul class="post-meta">
+            <li>
+                <time datetime="2020-09-04T20:18:00+00:00" itemprop="datePublished">
+                    2022-06-06
+                </time>
+            </li>
+            <li>
+            
+            </li>
+        </ul>
+        <div class="post-content">
+            
+                 
+                    CobaltStrike 分为 Controller、TeamServer、Beacon 三端，但都是同一个jar包。Controller也就是攻击方，负责发送相关的操作指令；TeamServer为控制中心，负责数据交互；Beacon为受害方，负责执行具体的指令操作。下面将分析Payload如...
+                 
+             
+            <p class="more">
+                <a href="/2022/06/06/CobaltStrike%E4%B8%8A%E7%BA%BF%E6%B5%81%E7%A8%8B%E5%88%86%E6%9E%90/">READ MORE</a>
+            </p>
+        </div>
+    </article>
+
+    <article class="post post-atmain" itemscope itemtype="http://schema.org/BlogPosting">
+        <h2 class="post-title" itemprop="name headline">
+            <a itemprop="url" class="post-title-link" href="/2022/05/31/%E5%90%83%E7%93%9CFollina-Office-RCE/">
+                Follina Office RCE 复现
+            </a>
+        </h2>
+        <ul class="post-meta">
+            <li>
+                <time datetime="2020-09-04T20:18:00+00:00" itemprop="datePublished">
+                    2022-05-31
+                </time>
+            </li>
+            <li>
+            
+            </li>
+        </ul>
+        <div class="post-content">
+            
+                 
+                    分析是分析不了，但是可以吃瓜，原文：
+https://doublepulsar.com/follina-a-microsoft-office-code-execution-vulnerability-1a47fce5629e
+大概三天前有安全研究者发现在VT中有个样本可以绕过上个Office ...
+                 
+             
+            <p class="more">
+                <a href="/2022/05/31/%E5%90%83%E7%93%9CFollina-Office-RCE/">READ MORE</a>
+            </p>
+        </div>
+    </article>
+
+    <article class="post post-atmain" itemscope itemtype="http://schema.org/BlogPosting">
+        <h2 class="post-title" itemprop="name headline">
+            <a itemprop="url" class="post-title-link" href="/2022/05/28/CobaltStrike%E7%89%B9%E5%BE%81Bypass/">
+                CobaltStrike特征Bypass
+            </a>
+        </h2>
+        <ul class="post-meta">
+            <li>
+                <time datetime="2020-09-04T20:18:00+00:00" itemprop="datePublished">
+                    2022-05-28
+                </time>
+            </li>
+            <li>
+            
+            </li>
+        </ul>
+        <div class="post-content">
+            
+                 
+                    
+建议使用IDEA的反编译插件，用luyten弄出来的问题贼多。
+java -cp /Applications/IntelliJ\ IDEA.app/Contents/plugins/java-decompiler/lib/java-decompiler.jar org.jetbrains.j...
+                 
+             
+            <p class="more">
+                <a href="/2022/05/28/CobaltStrike%E7%89%B9%E5%BE%81Bypass/">READ MORE</a>
+            </p>
+        </div>
+    </article>
+
+    <article class="post post-atmain" itemscope itemtype="http://schema.org/BlogPosting">
+        <h2 class="post-title" itemprop="name headline">
+            <a itemprop="url" class="post-title-link" href="/2022/05/26/2%20Afkayas%20fad7e6f3684147f8abf9e53d6d8c0d4d/">
+                crakeme2
+            </a>
+        </h2>
+        <ul class="post-meta">
+            <li>
+                <time datetime="2020-09-04T20:18:00+00:00" itemprop="datePublished">
+                    2022-05-26
+                </time>
+            </li>
+            <li>
+            
+            </li>
+        </ul>
+        <div class="post-content">
+            
+                 
+                    2. Afkayas
+程序分析
+
+Key由用户名生成，具体过程如下：
+计算用户名的长度 * 0x17cfB 查看是否溢出，如果没有溢出就加上第一个字符的ascii码，转为十进制，拼接上AKA
+注册机参考：
+12345678910111213141516171819202122232425262...
+                 
+             
+            <p class="more">
+                <a href="/2022/05/26/2%20Afkayas%20fad7e6f3684147f8abf9e53d6d8c0d4d/">READ MORE</a>
+            </p>
+        </div>
+    </article>
+
+    <article class="post post-atmain" itemscope itemtype="http://schema.org/BlogPosting">
+        <h2 class="post-title" itemprop="name headline">
+            <a itemprop="url" class="post-title-link" href="/2022/05/26/1%20Acid%20Burn%20f9346fdb358c4f61a8da59806a00acac/">
+                creakeme1
+            </a>
+        </h2>
+        <ul class="post-meta">
+            <li>
+                <time datetime="2020-09-04T20:18:00+00:00" itemprop="datePublished">
+                    2022-05-26
+                </time>
+            </li>
+            <li>
+            
+            </li>
+        </ul>
+        <div class="post-content">
+            
+                 
+                    1. Acid Burn
+0x1 准备工作用exeinfo 看到是一个 Delphi写到，添加相应的编译库。View → SubMenu → Signature
+
+导出为map文件。
+
+
+同样的map文件，xdbg识别不出来，但是OD却可以;  但是xdbg会给修改的寄存器附一些值、注释，这个...
+                 
+             
+            <p class="more">
+                <a href="/2022/05/26/1%20Acid%20Burn%20f9346fdb358c4f61a8da59806a00acac/">READ MORE</a>
+            </p>
+        </div>
+    </article>
+
+
+
+    <ol class="page-navigator">
+      <a class="extend prev" rel="prev" href="/">«</a><a class="page-number" href="/">1</a><span class="page-number current">2</span><a class="page-number" href="/page/3/">3</a><a class="page-number" href="/page/4/">4</a><a class="extend next" rel="next" href="/page/3/">»</a>
+    </ol>
+  
+             
+            <footer id="footer" role="contentinfo">
+    
+        &copy; 2020 - 2023
+        <br />
+    
+    
+    <br />
+    
+    
+        <script async src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+        <span id="busuanzi_value_site_pv">......</span> visits ·
+        <span id="busuanzi_value_site_uv">......</span> visitors 
+    
+</footer>
+          </div>
+        </div>
+      </main>
+      <!-- highlight support -->
+
+    
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.1.0/build/styles/default.min.css">
+
+
+<script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.1.0/build/highlight.min.js"></script>
+ 
+<script>
+        hljs.initHighlightingOnLoad();
+</script>
+ 
+<!-- prettify support -->
+ 
+<!-- mathjax support -->
+
+    
+    <script type="text/x-mathjax-config">
+      MathJax.Hub.Config({
+        tex2jax: {
+          inlineMath: [ ['$','$'], ["\\(","\\)"] ],
+          processEscapes: true,
+          skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+        }
+      });
+      MathJax.Hub.Queue(function() {
+        var all = MathJax.Hub.getAllJax(), i;
+        for(i=0; i < all.length; i += 1) {
+            all[i].SourceElement().parentNode.className += ' has-jax';
+        }
+      });
+    </script>
+    <script type="text/javascript" src=""></script>
+
+
+<!-- fancybox support -->
+ 
+<!-- viewerjs support -->
+
+    
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/viewerjs@1.10.0/dist/viewer.min.css">
+
+
+<script src="https://cdn.jsdelivr.net/npm/viewerjs@1.10.0/dist/viewer.min.js"></script>
+
+<script type="text/javascript">
+    Viewer.setDefaults({
+        zoomRatio: [0.5],
+        show: function () {
+            this.viewer.zoomTo(1);
+        },
+    });
+    
+    var imageList = document.querySelector('.post-content').getElementsByTagName('img');
+    
+    var imageArray = new Array();
+    Array.prototype.forEach.call(imageList, element => {
+        if (element.alt != "no-view" && element.className != "no-view") {
+            imageArray.push(element);
+        }
+    });
+    
+    Array.prototype.forEach.call(imageArray, element => {
+        var viewer1 = new Viewer(element);
+        viewer1.images = imageArray;
+        viewer1.length = imageArray.length;
+    });
+</script>
+ 
+<!-- google analytics support -->
+
+
+
+ 
+ 
+
+<!-- lazyload support -->
+
+    
+<script src="https://cdn.jsdelivr.net/npm/vanilla-lazyload@17.4.0/dist/lazyload.min.js"></script>
+
+<script>
+    new LazyLoad({
+        elements_selector: '.post-content img'
+    });
+</script>
+ 
+  </body>
+
+</html>
