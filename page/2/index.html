@@ -153,7 +153,10 @@ https://github.com/worawit/MS17-010
                  
                     记录一些Windows凭证导出tips
 0x1 离线导出Hash前提条件是都需要管理员的方式
-0x1.1 procdump12345678procdump64.exe  -accepteula  -ma lsass.exe C:\Users\lsass.dmp# 自带压缩软件压缩一下makec...
+0x1.1 procdumpprocdump64.exe  -accepteula  -ma lsass.exe C:\Users\lsass.dmp
+
+# 自带压缩软件压缩一下
+makecab c:...
                  
              
             <p class="more">
@@ -335,7 +338,8 @@ java -cp /Applications/IntelliJ\ IDEA.app/Contents/plugins/java-decompiler/lib/j
 Key由用户名生成，具体过程如下：
 计算用户名的长度 * 0x17cfB 查看是否溢出，如果没有溢出就加上第一个字符的ascii码，转为十进制，拼接上AKA
 注册机参考：
-12345678910111213141516171819202122232425262...
+#define _CRT_SECURE_NO_WARNINGS
+#include&lt;...
                  
              
             <p class="more">

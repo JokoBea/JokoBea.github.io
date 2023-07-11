@@ -237,7 +237,7 @@ codebase 就是在 ctx.lookup中写的地址rmi://1.1.1.1/O...
             
                  
                     DLL劫持DLL导出的名称中带有 ?  @@YAXXZ 之类的，是因为导出的函数声明是C++格式的，而不是C语言类型，测试这种DLL也无法使用rundll32运行
-1__declspec(dllexport) void RHBinder__ShimExeMain__declspec(dllex...
+__declspec(dllexport) void RHBinder__ShimExeMain() &amp;#123; Mai...
                  
              
             <p class="more">
@@ -307,8 +307,8 @@ CS的httpStager.bin
 
     <article class="post post-atmain" itemscope itemtype="http://schema.org/BlogPosting">
         <h2 class="post-title" itemprop="name headline">
-            <a itemprop="url" class="post-title-link" href="/2022/01/09/%E6%B2%99%E7%AE%B1%E7%8E%AF%E5%A2%83%E6%A3%80%E6%B5%8B%E5%92%8C%E7%BB%95%E8%BF%87/">
-                AV沙箱环境检测和绕过
+            <a itemprop="url" class="post-title-link" href="/2022/01/09/%E9%80%9A%E8%BF%87%E5%9B%9E%E8%B0%83%E5%87%BD%E6%95%B0%E6%89%A7%E8%A1%8Cshellcode/">
+                通过回调函数执行shellcode
             </a>
         </h2>
         <ul class="post-meta">
@@ -324,15 +324,19 @@ CS的httpStager.bin
         <div class="post-content">
             
                  
-                    最近马一直被传沙箱，导致检测红的项越来越多，甚至开始有IOC情报了，本文主要针对微步和VT网站上的各沙箱进行环境检测和分析，如果判断为沙箱则退出运行，提高免杀能力，解决人与人之间的各种不信任感。
-环境检测准备
-需要一个服务端来接受沙箱的数据，一个客户端将相关信息带出沙箱。
+                    
+部分Windows的API需要执行回调函数，而shellcode实际上就是一个函数指针，因此可以使用这部分API调用执行shellcode 。
 
-服务端服务端接受的...
+
+已知可执行的函数，Windows API相当之多，可以确定不止这些。
+
+EnumFontFamilies
+EnumResourceTypes
+E...
                  
              
             <p class="more">
-                <a href="/2022/01/09/%E6%B2%99%E7%AE%B1%E7%8E%AF%E5%A2%83%E6%A3%80%E6%B5%8B%E5%92%8C%E7%BB%95%E8%BF%87/">READ MORE</a>
+                <a href="/2022/01/09/%E9%80%9A%E8%BF%87%E5%9B%9E%E8%B0%83%E5%87%BD%E6%95%B0%E6%89%A7%E8%A1%8Cshellcode/">READ MORE</a>
             </p>
         </div>
     </article>
@@ -362,7 +366,7 @@ CS的httpStager.bin
 适用于一个对象改变后需要通知其他对象的场景。
 案例，模仿热水器的工作
 
-12345678910111213141...
+from abc import abst...
                  
              
             <p class="more">
