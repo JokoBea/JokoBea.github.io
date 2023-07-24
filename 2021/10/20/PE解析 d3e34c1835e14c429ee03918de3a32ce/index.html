@@ -1,0 +1,60 @@
+<!DOCTYPE html><html lang="zh"><head><meta charset="utf-8"><meta name="X-UA-Compatible" content="IE=edge"><title>导入表解析 | Hurn's Blog</title><meta name="description" content="导入表解析 - Hurn"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="icon" href="/favicon.png"><link rel="stylesheet" href="/css/theme.css"><link rel="search" type="application/opensearchdescription+xml" href="/atom.xml" title="Hurn's Blog"><meta name="generator" content="Hexo 5.4.0"><link rel="stylesheet" href="/css/prism.css" type="text/css"></head><body><div class="wrap"><header><h1 class="branding"><a href="/" title="Hurn's Blog"><img class="logo-image" src="/logo.png" alt="logo"></a></h1><ul class="nav nav-list"><li class="nav-list-item"><a class="nav-list-link" href="/" target="_self">HOME</a></li><li class="nav-list-item"><a class="nav-list-link" href="/archives" target="_self">ARCHIVES</a></li><li class="nav-list-item"><a class="nav-list-link" href="https://github.com/Dreyer" target="_blank">GITHUB</a></li><li class="nav-list-item"><a class="nav-list-link" href="/atom.xml" target="_self">RSS</a></li></ul></header><main class="container"><div class="post"><article class="post-block"><h1 class="post-title">导入表解析</h1><div class="post-info"><a></a>2021-10-20</div><div class="post-content"><h1 id="PE解析"><a href="#PE解析" class="headerlink" title="PE解析"></a>PE解析</h1><h1 id="导入表"><a href="#导入表" class="headerlink" title="导入表"></a>导入表</h1><p>存储着PE程序所需要的API的地址。</p>
+<p>看导入表中存的什么。</p>
+<p>RVA = 1B1ECh ，010Editor计算出来的FOA=0x81EC ，</p>
+<p><img src="/2021/10/20/PE%E8%A7%A3%E6%9E%90%20d3e34c1835e14c429ee03918de3a32ce/Untitled.png" alt="Untitled"></p>
+<p>实际计算，FOA = RVA - 所在节的虚拟偏移地址地址(VirtualAddress) +  所在节的物理地址(PointToRawData) =  0x1EC + 0x8000 = 0x81EC </p>
+<p><img src="/2021/10/20/PE%E8%A7%A3%E6%9E%90%20d3e34c1835e14c429ee03918de3a32ce/Untitled%201.png" alt="Untitled"></p>
+<p>文件中0x81EC这个位置并没有东西，也没有API相关的信息，因为这部分是在文件状态是为空的，在程序运行状态才会被填充。</p>
+<p><img src="/2021/10/20/PE%E8%A7%A3%E6%9E%90%20d3e34c1835e14c429ee03918de3a32ce/Untitled%202.png" alt="Untitled"></p>
+<p>查看导入表程序中运行的状态，方式一，根据PE中的导入表RVA去找内存中真正导入的API函数</p>
+<p>程序中的导入表为： ImageBase + RVA = 400000h + 1B1ECh = 41B1ECh </p>
+<blockquote>
+<p>如果值对不上，关闭随机基址</p>
+</blockquote>
+<p>用xdbg查看这个地址：</p>
+<p><img src="/2021/10/20/PE%E8%A7%A3%E6%9E%90%20d3e34c1835e14c429ee03918de3a32ce/Untitled%203.png" alt="Untitled"></p>
+<p>导入表的结构，5个DWORD元素，一个导入表占20个字节。</p>
+<pre><code class="cpp">typedef struct _IMAGE_IMPORT_DESCRIPTOR &#123;
+    union &#123;
+        DWORD   Characteristics;
+        DWORD   OriginalFirstThunk;         // 指向导入表名称的RVA
+    &#125; DUMMYUNIONNAME;
+    DWORD   TimeDateStamp;                  // 默认为0（非重点）
+    DWORD   ForwarderChain;                 // 默认为0（非重点）
+    DWORD   Name;                           // 指向DLL名字的RVA
+    DWORD   FirstThunk;                     // 导入地址表IAT的RVA
+&#125; IMAGE_IMPORT_DESCRIPTOR;
+</code></pre>
+<p><img src="/2021/10/20/PE%E8%A7%A3%E6%9E%90%20d3e34c1835e14c429ee03918de3a32ce/Untitled%204.png" alt="Untitled"></p>
+<blockquote>
+<p>第一个导入表（小端序，且都是RVA）：</p>
+<p>OriginalFirstThunk = 0001B2E8</p>
+<p>TimeDateStamp = 00000000</p>
+<p>ForwarderChain = 00000000</p>
+<p>Name = 0001B44A<br><strong>FirstThunk = 0001B098</strong></p>
+</blockquote>
+<p>ImageBase + FirstThunk  = 400000 + 1B098 = 41B098，通过<code>xdbg</code>可以看到是MessageBoxW。</p>
+<p><img src="/2021/10/20/PE%E8%A7%A3%E6%9E%90%20d3e34c1835e14c429ee03918de3a32ce/Untitled%205.png" alt="Untitled"></p>
+<p>这个地址真正存放的0x7767A8A0，也就是user32.MessageBoxW</p>
+<p><img src="/2021/10/20/PE%E8%A7%A3%E6%9E%90%20d3e34c1835e14c429ee03918de3a32ce/Untitled%206.png" alt="Untitled"></p>
+<p>方式二，在<code>xdbg</code>中查看call 调用，也可以看到<code>call MessageBoxw</code> 实际是<code>call ds:[0x41B098]</code> 也就是第一个导入表中的FirstThunk，这个地址的值为 <code>user32.MessageBoxW</code></p>
+<p><img src="/2021/10/20/PE%E8%A7%A3%E6%9E%90%20d3e34c1835e14c429ee03918de3a32ce/Untitled%207.png" alt="Untitled"></p>
+<p>另外补充导入表中的OriginalFirstThunk，实际指向结构体IMAGE_THUNK_DATA</p>
+<pre><code class="cpp">typedef struct _IMAGE_THUNK_DATA32 &#123;
+    union &#123;
+        DWORD ForwarderString;      // PBYTE 
+        DWORD Function;             // PDWORD
+        DWORD Ordinal;              // 序号
+        DWORD AddressOfData;        // 指向 PIMAGE_IMPORT_BY_NAME
+    &#125; u1;
+&#125; IMAGE_THUNK_DATA32;
+typedef IMAGE_THUNK_DATA32 * PIMAGE_THUNK_DATA32;
+</code></pre>
+<p><img src="/2021/10/20/PE%E8%A7%A3%E6%9E%90%20d3e34c1835e14c429ee03918de3a32ce/Untitled%208.png" alt="Untitled"></p>
+<p>该结构中我们需要关注<code>AddressOfData</code>结构成员，该成员中的数据最高位（红色）如果为1(去掉1)说明是函数的导出序号，而如果最高位为0则说明是一个指向<code>IMAGE_IMPROT_BY_NAME</code>结构(导入表)的RVA（蓝色）地址，此处因为我们找的是导入表所以最高位全部为零。</p>
+<pre><code class="cpp">typedef struct _IMAGE_IMPORT_BY_NAME &#123;
+    WORD    Hint;       // 编译器生成的
+    CHAR    Name[1];  // 函数名称，以0结尾的字符串
+&#125; IMAGE_IMPORT_BY_NAME, *PIMAGE_IMPORT_BY_NAME;
+</code></pre>
+</div></article></div></main><footer><div class="paginator"><a class="prev" href="/2022/01/09/%E9%80%9A%E8%BF%87%E5%9B%9E%E8%B0%83%E5%87%BD%E6%95%B0%E6%89%A7%E8%A1%8Cshellcode/">prev</a><a class="next" href="/2021/10/12/XSS%E9%92%93%E9%B1%BC/">next</a></div><div class="copyright"><p>&copy; 2023 <a href="http://example.com">Hurn</a>.<br>Powered by <a href="https://hexo.io/" target="_blank">Hexo</a> &amp; <a href="https://github.com/Dreyer/hexo-theme-artemis" target="_blank">Artemis</a>.</p></div></footer></div></body></html>

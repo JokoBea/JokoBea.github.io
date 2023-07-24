@@ -1,0 +1,14 @@
+<!DOCTYPE html><html lang="zh"><head><meta charset="utf-8"><meta name="X-UA-Compatible" content="IE=edge"><title>DLL劫持的一个小问题 | Hurn's Blog</title><meta name="description" content="DLL劫持的一个小问题 - Hurn"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="icon" href="/favicon.png"><link rel="stylesheet" href="/css/theme.css"><link rel="search" type="application/opensearchdescription+xml" href="/atom.xml" title="Hurn's Blog"><meta name="generator" content="Hexo 5.4.0"><link rel="stylesheet" href="/css/prism.css" type="text/css"></head><body><div class="wrap"><header><h1 class="branding"><a href="/" title="Hurn's Blog"><img class="logo-image" src="/logo.png" alt="logo"></a></h1><ul class="nav nav-list"><li class="nav-list-item"><a class="nav-list-link" href="/" target="_self">HOME</a></li><li class="nav-list-item"><a class="nav-list-link" href="/archives" target="_self">ARCHIVES</a></li><li class="nav-list-item"><a class="nav-list-link" href="https://github.com/Dreyer" target="_blank">GITHUB</a></li><li class="nav-list-item"><a class="nav-list-link" href="/atom.xml" target="_self">RSS</a></li></ul></header><main class="container"><div class="post"><article class="post-block"><h1 class="post-title">DLL劫持的一个小问题</h1><div class="post-info"><a></a>2022-04-05</div><div class="post-content"><h1 id="DLL劫持"><a href="#DLL劫持" class="headerlink" title="DLL劫持"></a>DLL劫持</h1><p>DLL导出的名称中带有 ?  @@YAXXZ 之类的，是因为导出的函数声明是C++格式的，而不是C语言类型，测试这种DLL也无法使用rundll32运行</p>
+<pre><code class="java">__declspec(dllexport) void RHBinder__ShimExeMain() &#123; Main(); &#125;
+</code></pre>
+<p><img src="/2022/04/05/DLL%E5%8A%AB%E6%8C%81%207f13f82014f4438da4c85d8a4cfb9d91/Untitled.png" alt="Untitled"></p>
+<p>生成C格式的DLL</p>
+<pre><code class="java">EXTERN_C __declspec(dllexport) void RHBinder__ShimExeMain() &#123; Main(); &#125;
+</code></pre>
+<p><img src="/2022/04/05/DLL%E5%8A%AB%E6%8C%81%207f13f82014f4438da4c85d8a4cfb9d91/Untitled%201.png" alt="Untitled"></p>
+<p>待优化：</p>
+<ul>
+<li>c++格式的函数会有 ？@@ 之类的符号，直接拷贝过去编译不下去</li>
+<li>有些exe可能有依赖，缺少了dll就运行不下去，可以拷贝整个目录到当前文件夹下来</li>
+</ul>
+</div></article></div></main><footer><div class="paginator"><a class="prev" href="/2022/05/01/Windows%E8%AE%A4%E8%AF%81%203157107054db4a068847bd6a2a372bb9/">prev</a><a class="next" href="/2022/03/02/%E4%BF%9D%E6%8A%A4%E6%A8%A1%E5%BC%8F%206c989e233efa4460b95e009eda61b446/">next</a></div><div class="copyright"><p>&copy; 2023 <a href="http://example.com">Hurn</a>.<br>Powered by <a href="https://hexo.io/" target="_blank">Hexo</a> &amp; <a href="https://github.com/Dreyer/hexo-theme-artemis" target="_blank">Artemis</a>.</p></div></footer></div></body></html>
