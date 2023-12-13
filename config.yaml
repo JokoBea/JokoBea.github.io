@@ -4,6 +4,7 @@ baseURL: https://hoo1ng.github.io
 title: Hugo Book
 theme: hugo-book
 
+
 # Book configuration
 disablePathToLower: true
 enableGitInfo: true
@@ -20,19 +21,16 @@ markup:
 # There are different options to translate files
 # See https://gohugo.io/content-management/multilingual/#translation-by-filename
 # And https://gohugo.io/content-management/multilingual/#translation-by-content-directory
+defaultContentLanguage: zh
 languages:
   en:
     languageName: English
     contentDir: content.en
-    weight: 1
-  ru:
-    languageName: Russian
-    contentDir: content.ru
     weight: 2
   zh:
     languageName: Chinese
     contentDir: content.zh
-    weight: 3
+    weight: 1
 
 menu:
   # before: []
