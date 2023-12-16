@@ -213,6 +213,10 @@ Content-Disposition: form-data; name="caption"
 
 1. 首先要知道 文件上传代码中的文件名字段名， 这里上传名是 `upload` （由jsp中定义），文件名字段按照习惯可能会是`UploadFileName` ，如果不是则无法覆盖
 
+   > Content-Disposition: form-data; name="Upload"; filename="11111.txt"
+   >
+   > Content-Disposition: form-data;  name="uploadFileName"
+
 2. 这个洞的利用点就在通过自己传的文件名覆盖掉Strust2自动赋值的文件名，所以如果原来程序逻辑本来就是获取文件名，根据后缀判断，那这个洞就没法利用了
 
    > 这么看，其实没有想象的那么严重？
