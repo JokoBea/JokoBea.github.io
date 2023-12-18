@@ -233,7 +233,19 @@ https://github.com/apache/struts/commit/162e29fee9136f4bfd9b2376da2cbf590f9ea163
 
 `org.apache.struts2.interceptor.FileUploadInterceptor#intercept` 这里主要提取用户的数据包中的文件、文件名、文件类型字段，
 
+111
+
+{{ $image := .Resources.Get "image-20231216113402887.png" }}
+
+222
+
 {{ $image := .Resources.Get "Struts2-Upload-RCE.assets/image-20231216113402887.png" }}
+
+333
+
+![image-20231216113402887](image-20231216113402887.png)
+
+444
 
 ![image-20231216113402887](Struts2-Upload-RCE.assets/image-20231216113402887.png)
 
