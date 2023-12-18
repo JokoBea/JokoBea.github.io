@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Hoo1ng&#39;s Blog</title>
+    <link>https://hoo1ng.github.io/docs/code-audit/</link>
+    <description>Recent content on Hoo1ng&#39;s Blog</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>zh</language><atom:link href="https://hoo1ng.github.io/docs/code-audit/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title></title>
+      <link>https://hoo1ng.github.io/docs/code-audit/TestImg/TestImg/</link>
+      <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+      
+      <guid>https://hoo1ng.github.io/docs/code-audit/TestImg/TestImg/</guid>
+      <description> </description>
+    </item>
+    
+    <item>
+      <title>Struts Upload RCE (CVE-2023-50164)</title>
+      <link>https://hoo1ng.github.io/docs/code-audit/Struts2-Upload-RCE/</link>
+      <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+      
+      <guid>https://hoo1ng.github.io/docs/code-audit/Struts2-Upload-RCE/</guid>
+      <description>CVE-2023-50164、S2-066，在Struts2的文件上传FileUploadInterceptor 处理过程中，为了方便用户会自动将上传的文件、文件名、参数等通过setter方式赋值给用户的逻辑，而这部分可以通过用户传递的文件名参数、覆盖Strust2自动设置的文件名的方式来绕过Struts2的文件名限制，进行目录穿越进而达到RCE的效果。
+An attacker can manipulate file upload params to enable paths traversal and under some circumstances this can lead to uploading a malicious file which can be used to perform Remote Code Execution.
+https://cwiki.apache.org/confluence/display/WW/S2-066
+影响版本：
+Struts 2.0.0 - Struts 2.3.37 Struts 2.5.0 - Struts 2.5.32 Struts 6.0.0 - Struts 6.3.0 环境搭建 # Struts2 配置文件，定义了路径、处理方法、前端页面
+&amp;lt;!DOCTYPE struts PUBLIC &amp;#34;-//Apache Software Foundation//DTD Struts Configuration 6.0//EN&amp;#34; &amp;#34;https://struts.apache.org/dtds/struts-6.0.dtd&amp;#34;&amp;gt; &amp;lt;struts&amp;gt; &amp;lt;package name=&amp;#34;fileupload&amp;#34; extends=&amp;#34;struts-default&amp;#34; namespace=&amp;#34;/fileupload&amp;#34;&amp;gt; &amp;lt;action name=&amp;#34;doUpload&amp;#34; class=&amp;#34;org.</description>
+    </item>
+    
+  </channel>
+</rss>
