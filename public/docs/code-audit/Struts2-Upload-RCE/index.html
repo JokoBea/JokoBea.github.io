@@ -21,13 +21,13 @@ Struts 2.0.0 - Struts 2.3.37 Struts 2.5.0 - Struts 2.5.32 Struts 6.0.0 - Struts 
 <meta property="og:type" content="article" />
 <meta property="og:url" content="https://hoo1ng.github.io/docs/code-audit/Struts2-Upload-RCE/" /><meta property="article:section" content="docs" />
 
-<meta property="article:modified_time" content="2023-12-18T18:31:35+08:00" />
+<meta property="article:modified_time" content="2023-12-19T13:04:14+08:00" />
 <title>Struts Upload RCE (CVE-2023-50164) | Hoo1ng&#39;s Blog</title>
 <link rel="manifest" href="/manifest.json">
 <link rel="icon" href="/favicon.png" >
 <link rel="stylesheet" href="/book.min.33a48f5432973b8ff9a82679d9e45d67f2c15d4399bd2829269455cfe390b5e8.css" integrity="sha256-M6SPVDKXO4/5qCZ52eRdZ/LBXUOZvSgpJpRVz&#43;OQteg=" crossorigin="anonymous">
   <script defer src="/flexsearch.min.js"></script>
-  <script defer src="/zh.search.min.daa5f2b25c6810b95f840a62723f589e2f5cc1bbf104b812789d897bf9abd9ac.js" integrity="sha256-2qXyslxoELlfhApicj9Yni9cwbvxBLgSeJ2Je/mr2aw=" crossorigin="anonymous"></script>
+  <script defer src="/zh.search.min.e5b6adbb52321f836430dd381cc38e9cef43c93236cfce6dade97bdd9bacdcf2.js" integrity="sha256-5batu1IyH4NkMN04HMOOnO9DyTI2z85trel73Zus3PI=" crossorigin="anonymous"></script>
 
   <script defer src="/sw.min.6f6f90fcb8eb1c49ec389838e6b801d0de19430b8e516902f8d75c3c8bd98739.js" integrity="sha256-b2&#43;Q/LjrHEnsOJg45rgB0N4ZQwuOUWkC&#43;NdcPIvZhzk=" crossorigin="anonymous"></script>
 <!--
@@ -368,15 +368,7 @@ https://github.com/alex-shpak/hugo-book
 <p>这个补丁这么找来的</p>
 <p>
   <a href="https://github.com/apache/struts/commit/162e29fee9136f4bfd9b2376da2cbf590f9ea163">https://github.com/apache/struts/commit/162e29fee9136f4bfd9b2376da2cbf590f9ea163</a></p>
-<p><code>org.apache.struts2.interceptor.FileUploadInterceptor#intercept</code> 这里主要提取用户的数据包中的文件、文件名、文件类型字段，</p>
-<p>111</p>
-<p>{{ $image := .Resources.Get &ldquo;image-20231216113402887.png&rdquo; }}</p>
-<p>222</p>
-<p>{{ $image := .Resources.Get &ldquo;Struts2-Upload-RCE.assets/image-20231216113402887.png&rdquo; }}</p>
-<p>333</p>
-<p>
-  <img src="image-20231216113402887.png" alt="image-20231216113402887" /></p>
-<p>444</p>
+<p><code>org.apache.struts2.interceptor.FileUploadInterceptor#intercept</code> 这里主要提取用户的数据包中的文件、文件名、文件类型字段</p>
 <p>
   <img src="Struts2-Upload-RCE.assets/image-20231216113402887.png" alt="image-20231216113402887" /></p>
 <p>注意，这里的文件名会被安全处理</p>
@@ -587,9 +579,9 @@ doIntercept:144, ParametersInterceptor (com.opensymphony.xwork2.interceptor)
   <div class="flex flex-wrap justify-between">
 
 
-  <div><a class="flex align-center" href="https://github.com/alex-shpak/hugo-book/commit/c9d31cc6aba6dfb6f266c3032172acd36e4d6723" title='最后修改者 hoo1ng | December 18, 2023' target="_blank" rel="noopener">
+  <div><a class="flex align-center" href="https://github.com/alex-shpak/hugo-book/commit/276cd1baea7925811ab169f342208a76b0eac417" title='最后修改者 hoo1ng | December 19, 2023' target="_blank" rel="noopener">
       <img src="/svg/calendar.svg" class="book-icon" alt="Calendar" />
-      <span>December 18, 2023</span>
+      <span>December 19, 2023</span>
     </a>
   </div>
 
