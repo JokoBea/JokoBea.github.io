@@ -233,7 +233,7 @@ https://github.com/apache/struts/commit/162e29fee9136f4bfd9b2376da2cbf590f9ea163
 
 `org.apache.struts2.interceptor.FileUploadInterceptor#intercept` 这里主要提取用户的数据包中的文件、文件名、文件类型字段
 
-![image-20231216113402887](Struts2-Upload-RCE.assets/image-20231216113402887.png)
+![image-20231216113402887](image-20231216113402887.png)
 
 注意，这里的文件名会被安全处理
 
@@ -260,7 +260,7 @@ String[] fileName = multiWrapper.getFileNames(inputName);
 
 再回到主逻辑，`com.opensymphony.xwork2.interceptor.ParametersInterceptor#doIntercept` 的`parameters `会收到所有传入的参数并调用`this.setParameters`将这些参数通过用户的setter方法传递过去
 
-![image-20231216114851153](Struts2-Upload-RCE.assets/image-20231216114851153.png)
+![image-20231216114851153](image-20231216114851153.png)
 
 可以注意到上图中有两个变量名：`UploadFileName` 和 `uploadFileName`  有不同的值，但都会调用`setUploadFileName` 这个方法，也就是会执行两次`setUploadFileName` ，小写开头的`uploadFileName` 会替换掉由Struts2自动生成的大写`UploadFileName`的值，进而目录穿越，这就是漏洞点
 
@@ -276,9 +276,9 @@ String[] fileName = multiWrapper.getFileNames(inputName);
 
 再来看为何 `UploadFileName` 和 `uploadFileName`   两个都会执行 `setUploadFileName` 跟进 `this.setParameters`， 可以看到通过 `newStack.setParameter` 进行设置参数，继续跟进
 
-![image-20231216120920768](Struts2-Upload-RCE.assets/image-20231216120920768.png)
+![image-20231216120920768](image-20231216120920768.png)
 
-![image-20231216121041252](Struts2-Upload-RCE.assets/image-20231216121041252.png)
+![image-20231216121041252](image-20231216121041252.png)
 
 在 `org.apache.struts2.showcase.fileupload.FileUploadAction#setUpload`打个断点 ，回溯
 
@@ -318,11 +318,11 @@ doIntercept:144, ParametersInterceptor (com.opensymphony.xwork2.interceptor)
 
 着重看下`ognl.OgnlRuntime#setMethodValue(ognl.OgnlContext, java.lang.Object, java.lang.String, java.lang.Object, boolean)` 如何获取方法的，为什么`uploadFileName`  会调用`setUploadFileName`方法
 
-![image-20231216121647961](Struts2-Upload-RCE.assets/image-20231216121647961.png)
+![image-20231216121647961](image-20231216121647961.png)
 
 `ognl.OgnlRuntime#_getSetMethod ` 中的逻辑主要是获取属性的所有方法，根据参数的个数是否为1 判断是否为set方法
 
-![image-20231216121849785](Struts2-Upload-RCE.assets/image-20231216121849785.png)
+![image-20231216121849785](image-20231216121849785.png)
 
 `ognl.OgnlRuntime#getDeclaredMethods `
 
@@ -399,7 +399,7 @@ doIntercept:144, ParametersInterceptor (com.opensymphony.xwork2.interceptor)
 
 将恶意参数 `uploadFileName`  转成`UploadFileName`
 
-![image-20231216130417810](Struts2-Upload-RCE.assets/image-20231216130417810.png)
+![image-20231216130417810](image-20231216130417810.png)
 
 遍历方法，取出匹配的方法
 
