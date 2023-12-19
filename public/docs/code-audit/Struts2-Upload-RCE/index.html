@@ -21,7 +21,7 @@ Struts 2.0.0 - Struts 2.3.37 Struts 2.5.0 - Struts 2.5.32 Struts 6.0.0 - Struts 
 <meta property="og:type" content="article" />
 <meta property="og:url" content="https://hoo1ng.github.io/docs/code-audit/Struts2-Upload-RCE/" /><meta property="article:section" content="docs" />
 
-<meta property="article:modified_time" content="2023-12-19T13:04:14+08:00" />
+<meta property="article:modified_time" content="2023-12-19T16:37:34+08:00" />
 <title>Struts Upload RCE (CVE-2023-50164) | Hoo1ng&#39;s Blog</title>
 <link rel="manifest" href="/manifest.json">
 <link rel="icon" href="/favicon.png" >
@@ -69,13 +69,13 @@ https://github.com/alex-shpak/hugo-book
 
   <ul>
 <li>
-    <a href="/docs/"><strong>Table of Contents</strong></a>
+  <a href="/docs/"><strong>Table of Contents</strong></a>
 <ul>
 <li>
-    <a href="/docs/code-audit/"><strong>Code Audit</strong></a>
+  <a href="/docs/code-audit/"><strong>Code Audit</strong></a>
 <ul>
 <li>
-    <a href="/docs/code-audit/Struts2-Upload-RCE/"class=active>Struts2 Upload RCE (CVE-2023-50164)</a></li>
+  <a href="/docs/code-audit/Struts2-Upload-RCE/"class=active>Struts2 Upload RCE (CVE-2023-50164)</a></li>
 </ul>
 </li>
 </ul>
@@ -370,8 +370,7 @@ https://github.com/alex-shpak/hugo-book
   <a href="https://github.com/apache/struts/commit/162e29fee9136f4bfd9b2376da2cbf590f9ea163">https://github.com/apache/struts/commit/162e29fee9136f4bfd9b2376da2cbf590f9ea163</a></p>
 <p><code>org.apache.struts2.interceptor.FileUploadInterceptor#intercept</code> 这里主要提取用户的数据包中的文件、文件名、文件类型字段</p>
 <p>
-
-<img src="Struts2-Upload-RCE.assets/image-20231216113402887.png" alt="image-20231216113402887"  /></p>
+  <img src="image-20231216113402887.png" alt="image-20231216113402887" /></p>
 <p>注意，这里的文件名会被安全处理</p>
 <pre tabindex="0"><code>String[] fileName = multiWrapper.getFileNames(inputName);
 </code></pre><p><code>org.apache.struts2.dispatcher.multipart.AbstractMultiPartRequest#getCanonicalName</code> 会将 <code>/</code> 和<code>\</code>的目录遍历payload过滤掉</p>
@@ -389,8 +388,7 @@ https://github.com/alex-shpak/hugo-book
 </span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
 </span></span></code></pre></div><p>再回到主逻辑，<code>com.opensymphony.xwork2.interceptor.ParametersInterceptor#doIntercept</code> 的<code>parameters </code>会收到所有传入的参数并调用<code>this.setParameters</code>将这些参数通过用户的setter方法传递过去</p>
 <p>
-
-<img src="Struts2-Upload-RCE.assets/image-20231216114851153.png" alt="image-20231216114851153"  /></p>
+  <img src="image-20231216114851153.png" alt="image-20231216114851153" /></p>
 <p>可以注意到上图中有两个变量名：<code>UploadFileName</code> 和 <code>uploadFileName</code>  有不同的值，但都会调用<code>setUploadFileName</code> 这个方法，也就是会执行两次<code>setUploadFileName</code> ，小写开头的<code>uploadFileName</code> 会替换掉由Struts2自动生成的大写<code>UploadFileName</code>的值，进而目录穿越，这就是漏洞点</p>
 <blockquote>
 <p>示例中的upload类（ org.apache.struts2.showcase.fileupload.FileUploadAction）：</p>
@@ -400,11 +398,9 @@ https://github.com/alex-shpak/hugo-book
 </blockquote>
 <p>再来看为何 <code>UploadFileName</code> 和 <code>uploadFileName</code>   两个都会执行 <code>setUploadFileName</code> 跟进 <code>this.setParameters</code>， 可以看到通过 <code>newStack.setParameter</code> 进行设置参数，继续跟进</p>
 <p>
-
-<img src="Struts2-Upload-RCE.assets/image-20231216120920768.png" alt="image-20231216120920768"  /></p>
+  <img src="image-20231216120920768.png" alt="image-20231216120920768" /></p>
 <p>
-
-<img src="Struts2-Upload-RCE.assets/image-20231216121041252.png" alt="image-20231216121041252"  /></p>
+  <img src="image-20231216121041252.png" alt="image-20231216121041252" /></p>
 <p>在 <code>org.apache.struts2.showcase.fileupload.FileUploadAction#setUpload</code>打个断点 ，回溯</p>
 <pre tabindex="0"><code>setUpload:89, FileUploadAction (org.apache.struts2.showcase.fileupload)
 invokeVirtual:-1, DirectMethodHandle$Holder (java.lang.invoke)
@@ -439,12 +435,10 @@ doIntercept:144, ParametersInterceptor (com.opensymphony.xwork2.interceptor)
 ...
 </code></pre><p>着重看下<code>ognl.OgnlRuntime#setMethodValue(ognl.OgnlContext, java.lang.Object, java.lang.String, java.lang.Object, boolean)</code> 如何获取方法的，为什么<code>uploadFileName</code>  会调用<code>setUploadFileName</code>方法</p>
 <p>
-
-<img src="Struts2-Upload-RCE.assets/image-20231216121647961.png" alt="image-20231216121647961"  /></p>
+  <img src="image-20231216121647961.png" alt="image-20231216121647961" /></p>
 <p><code>ognl.OgnlRuntime#_getSetMethod </code> 中的逻辑主要是获取属性的所有方法，根据参数的个数是否为1 判断是否为set方法</p>
 <p>
-
-<img src="Struts2-Upload-RCE.assets/image-20231216121849785.png" alt="image-20231216121849785"  /></p>
+  <img src="image-20231216121849785.png" alt="image-20231216121849785" /></p>
 <p><code>ognl.OgnlRuntime#getDeclaredMethods </code></p>
 <div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span>   <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">static</span> List <span style="color:#a6e22e">getDeclaredMethods</span><span style="color:#f92672">(</span>Class targetClass<span style="color:#f92672">,</span> String propertyName<span style="color:#f92672">,</span> <span style="color:#66d9ef">boolean</span> findSets<span style="color:#f92672">)</span>
 </span></span><span style="display:flex;"><span>    <span style="color:#f92672">{</span>
@@ -512,8 +506,7 @@ doIntercept:144, ParametersInterceptor (com.opensymphony.xwork2.interceptor)
 </span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
 </span></span></code></pre></div><p>将恶意参数 <code>uploadFileName</code>  转成<code>UploadFileName</code></p>
 <p>
-
-<img src="Struts2-Upload-RCE.assets/image-20231216130417810.png" alt="image-20231216130417810"  /></p>
+  <img src="image-20231216130417810.png" alt="image-20231216130417810" /></p>
 <p>遍历方法，取出匹配的方法</p>
 <div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">collectAccessors</span><span style="color:#f92672">(</span>Class c<span style="color:#f92672">,</span> String baseName<span style="color:#f92672">,</span> List result<span style="color:#f92672">,</span> <span style="color:#66d9ef">boolean</span> findSets<span style="color:#f92672">)</span>
 </span></span><span style="display:flex;"><span>    <span style="color:#f92672">{</span>
@@ -586,7 +579,7 @@ doIntercept:144, ParametersInterceptor (com.opensymphony.xwork2.interceptor)
   <div class="flex flex-wrap justify-between">
 
 
-  <div><a class="flex align-center" href="https://github.com/alex-shpak/hugo-book/commit/276cd1baea7925811ab169f342208a76b0eac417" title='最后修改者 hoo1ng | December 19, 2023' target="_blank" rel="noopener">
+  <div><a class="flex align-center" href="https://github.com/hoo1ng/hoo1ng.github.io/commit/066add7546b3f6734216ed06606842f8a069153f" title='最后修改者 Hurn | December 19, 2023' target="_blank" rel="noopener">
       <img src="/svg/calendar.svg" class="book-icon" alt="Calendar" />
       <span>December 19, 2023</span>
     </a>
