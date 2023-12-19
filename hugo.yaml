@@ -32,6 +32,9 @@ languages:
     contentDir: content.zh
     weight: 1
 
+staticDir:
+- static
+
 menu:
   # before: []
   after:
